@@ -252,11 +252,11 @@ async function onComplete(waNumber, collectedData, { sendText, insertLead }, opt
   }
 
   // Save lead to DB
-  insertLead.run({
+  await insertLead({
     wa_number: waNumber,
     name:      name || '',
     flow_name: FLOW_NAME,
-    data:      JSON.stringify(collectedData),
+    data:      collectedData,
     score,
     language:  lang,
   });

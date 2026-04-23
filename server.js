@@ -3,6 +3,7 @@ require('dotenv').config();
 const express  = require('express');
 const path     = require('path');
 const fs       = require('fs');
+const mongoose = require('mongoose');
 const { handleMessage } = require('./flows/flowEngine');
 const { markAsRead, sendText }    = require('./whatsapp/api');
 const db = require('./db/database');
@@ -38,161 +39,147 @@ app.get('/webhook', (_req, res) => {
 app.post('/webhook', (req, res) => {
   // Respond immediately with empty TwiML
   res.set('Content-Type', 'text/xml').send('<Response></Response>');
+  processWebhook(req).catch((err) => console.error('[Webhook Error]', err.message));
+});
 
-  try {
-    const from   = (req.body.From || '').replace('whatsapp:+', '');
-    const msgSid = req.body.MessageSid;
-    const bodyText = req.body.Body || '';
-    const numMedia = parseInt(req.body.NumMedia || '0', 10);
+async function processWebhook(req) {
+  const from     = (req.body.From || '').replace('whatsapp:+', '');
+  const msgSid   = req.body.MessageSid;
+  const bodyText = req.body.Body || '';
+  const numMedia = parseInt(req.body.NumMedia || '0', 10);
 
-    if (!from || !msgSid) return;
-    if (dedup(msgSid)) return;
+  if (!from || !msgSid) return;
+  if (dedup(msgSid)) return;
 
-    markAsRead(msgSid); // no-op for Twilio
+  markAsRead(msgSid); // no-op for Twilio
 
-    const isAudio = numMedia > 0 && (req.body.MediaContentType0 || '').startsWith('audio');
+  const isAudio = numMedia > 0 && (req.body.MediaContentType0 || '').startsWith('audio');
 
-    if (isAudio) {
-      // ── Voice note handling ──────────────────────────────────────────────
-      (async () => {
-        try {
-          if (!process.env.OPENAI_API_KEY || process.env.VOICE_ENABLED === 'false') {
-            await sendText(from, 'Sorry, voice messages are not supported yet. Please type your message.').catch(() => {});
-            return;
-          }
-
-          const voiceSession = db.getSession.get(from);
-          if (voiceSession && voiceSession.human_mode === 1) {
-            const agentNum = voiceSession.agent_number || process.env.OWNER_WHATSAPP;
-            if (agentNum) {
-              const vName = (() => {
-                try { return JSON.parse(voiceSession.collected_data || '{}').name || from; }
-                catch (_) { return from; }
-              })();
-              sendText(agentNum, `[${vName}]: [sent a voice note]`).catch(() => {});
-            }
-            return;
-          }
-
-          await sendText(from, '🎙️ Processing your voice message...');
-
-          const audioObj = { url: req.body.MediaUrl0, mime_type: req.body.MediaContentType0 };
-          const { transcript, language } = await processVoiceMessage(audioObj);
-
-          if (!transcript || transcript.length < 2) {
-            const emptyMsg = language === 'ar'
-              ? 'لم أتمكن من فهم الرسالة الصوتية. يرجى المحاولة مرة أخرى أو كتابة رسالتك.'
-              : 'Could not understand the voice message. Please try again or type your message.';
-            await sendText(from, emptyMsg).catch(() => {});
-            return;
-          }
-
-          console.log(`[Voice] ${from} said: "${transcript}" (${language})`);
-          try { db.saveMessage.run({ wa_number: from, direction: 'inbound', message_type: 'audio', content: transcript, raw_data: JSON.stringify({ MessageSid: msgSid, MediaUrl: req.body.MediaUrl0 }) }); } catch (_) {}
-
-          const syntheticParsed = {
-            from,
-            id:                msgSid,
-            type:              'text',
-            text:              transcript,
-            buttonId:          null,
-            listId:            null,
-            _fromVoice:        true,
-            _detectedLanguage: language,
-          };
-          await handleMessage(syntheticParsed);
-
-        } catch (err) {
-          console.error('[Voice] Error processing voice note:', err.message);
-          await sendText(from, 'Voice processing failed, please type your message').catch(() => {});
-        }
-      })();
+  if (isAudio) {
+    // ── Voice note handling ──────────────────────────────────────────────
+    if (!process.env.OPENAI_API_KEY || process.env.VOICE_ENABLED === 'false') {
+      await sendText(from, 'Sorry, voice messages are not supported yet. Please type your message.').catch(() => {});
       return;
     }
 
-    // ── Text message ─────────────────────────────────────────────────────────
-    const parsed = {
-      from,
-      id:       msgSid,
-      type:     'text',
-      text:     bodyText,
-      buttonId: null,
-      listId:   null,
-    };
-
-    try { db.saveMessage.run({ wa_number: from, direction: 'inbound', message_type: 'text', content: bodyText, raw_data: JSON.stringify(req.body) }); } catch (_) {}
-
-    // ── Human handoff logic ──────────────────────────────────────────────────
-    const owner       = process.env.OWNER_WHATSAPP;
-    const rawText     = bodyText.trim();
-    const isFromOwner = owner && from === owner;
-
-    if (isFromOwner) {
-      // TAKE <number>
-      if (rawText.toUpperCase().startsWith('TAKE ')) {
-        const targetNum = rawText.slice(5).trim();
-        const session   = db.getSession.get(targetNum);
-        if (!session) {
-          sendText(owner, `❌ No active session found for ${targetNum}.`).catch(() => {});
-        } else {
-          db.setHumanMode.run({ wa_number: targetNum, human_mode: 1, agent_number: owner });
-          const leadName = (() => {
-            try { return JSON.parse(session.collected_data || '{}').name || targetNum; }
-            catch (_) { return targetNum; }
-          })();
-          sendText(owner,
-            `✅ You are now live with *${leadName}* (${targetNum}).\n` +
-            `Type your message to reply. Send *DONE ${targetNum}* to end.`
-          ).catch(() => {});
-        }
-        return;
+    const voiceSession = await db.getSession(from);
+    if (voiceSession && voiceSession.human_mode) {
+      const agentNum = voiceSession.agent_number || process.env.OWNER_WHATSAPP;
+      if (agentNum) {
+        const vName = (voiceSession.data || {}).name || from;
+        sendText(agentNum, `[${vName}]: [sent a voice note]`).catch(() => {});
       }
-
-      // DONE <number>
-      if (rawText.toUpperCase().startsWith('DONE ')) {
-        const targetNum = rawText.slice(5).trim();
-        db.setHumanMode.run({ wa_number: targetNum, human_mode: 0, agent_number: null });
-        const leads = db.getAllLeads.all();
-        const lead  = leads.find((l) => l.wa_number === targetNum);
-        if (lead) db.updateLeadStatus.run({ id: lead.id, status: 'contacted' });
-        sendText(targetNum, 'Thank you for chatting with us! Have a great day. 😊').catch(() => {});
-        sendText(owner, `✅ Conversation with ${targetNum} ended. Status set to contacted.`).catch(() => {});
-        return;
-      }
-
-      // Owner typing normally — forward if they have an active human-mode session
-      const humanSession = db.getSessionByAgent.get(owner);
-      if (humanSession) {
-        sendText(humanSession.wa_number, rawText).catch(() => {});
-        return;
-      }
+      return;
     }
 
-    // ── Customer in human mode → forward to owner ────────────────────────────
-    if (!isFromOwner) {
-      const session = db.getSession.get(from);
-      if (session && session.human_mode === 1) {
-        const name = (() => {
-          try { return JSON.parse(session.collected_data || '{}').name || from; }
-          catch (_) { return from; }
-        })();
-        const agentNum = session.agent_number || owner;
-        if (agentNum) {
-          sendText(agentNum, `[${name}]: ${rawText}`).catch(() => {});
-        }
+    try {
+      await sendText(from, '🎙️ Processing your voice message...');
+
+      const audioObj = { url: req.body.MediaUrl0, mime_type: req.body.MediaContentType0 };
+      const { transcript, language } = await processVoiceMessage(audioObj);
+
+      if (!transcript || transcript.length < 2) {
+        const emptyMsg = language === 'ar'
+          ? 'لم أتمكن من فهم الرسالة الصوتية. يرجى المحاولة مرة أخرى أو كتابة رسالتك.'
+          : 'Could not understand the voice message. Please try again or type your message.';
+        await sendText(from, emptyMsg).catch(() => {});
         return;
       }
+
+      console.log(`[Voice] ${from} said: "${transcript}" (${language})`);
+      try { await db.saveMessage(from, 'inbound', 'audio', transcript, { MessageSid: msgSid, MediaUrl: req.body.MediaUrl0 }); } catch (_) {}
+
+      const syntheticParsed = {
+        from,
+        id:                msgSid,
+        type:              'text',
+        text:              transcript,
+        buttonId:          null,
+        listId:            null,
+        _fromVoice:        true,
+        _detectedLanguage: language,
+      };
+      await handleMessage(syntheticParsed);
+    } catch (err) {
+      console.error('[Voice] Error processing voice note:', err.message);
+      await sendText(from, 'Voice processing failed, please type your message').catch(() => {});
     }
-
-    // ── Normal flow processing ───────────────────────────────────────────────
-    handleMessage(parsed).catch((err) => {
-      console.error('[Flow Error]', from, err.message);
-    });
-
-  } catch (err) {
-    console.error('[Webhook Parse Error]', err.message);
+    return;
   }
-});
+
+  // ── Text message ─────────────────────────────────────────────────────────────
+  const parsed = {
+    from,
+    id:       msgSid,
+    type:     'text',
+    text:     bodyText,
+    buttonId: null,
+    listId:   null,
+  };
+
+  try { await db.saveMessage(from, 'inbound', 'text', bodyText, req.body); } catch (_) {}
+
+  // ── Human handoff logic ──────────────────────────────────────────────────────
+  const owner       = process.env.OWNER_WHATSAPP;
+  const rawText     = bodyText.trim();
+  const isFromOwner = owner && from === owner;
+
+  if (isFromOwner) {
+    // TAKE <number>
+    if (rawText.toUpperCase().startsWith('TAKE ')) {
+      const targetNum = rawText.slice(5).trim();
+      const session   = await db.getSession(targetNum);
+      if (!session) {
+        sendText(owner, `❌ No active session found for ${targetNum}.`).catch(() => {});
+      } else {
+        await db.setHumanMode(targetNum, true, owner);
+        const leadName = (session.data || {}).name || targetNum;
+        sendText(owner,
+          `✅ You are now live with *${leadName}* (${targetNum}).\n` +
+          `Type your message to reply. Send *DONE ${targetNum}* to end.`
+        ).catch(() => {});
+      }
+      return;
+    }
+
+    // DONE <number>
+    if (rawText.toUpperCase().startsWith('DONE ')) {
+      const targetNum = rawText.slice(5).trim();
+      await db.setHumanMode(targetNum, false, null);
+      const leads = await db.getAllLeads();
+      const lead  = leads.find((l) => l.wa_number === targetNum);
+      if (lead) await db.updateLeadStatus(lead.id, 'contacted');
+      sendText(targetNum, 'Thank you for chatting with us! Have a great day. 😊').catch(() => {});
+      sendText(owner, `✅ Conversation with ${targetNum} ended. Status set to contacted.`).catch(() => {});
+      return;
+    }
+
+    // Owner typing normally — forward if they have an active human-mode session
+    const humanSession = await db.getSessionByAgent(owner);
+    if (humanSession) {
+      sendText(humanSession.wa_number, rawText).catch(() => {});
+      return;
+    }
+  }
+
+  // ── Customer in human mode → forward to owner ────────────────────────────
+  if (!isFromOwner) {
+    const session = await db.getSession(from);
+    if (session && session.human_mode) {
+      const name = (session.data || {}).name || from;
+      const agentNum = session.agent_number || owner;
+      if (agentNum) {
+        sendText(agentNum, `[${name}]: ${rawText}`).catch(() => {});
+      }
+      return;
+    }
+  }
+
+  // ── Normal flow processing ───────────────────────────────────────────────
+  handleMessage(parsed).catch((err) => {
+    console.error('[Flow Error]', from, err.message);
+  });
+}
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 app.get('/dashboard', (_req, res) => {
@@ -200,33 +187,27 @@ app.get('/dashboard', (_req, res) => {
 });
 
 // ── API: all leads ────────────────────────────────────────────────────────────
-app.get('/api/leads', (_req, res) => {
-  const leads = db.getAllLeads.all().map((l) => ({
-    ...l,
-    data: (() => { try { return JSON.parse(l.data || '{}'); } catch (_) { return {}; } })(),
-  }));
-
-  // Attach human_mode from sessions
-  const sessions = {};
+app.get('/api/leads', async (_req, res) => {
   try {
-    db.db.prepare('SELECT wa_number, human_mode FROM sessions').all()
-      .forEach((s) => { sessions[s.wa_number] = s.human_mode; });
-  } catch (_) {}
+    const leads = await db.getAllLeads();
 
-  leads.forEach((l) => {
-    l.human_mode = sessions[l.wa_number] || 0;
-  });
+    // Attach human_mode from sessions
+    const sessions = await db.getSessionsHumanMode();
+    leads.forEach((l) => { l.human_mode = sessions[l.wa_number] || 0; });
 
-  res.json(leads);
+    res.json(leads);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── API: stats ────────────────────────────────────────────────────────────────
-app.get('/api/stats', (_req, res) => {
-  res.json(db.getStats.get());
+app.get('/api/stats', async (_req, res) => {
+  try {
+    res.json(await db.getLeadStats());
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── API: update lead status ───────────────────────────────────────────────────
-app.post('/api/leads/:id/status', (req, res) => {
+app.post('/api/leads/:id/status', async (req, res) => {
   const { id }     = req.params;
   const { status } = req.body;
   const allowed    = ['new', 'contacted', 'converted', 'lost'];
@@ -235,14 +216,14 @@ app.post('/api/leads/:id/status', (req, res) => {
     return res.status(400).json({ error: 'Invalid status' });
   }
 
-  db.updateLeadStatus.run({ id, status });
+  await db.updateLeadStatus(id, status);
   res.json({ ok: true });
 });
 
 // ── API: export leads as CSV ──────────────────────────────────────────────────
-app.get('/api/leads/export', (req, res) => {
+app.get('/api/leads/export', async (req, res) => {
   const statusFilter = req.query.status;
-  let leads = db.getAllLeads.all();
+  let leads = await db.getAllLeads();
 
   if (statusFilter && statusFilter !== 'all') {
     leads = leads.filter((l) => l.status === statusFilter);
@@ -254,8 +235,7 @@ app.get('/api/leads/export', (req, res) => {
 
   const header = 'Date,Name,WhatsApp,Interest,Property Type,Budget,Area,Status,Score,Language\n';
   const rows = leads.map((l) => {
-    let d = {};
-    try { d = JSON.parse(l.data || '{}'); } catch (_) {}
+    const d = l.data || {};
     const esc = (v) => `"${String(v || '').replace(/"/g, '""')}"`;
     return [
       esc(l.created_at),
@@ -279,17 +259,13 @@ app.post('/api/broadcast', async (req, res) => {
   const { message, filter = {} } = req.body;
   if (!message) return res.status(400).json({ error: 'message required' });
 
-  let leads = db.getAllLeads.all().map((l) => {
-    let d = {};
-    try { d = JSON.parse(l.data || '{}'); } catch (_) {}
-    return { ...l, parsedData: d };
-  });
+  let leads = await db.getAllLeads();
 
   // Apply filters
-  if (filter.status)    leads = leads.filter((l) => l.status    === filter.status);
+  if (filter.status)    leads = leads.filter((l) => l.status === filter.status);
   if (filter.score_min) leads = leads.filter((l) => (l.score || 0) >= filter.score_min);
-  if (filter.area)      leads = leads.filter((l) => (l.parsedData.area || '').toLowerCase().includes(filter.area.toLowerCase()));
-  if (filter.interest)  leads = leads.filter((l) => (l.parsedData.intent || '').toLowerCase() === filter.interest.toLowerCase());
+  if (filter.area)      leads = leads.filter((l) => (l.data?.area || '').toLowerCase().includes(filter.area.toLowerCase()));
+  if (filter.interest)  leads = leads.filter((l) => (l.data?.intent || '').toLowerCase() === filter.interest.toLowerCase());
 
   if (req.query.preview === '1') {
     return res.json({ count: leads.length });
@@ -335,34 +311,33 @@ app.get('/dashboard/css/:file', (req, res) => {
 });
 
 // ── API: conversations ────────────────────────────────────────────────────────
-app.get('/api/conversations', (_req, res) => {
+app.get('/api/conversations', async (_req, res) => {
   try {
-    const convs = db.getRecentConversations.all(50);
+    const convs = await db.getRecentConversations(50);
     res.json(convs);
   } catch (e) { res.json([]); }
 });
 
-app.get('/api/conversations/:waNumber', (req, res) => {
-  const msgs = db.getMessages.all(decodeURIComponent(req.params.waNumber));
+app.get('/api/conversations/:waNumber', async (req, res) => {
+  const msgs = await db.getMessages(decodeURIComponent(req.params.waNumber));
   res.json(msgs);
 });
 
-app.get('/api/conversations/:waNumber/lead', (req, res) => {
-  const wa = decodeURIComponent(req.params.waNumber);
-  const leads = db.getAllLeads.all().filter(l => l.wa_number === wa);
-  if (!leads.length) return res.status(404).json({ error: 'Not found' });
-  res.json(leads[0]);
+app.get('/api/conversations/:waNumber/lead', async (req, res) => {
+  const wa   = decodeURIComponent(req.params.waNumber);
+  const lead = await db.getLead(wa);
+  if (!lead) return res.status(404).json({ error: 'Not found' });
+  res.json(lead);
 });
 
 // ── API: pipeline ─────────────────────────────────────────────────────────────
-app.get('/api/pipeline', (_req, res) => {
-  const leads = db.getAllLeads.all().map(l => {
-    // Derive pipeline_stage from status if not set
+app.get('/api/pipeline', async (_req, res) => {
+  const leads = await db.getAllLeads();
+  leads.forEach((l) => {
     if (!l.pipeline_stage || l.pipeline_stage === 'null') {
       const map = { new: 'new_lead', contacted: 'ai_contacted', converted: 'won', lost: 'lost' };
       l.pipeline_stage = map[l.status] || 'new_lead';
     }
-    return l;
   });
   const grouped = {};
   for (const l of leads) {
@@ -373,18 +348,18 @@ app.get('/api/pipeline', (_req, res) => {
   res.json(grouped);
 });
 
-app.post('/api/leads/:id/stage', (req, res) => {
+app.post('/api/leads/:id/stage', async (req, res) => {
   const { stage } = req.body;
-  db.updateLeadPipelineStage.run({ id: req.params.id, stage });
+  await db.updateLeadPipelineStage(req.params.id, stage);
   res.json({ ok: true });
 });
 
 // ── API: analytics ────────────────────────────────────────────────────────────
-app.get('/api/analytics', (req, res) => {
+app.get('/api/analytics', async (req, res) => {
   const { from, to } = req.query;
-  let leads = db.getAllLeads.all();
+  let leads = await db.getAllLeads();
   if (from) leads = leads.filter(l => l.created_at >= from);
-  if (to)   leads = leads.filter(l => l.created_at <= to + ' 23:59:59');
+  if (to)   leads = leads.filter(l => l.created_at <= to + 'T23:59:59.999Z');
 
   const total     = leads.length;
   const converted = leads.filter(l => l.status === 'converted').length;
@@ -394,10 +369,10 @@ app.get('/api/analytics', (req, res) => {
   let arabic = 0, english = 0, voice = 0, text = 0;
 
   for (const l of leads) {
-    let d = {}; try { d = JSON.parse(l.data || '{}'); } catch (_) {}
-    if (d.area)     byArea[d.area]     = (byArea[d.area] || 0) + 1;
-    if (d.budget)   byBudget[d.budget] = (byBudget[d.budget] || 0) + 1;
-    if (d.intent)   byInterest[d.intent] = (byInterest[d.intent] || 0) + 1;
+    const d = l.data || {};
+    if (d.area)   byArea[d.area]     = (byArea[d.area] || 0) + 1;
+    if (d.budget) byBudget[d.budget] = (byBudget[d.budget] || 0) + 1;
+    if (d.intent) byInterest[d.intent] = (byInterest[d.intent] || 0) + 1;
     const sc = l.score || 0;
     scoreDistribution[sc] = (scoreDistribution[sc] || 0) + 1;
     if (l.language === 'ar') arabic++; else english++;
@@ -430,126 +405,124 @@ app.get('/api/analytics', (req, res) => {
 });
 
 // ── API: settings ─────────────────────────────────────────────────────────────
-app.get('/api/settings', (_req, res) => {
-  const rows = db.getAllSettings.all();
-  const obj  = {};
-  rows.forEach(r => { obj[r.key] = r.value; });
-  res.json(obj);
+app.get('/api/settings', async (_req, res) => {
+  try {
+    res.json(await db.getAllSettings());
+  } catch (e) { res.json({}); }
 });
 
-app.post('/api/settings', (req, res) => {
+app.post('/api/settings', async (req, res) => {
   const data = req.body;
   if (typeof data !== 'object') return res.status(400).json({ error: 'Expected JSON object' });
   for (const [key, value] of Object.entries(data)) {
-    db.upsertSetting.run({ key, value: String(value) });
+    await db.saveSetting(key, String(value));
   }
   res.json({ ok: true });
 });
 
 // ── API: lead detail ──────────────────────────────────────────────────────────
-app.get('/api/leads/:id/detail', (req, res) => {
+app.get('/api/leads/:id/detail', async (req, res) => {
   const { id } = req.params;
-  const lead = db.getAllLeads.all().find(l => l.id == id);
+  const lead = await db.getLeadById(id);
   if (!lead) return res.status(404).json({ error: 'Not found' });
-  const messages    = db.getMessages.all(lead.wa_number);
-  const notes       = db.getNotes.all(id);
+  const messages    = await db.getMessages(lead.wa_number);
+  const notes       = await db.getNotes(id);
   const lastMessage = messages[messages.length - 1] || null;
   res.json({ lead, messages, notes, lastMessage });
 });
 
-app.post('/api/leads/:id/notes', (req, res) => {
+app.post('/api/leads/:id/notes', async (req, res) => {
   const { note } = req.body;
   if (!note) return res.status(400).json({ error: 'note required' });
-  const result = db.insertNote.run({ lead_id: req.params.id, note });
-  res.json({ ok: true, id: result.lastInsertRowid });
+  const result = await db.saveNote(req.params.id, note);
+  res.json({ ok: true, id: result.id });
 });
 
-app.delete('/api/leads/:id/notes/:noteId', (req, res) => {
-  db.deleteNote.run(req.params.noteId, req.params.id);
+app.delete('/api/leads/:id/notes/:noteId', async (req, res) => {
+  await db.deleteNote(req.params.noteId);
   res.json({ ok: true });
 });
 
-app.delete('/api/leads/:id', (req, res) => {
-  db.db.prepare('DELETE FROM leads WHERE id = ?').run(req.params.id);
+app.delete('/api/leads/:id', async (req, res) => {
+  await db.deleteLead(req.params.id);
   res.json({ ok: true });
 });
 
 // ── API: listings ─────────────────────────────────────────────────────────────
-app.get('/api/listings', (_req, res) => {
-  res.json(db.getAllListings.all());
+app.get('/api/listings', async (_req, res) => {
+  res.json(await db.getAllListings());
 });
 
-app.post('/api/listings', (req, res) => {
+app.post('/api/listings', async (req, res) => {
   const b = req.body;
-  const result = db.insertListing.run({
+  const result = await db.saveListing({
     title: b.title || '', type: b.type || 'apartment', area: b.area || '',
     price: b.price || 0, beds: b.beds || 0, baths: b.baths || 0,
     size_sqft: b.size_sqft || 0, description: b.description || '',
     image_url: b.image_url || '', listing_url: b.listing_url || '',
     status: b.status || 'available',
   });
-  res.json({ ok: true, id: result.lastInsertRowid });
+  res.json({ ok: true, id: result.id });
 });
 
-app.put('/api/listings/:id', (req, res) => {
-  const b = req.body;
-  db.updateListing.run({ ...b, id: req.params.id });
+app.put('/api/listings/:id', async (req, res) => {
+  await db.updateListing(req.params.id, req.body);
   res.json({ ok: true });
 });
 
-app.delete('/api/listings/:id', (req, res) => {
-  db.deleteListing.run(req.params.id);
+app.delete('/api/listings/:id', async (req, res) => {
+  await db.deleteListing(req.params.id);
   res.json({ ok: true });
 });
 
 // ── API: appointments ─────────────────────────────────────────────────────────
-app.get('/api/appointments', (_req, res) => {
-  res.json(db.getAllAppointments.all());
+app.get('/api/appointments', async (_req, res) => {
+  res.json(await db.getAppointments());
 });
 
-app.post('/api/appointments', (req, res) => {
+app.post('/api/appointments', async (req, res) => {
   const b = req.body;
-  const result = db.insertAppointment.run({
+  const result = await db.saveAppointment({
     lead_id: b.lead_id || null, wa_number: b.wa_number,
     slot_date: b.slot_date, slot_time: b.slot_time, notes: b.notes || '',
   });
-  res.json({ ok: true, id: result.lastInsertRowid });
+  res.json({ ok: true, id: result.id });
 });
 
-app.put('/api/appointments/:id/status', (req, res) => {
-  db.updateAppointmentStatus.run({ id: req.params.id, status: req.body.status });
+app.put('/api/appointments/:id/status', async (req, res) => {
+  await db.updateAppointmentStatus(req.params.id, req.body.status);
   res.json({ ok: true });
 });
 
-app.get('/api/availability', (_req, res) => {
+app.get('/api/availability', async (_req, res) => {
   const { getAvailableSlots } = require('./utils/appointmentHandler');
-  res.json(getAvailableSlots(7));
+  res.json(await getAvailableSlots(7));
 });
 
 // ── API: agents ───────────────────────────────────────────────────────────────
-app.get('/api/agents', (_req, res) => {
-  res.json(db.getAllAgents.all());
+app.get('/api/agents', async (_req, res) => {
+  res.json(await db.getAgents());
 });
 
-app.post('/api/agents', (req, res) => {
+app.post('/api/agents', async (req, res) => {
   const b = req.body;
-  const result = db.insertAgent.run({ name: b.name, wa_number: b.wa_number, email: b.email || '', role: b.role || 'agent' });
-  res.json({ ok: true, id: result.lastInsertRowid });
+  const result = await db.saveAgent({ name: b.name, wa_number: b.wa_number, email: b.email || '', role: b.role || 'agent' });
+  res.json({ ok: true, id: result.id });
 });
 
-app.put('/api/agents/:id', (req, res) => {
+app.put('/api/agents/:id', async (req, res) => {
   const b = req.body;
-  db.updateAgent.run({ id: req.params.id, name: b.name, email: b.email || '', role: b.role, status: b.status || 'active' });
+  await db.updateAgent(req.params.id, { name: b.name, email: b.email || '', role: b.role, status: b.status || 'active' });
   res.json({ ok: true });
 });
 
-app.delete('/api/agents/:id', (req, res) => {
-  db.deleteAgent.run(req.params.id);
+app.delete('/api/agents/:id', async (req, res) => {
+  await db.deleteAgent(req.params.id);
   res.json({ ok: true });
 });
 
-app.post('/api/leads/:id/assign', (req, res) => {
-  db.updateLeadAgent.run({ id: req.params.id, agent_wa_number: req.body.agent_wa_number });
+app.post('/api/leads/:id/assign', async (req, res) => {
+  await db.updateLeadAgent(req.params.id, req.body.agent_wa_number);
   res.json({ ok: true });
 });
 
@@ -573,9 +546,23 @@ app.get('/api/reports/:filename', (req, res) => {
   res.sendFile(file);
 });
 
+// ── API: DB status ────────────────────────────────────────────────────────────
+app.get('/api/db-status', (_req, res) => {
+  const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+  res.json({
+    status:    states[mongoose.connection.readyState] || 'unknown',
+    readyState: mongoose.connection.readyState,
+    database:  mongoose.connection.name || null,
+  });
+});
+
 // ── Health ────────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
+  res.json({
+    status:  'ok',
+    uptime:  process.uptime(),
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+  });
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────

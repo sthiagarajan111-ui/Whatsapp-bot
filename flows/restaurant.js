@@ -69,7 +69,7 @@ const STEPS = {
 async function onComplete(waNumber, data, { sendText, insertLead }, options = {}) {
   const agency = process.env.CLIENT_NAME || 'Our Restaurant';
   await sendText(waNumber, `Thank you, ${data.name || 'there'}! 🙏\nYour reservation request has been received. We will confirm your booking shortly.\n\n_${agency}_`);
-  insertLead.run({ wa_number: waNumber, name: data.name || '', flow_name: FLOW_NAME, data: JSON.stringify(data), score: options.score || 5, language: options.language || 'en' });
+  await insertLead({ wa_number: waNumber, name: data.name || '', flow_name: FLOW_NAME, data, score: options.score || 5, language: options.language || 'en' });
   const owner = process.env.OWNER_WHATSAPP;
   if (owner) await sendText(owner, `🍽 New Reservation: ${data.name} | ${data.service_type} | ${data.date} | ${data.party_size}\n📱 ${waNumber}`);
 }

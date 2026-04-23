@@ -21,15 +21,14 @@ function toTimeStr(h, m) {
 }
 
 /**
- * Returns available slots for the next `days` days based on availability table.
- * Falls back to default Mon–Fri 9am–6pm if no availability rows.
+ * Returns available slots for the next `days` days based on availability collection.
+ * Falls back to default Mon–Sat 10am–5pm if no availability docs.
  */
-function getAvailableSlots(daysAhead = 7) {
+async function getAvailableSlots(daysAhead = 7) {
   let avail = [];
-  try { avail = db.db.prepare('SELECT * FROM availability').all(); } catch (_) {}
+  try { avail = await db.getAvailability(); } catch (_) {}
 
   if (!avail.length) {
-    // Default: Mon–Sat 10am–5pm, 1hr slots
     avail = [1, 2, 3, 4, 5, 6].map(day => ({
       day_of_week: day, start_time: '10:00', end_time: '17:00', slot_duration: 60, max_per_slot: 1,
     }));
@@ -39,7 +38,7 @@ function getAvailableSlots(daysAhead = 7) {
   const now = new Date();
   for (let i = 1; i <= daysAhead; i++) {
     const date = addDays(now, i);
-    const dow  = date.getDay() === 0 ? 7 : date.getDay(); // 1=Mon, 7=Sun
+    const dow  = date.getDay() === 0 ? 7 : date.getDay();
     const rule = avail.find(a => a.day_of_week === dow);
     if (!rule) continue;
 
@@ -55,19 +54,19 @@ function getAvailableSlots(daysAhead = 7) {
       minute %= 60;
     }
   }
-  return slots.slice(0, 9); // max 9 to fit a WhatsApp list
+  return slots.slice(0, 9);
 }
 
 async function sendAvailableSlots(waNumber) {
-  const slots = getAvailableSlots(7);
+  const slots = await getAvailableSlots(7);
   if (!slots.length) {
     await sendText(waNumber, 'Sorry, no available slots right now. Our agent will contact you to arrange a viewing.');
     return;
   }
 
   const rows = slots.slice(0, 9).map(s => ({
-    id: `appt_${s.date}_${s.time.replace(':', '')}`,
-    title: `${s.date} at ${s.time}`,
+    id:          `appt_${s.date}_${s.time.replace(':', '')}`,
+    title:       `${s.date} at ${s.time}`,
     description: '1 hour slot',
   }));
 
@@ -81,7 +80,7 @@ async function sendAvailableSlots(waNumber) {
 }
 
 async function bookSlot(waNumber, leadId, date, time) {
-  db.insertAppointment.run({ lead_id: leadId || null, wa_number: waNumber, slot_date: date, slot_time: time, notes: '' });
+  await db.saveAppointment({ lead_id: leadId || null, wa_number: waNumber, slot_date: date, slot_time: time, notes: '' });
 }
 
 async function sendConfirmation(waNumber, date, time) {

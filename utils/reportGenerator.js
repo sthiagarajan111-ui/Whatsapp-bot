@@ -1,6 +1,6 @@
 /**
  * Monthly PDF report generator.
- * Uses html-pdf-node (fallback: saves HTML only if PDF renderer unavailable).
+ * Uses puppeteer (fallback: saves HTML only if PDF renderer unavailable).
  * Triggered by scheduler on 1st of month, or manually via GET /api/reports/generate
  */
 
@@ -11,31 +11,30 @@ const db   = require('../db/database');
 const REPORTS_DIR = path.join(__dirname, '..', 'reports');
 if (!fs.existsSync(REPORTS_DIR)) fs.mkdirSync(REPORTS_DIR, { recursive: true });
 
-function getMonthData(year, month) {
+async function getMonthData(year, month) {
   // month is 1-based
-  const from = `${year}-${String(month).padStart(2, '0')}-01`;
-  const to   = month === 12
-    ? `${year + 1}-01-01`
-    : `${year}-${String(month + 1).padStart(2, '0')}-01`;
+  const from = new Date(year, month - 1, 1);
+  const to   = new Date(year, month, 1);
 
-  const leads = db.db.prepare(
-    `SELECT * FROM leads WHERE created_at >= ? AND created_at < ? ORDER BY created_at`
-  ).all(from, to);
+  const leads = await db.getLeadsByDateRange(from.toISOString(), to.toISOString());
 
-  const prev = db.db.prepare(
-    `SELECT COUNT(*) AS total, COUNT(CASE WHEN status='converted' THEN 1 END) AS converted FROM leads WHERE created_at >= ? AND created_at < date(?, '-1 month')`
-  ).get(from, from);
+  // Previous month for comparison
+  const prevFrom = new Date(year, month - 2, 1);
+  const prevLeads = await db.getLeadsByDateRange(prevFrom.toISOString(), from.toISOString());
+  const prev = {
+    total:     prevLeads.length,
+    converted: prevLeads.filter(l => l.status === 'converted').length,
+  };
 
   const total     = leads.length;
   const converted = leads.filter(l => l.status === 'converted').length;
   const rate      = total ? Math.round(converted / total * 100) : 0;
-  const prevRate  = prev?.total ? Math.round((prev?.converted || 0) / prev.total * 100) : 0;
+  const prevRate  = prev.total ? Math.round((prev.converted || 0) / prev.total * 100) : 0;
   const avgScore  = total ? Math.round(leads.reduce((s, l) => s + (l.score || 0), 0) / total * 10) / 10 : 0;
 
-  // By area
   const byArea = {};
   leads.forEach(l => {
-    let d = {}; try { d = JSON.parse(l.data || '{}'); } catch (_) {}
+    const d    = l.data || {};
     const area = d.area || 'Unknown';
     byArea[area] = (byArea[area] || 0) + 1;
   });
@@ -45,9 +44,9 @@ function getMonthData(year, month) {
 }
 
 function buildReportHTML(data) {
-  const monthName = new Date(data.year, data.month - 1, 1).toLocaleString('en-AE', { month: 'long', year: 'numeric' });
+  const monthName  = new Date(data.year, data.month - 1, 1).toLocaleString('en-AE', { month: 'long', year: 'numeric' });
   const rateChange = data.rate - data.prevRate;
-  const changeStr = rateChange >= 0 ? `+${rateChange}%` : `${rateChange}%`;
+  const changeStr  = rateChange >= 0 ? `+${rateChange}%` : `${rateChange}%`;
   const changeColor = rateChange >= 0 ? '#10B981' : '#EF4444';
 
   const areaRows = Object.entries(data.byArea).sort((a, b) => b[1] - a[1])
@@ -120,7 +119,7 @@ async function generateReport(year, month) {
     month = now.getMonth() + 1;
   }
 
-  const data     = getMonthData(year, month);
+  const data     = await getMonthData(year, month);
   const html     = buildReportHTML(data);
   const filename = `report-${year}-${String(month).padStart(2, '0')}`;
   const htmlPath = path.join(REPORTS_DIR, filename + '.html');
@@ -128,11 +127,10 @@ async function generateReport(year, month) {
   fs.writeFileSync(htmlPath, html);
   console.log('[Report] HTML saved:', htmlPath);
 
-  // Try puppeteer for PDF
   try {
     const puppeteer = require('puppeteer');
-    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-    const page    = await browser.newPage();
+    const browser   = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const page      = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
     const pdfPath = path.join(REPORTS_DIR, filename + '.pdf');
     await page.pdf({ path: pdfPath, format: 'A4', printBackground: true });
@@ -151,8 +149,8 @@ function listReports() {
       .filter(f => f.endsWith('.pdf') || f.endsWith('.html'))
       .map(f => ({
         filename: f,
-        size: fs.statSync(path.join(REPORTS_DIR, f)).size,
-        created: fs.statSync(path.join(REPORTS_DIR, f)).mtime.toISOString(),
+        size:     fs.statSync(path.join(REPORTS_DIR, f)).size,
+        created:  fs.statSync(path.join(REPORTS_DIR, f)).mtime.toISOString(),
       }))
       .sort((a, b) => b.created.localeCompare(a.created));
   } catch (_) { return []; }

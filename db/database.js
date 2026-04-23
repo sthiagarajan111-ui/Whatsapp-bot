@@ -1,334 +1,441 @@
 /**
- * Database layer — uses Node.js built-in node:sqlite (Node >= 22.5.0).
- * Synchronous API; identical surface to better-sqlite3 for our use case.
+ * Database layer — MongoDB Atlas via Mongoose.
+ * All functions are async. Drop-in replacement for the SQLite version.
  */
-const { DatabaseSync } = require('node:sqlite');
-const path = require('path');
-const fs   = require('fs');
+const mongoose = require('mongoose');
 
-const DB_DIR  = path.join(__dirname, '..', 'data');
-const DB_PATH = path.join(DB_DIR, 'leads.db');
+const Lead         = require('./models/Lead');
+const Session      = require('./models/Session');
+const Message      = require('./models/Message');
+const Setting      = require('./models/Setting');
+const AgentModel   = require('./models/Agent');
+const Listing      = require('./models/Listing');
+const Appointment  = require('./models/Appointment');
+const LeadNote     = require('./models/LeadNote');
+const Availability = require('./models/Availability');
 
-// Ensure data directory exists (Render.com persistent disk or local)
-if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true });
+// ── Connection with retry ─────────────────────────────────────────────────────
+function connectWithRetry(attempt = 1) {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    console.warn('[DB] MONGODB_URI not set — MongoDB disconnected. Add it to .env to enable persistence.');
+    return;
+  }
+  console.log('[DB] Connecting to MongoDB Atlas...');
+  mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 })
+    .then(() => console.log('[DB] Connected to MongoDB Atlas'))
+    .catch((err) => {
+      console.error(`[DB] Connection attempt ${attempt} failed:`, err.message);
+      const delay = Math.min(attempt * 2000, 30000);
+      setTimeout(() => connectWithRetry(attempt + 1), delay);
+    });
+}
+connectWithRetry();
+
+// ── Normalizers ───────────────────────────────────────────────────────────────
+function normalizeLead(doc) {
+  if (!doc) return null;
+  const obj = doc.toObject ? doc.toObject() : { ...doc };
+  return {
+    ...obj,
+    id:         obj._id?.toString(),
+    created_at: obj.created_at instanceof Date ? obj.created_at.toISOString() : (obj.created_at || ''),
+    updated_at: obj.updated_at instanceof Date ? obj.updated_at.toISOString() : (obj.updated_at || ''),
+    data:       obj.data || {},
+  };
 }
 
-const db = new DatabaseSync(DB_PATH);
-
-// Enable WAL mode for better concurrent read performance
-db.exec("PRAGMA journal_mode = WAL");
-db.exec("PRAGMA foreign_keys = ON");
-
-// --- Schema ---
-db.exec(`
-  CREATE TABLE IF NOT EXISTS leads (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    wa_number   TEXT NOT NULL,
-    name        TEXT,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    flow_name   TEXT NOT NULL,
-    data        TEXT NOT NULL DEFAULT '{}',
-    status      TEXT NOT NULL DEFAULT 'new'
-      CHECK(status IN ('new','contacted','converted','lost'))
-  );
-
-  CREATE TABLE IF NOT EXISTS sessions (
-    wa_number      TEXT PRIMARY KEY,
-    current_step   TEXT NOT NULL,
-    collected_data TEXT NOT NULL DEFAULT '{}',
-    updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-`);
-
-// --- Safe migrations (idempotent) ---
-const migrations = [
-  "ALTER TABLE leads    ADD COLUMN score           INTEGER DEFAULT 0",
-  "ALTER TABLE leads    ADD COLUMN followup_sent   INTEGER DEFAULT 0",
-  "ALTER TABLE leads    ADD COLUMN language        TEXT    DEFAULT 'en'",
-  "ALTER TABLE sessions ADD COLUMN human_mode      INTEGER DEFAULT 0",
-  "ALTER TABLE sessions ADD COLUMN agent_number    TEXT",
-  "ALTER TABLE sessions ADD COLUMN language        TEXT    DEFAULT 'en'",
-  // V4 migrations
-  "ALTER TABLE leads    ADD COLUMN pipeline_stage  TEXT    DEFAULT 'new_lead'",
-  "ALTER TABLE leads    ADD COLUMN assigned_agent  TEXT",
-  "ALTER TABLE leads    ADD COLUMN assigned_at     TEXT",
-  "ALTER TABLE sessions ADD COLUMN ai_mode         INTEGER DEFAULT 0",
-  "ALTER TABLE sessions ADD COLUMN ai_history      TEXT    DEFAULT '[]'",
-];
-for (const sql of migrations) {
-  try { db.exec(sql); } catch (_) { /* column already exists — ignore */ }
+function normalizeSession(doc) {
+  if (!doc) return null;
+  const obj = doc.toObject ? doc.toObject() : { ...doc };
+  return {
+    ...obj,
+    id:         obj._id?.toString(),
+    data:       obj.data || {},
+    ai_history: obj.ai_history || [],
+  };
 }
 
-// --- V4 new tables ---
-db.exec(`
-  CREATE TABLE IF NOT EXISTS messages (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    wa_number    TEXT NOT NULL,
-    direction    TEXT NOT NULL,
-    message_type TEXT DEFAULT 'text',
-    content      TEXT,
-    raw_data     TEXT,
-    created_at   TEXT DEFAULT (datetime('now'))
+function normalizeDoc(doc) {
+  if (!doc) return null;
+  const obj = doc.toObject ? doc.toObject() : { ...doc };
+  return {
+    ...obj,
+    id:         obj._id?.toString(),
+    created_at: obj.created_at instanceof Date ? obj.created_at.toISOString() : (obj.created_at || ''),
+  };
+}
+
+function flattenLead(d) {
+  return {
+    ...d,
+    id:         d._id.toString(),
+    created_at: d.created_at instanceof Date ? d.created_at.toISOString() : (d.created_at || ''),
+    updated_at: d.updated_at instanceof Date ? d.updated_at.toISOString() : (d.updated_at || ''),
+    data:       d.data || {},
+  };
+}
+
+// ── Leads ─────────────────────────────────────────────────────────────────────
+async function getLead(waNumber) {
+  const doc = await Lead.findOne({ wa_number: waNumber });
+  return normalizeLead(doc);
+}
+
+async function getLeadById(id) {
+  try {
+    const doc = await Lead.findById(id);
+    return normalizeLead(doc);
+  } catch (_) { return null; }
+}
+
+async function saveLead(waNumber, name, status, score, data, language, flowName, pipelineStage) {
+  const doc = await Lead.findOneAndUpdate(
+    { wa_number: waNumber },
+    {
+      $set: {
+        name:           name || '',
+        status:         status || 'new',
+        score:          score || 0,
+        data:           data || {},
+        language:       language || 'en',
+        flow_name:      flowName || 'realEstate',
+        pipeline_stage: pipelineStage || 'new_lead',
+        updated_at:     new Date(),
+      },
+      $setOnInsert: { created_at: new Date() },
+    },
+    { upsert: true, new: true }
   );
-  CREATE INDEX IF NOT EXISTS idx_messages_wa ON messages(wa_number);
+  return normalizeLead(doc);
+}
 
-  CREATE TABLE IF NOT EXISTS settings (
-    key        TEXT PRIMARY KEY,
-    value      TEXT,
-    updated_at TEXT DEFAULT (datetime('now'))
+// Compatibility wrapper for flows — replaces insertLead.run({...})
+async function insertLead(params) {
+  let data = params.data;
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch (_) { data = {}; }
+  }
+  return saveLead(
+    params.wa_number,
+    params.name        || '',
+    params.status      || 'new',
+    params.score       || 0,
+    data               || {},
+    params.language    || 'en',
+    params.flow_name   || 'realEstate',
+    params.pipeline_stage || 'new_lead'
   );
+}
 
-  CREATE TABLE IF NOT EXISTS lead_notes (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    lead_id    INTEGER NOT NULL,
-    note       TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now'))
+async function updateLeadStatus(id, status) {
+  try { await Lead.findByIdAndUpdate(id, { $set: { status, updated_at: new Date() } }); } catch (_) {}
+}
+
+async function updateLeadPipelineStage(id, stage) {
+  try { await Lead.findByIdAndUpdate(id, { $set: { pipeline_stage: stage, updated_at: new Date() } }); } catch (_) {}
+}
+
+async function updateLeadScore(waNumber, score) {
+  await Lead.findOneAndUpdate({ wa_number: waNumber }, { $set: { score, updated_at: new Date() } });
+}
+
+async function updateLeadAgent(id, agentWaNumber) {
+  try { await Lead.findByIdAndUpdate(id, { $set: { assigned_agent: agentWaNumber, updated_at: new Date() } }); } catch (_) {}
+}
+
+async function getAllLeads() {
+  const docs = await Lead.find().sort({ score: -1, created_at: -1 }).lean();
+  return docs.map(flattenLead);
+}
+
+async function getLeadStats() {
+  const result = await Lead.aggregate([
+    {
+      $group: {
+        _id:       null,
+        total:     { $sum: 1 },
+        new:       { $sum: { $cond: [{ $eq: ['$status', 'new'] }, 1, 0] } },
+        contacted: { $sum: { $cond: [{ $eq: ['$status', 'contacted'] }, 1, 0] } },
+        converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } },
+        lost:      { $sum: { $cond: [{ $eq: ['$status', 'lost'] }, 1, 0] } },
+        hot:       { $sum: { $cond: [{ $gte: ['$score', 8] }, 1, 0] } },
+        avg_score: { $avg: { $cond: [{ $gt: ['$score', 0] }, '$score', null] } },
+      },
+    },
+  ]);
+  if (!result.length) return { total: 0, new: 0, contacted: 0, converted: 0, lost: 0, hot: 0, avg_score: null };
+  const r = result[0];
+  return { ...r, avg_score: r.avg_score != null ? Math.round(r.avg_score * 10) / 10 : null };
+}
+
+async function exportLeads(status) {
+  const filter = status && status !== 'all' ? { status } : {};
+  const docs = await Lead.find(filter).sort({ created_at: -1 }).lean();
+  return docs.map(flattenLead);
+}
+
+async function getLeadsForFollowup(delayHours) {
+  const cutoff = new Date(Date.now() - delayHours * 60 * 60 * 1000);
+  const docs = await Lead.find({ status: 'new', followup_sent: 0, created_at: { $lte: cutoff } }).lean();
+  return docs.map(flattenLead);
+}
+
+async function markFollowupSent(id) {
+  try { await Lead.findByIdAndUpdate(id, { $set: { followup_sent: 1 } }); } catch (_) {}
+}
+
+async function deleteLead(id) {
+  try { await Lead.findByIdAndDelete(id); } catch (_) {}
+}
+
+async function getLeadsByDateRange(from, to) {
+  const filter = {};
+  if (from) filter.created_at = { $gte: new Date(from) };
+  if (to)   filter.created_at = { ...(filter.created_at || {}), $lt: new Date(to) };
+  const docs = await Lead.find(filter).sort({ created_at: 1 }).lean();
+  return docs.map(flattenLead);
+}
+
+// ── Sessions ──────────────────────────────────────────────────────────────────
+async function getSession(waNumber) {
+  const doc = await Session.findOne({ wa_number: waNumber });
+  return normalizeSession(doc);
+}
+
+async function saveSession(waNumber, sessionData) {
+  await Session.findOneAndUpdate(
+    { wa_number: waNumber },
+    { $set: { ...sessionData, updated_at: new Date() } },
+    { upsert: true, new: true }
   );
+}
 
-  CREATE TABLE IF NOT EXISTS listings (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    title       TEXT,
-    type        TEXT,
-    area        TEXT,
-    price       INTEGER,
-    beds        INTEGER,
-    baths       INTEGER,
-    size_sqft   INTEGER,
-    description TEXT,
-    image_url   TEXT,
-    listing_url TEXT,
-    status      TEXT DEFAULT 'available',
-    created_at  TEXT DEFAULT (datetime('now'))
+async function clearSession(waNumber) {
+  await Session.deleteOne({ wa_number: waNumber });
+}
+
+async function setHumanMode(waNumber, humanMode, agentNumber) {
+  await Session.findOneAndUpdate(
+    { wa_number: waNumber },
+    { $set: { human_mode: !!humanMode, agent_number: agentNumber || null, updated_at: new Date() } },
+    { upsert: true }
   );
+}
 
-  CREATE TABLE IF NOT EXISTS appointments (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    lead_id    INTEGER,
-    wa_number  TEXT,
-    slot_date  TEXT,
-    slot_time  TEXT,
-    status     TEXT DEFAULT 'pending',
-    notes      TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
+async function getSessionByAgent(agentNumber) {
+  const doc = await Session.findOne({ agent_number: agentNumber, human_mode: true });
+  return normalizeSession(doc);
+}
+
+async function getSessionsHumanMode() {
+  const docs = await Session.find({ human_mode: true }, { wa_number: 1, human_mode: 1 }).lean();
+  const result = {};
+  docs.forEach(d => { result[d.wa_number] = 1; });
+  return result;
+}
+
+// ── Messages ──────────────────────────────────────────────────────────────────
+async function saveMessage(waNumber, direction, type, content, rawData) {
+  let raw = rawData;
+  if (typeof rawData === 'string') {
+    try { raw = JSON.parse(rawData); } catch (_) { raw = rawData; }
+  }
+  await Message.create({ wa_number: waNumber, direction, message_type: type || 'text', content, raw_data: raw });
+}
+
+async function getMessages(waNumber) {
+  const docs = await Message.find({ wa_number: waNumber }).sort({ created_at: 1 }).lean();
+  return docs.map(d => ({
+    ...d,
+    id:         d._id.toString(),
+    created_at: d.created_at instanceof Date ? d.created_at.toISOString() : (d.created_at || ''),
+  }));
+}
+
+async function getRecentConversations(limit = 50) {
+  const agg = await Message.aggregate([
+    { $sort: { created_at: -1 } },
+    {
+      $group: {
+        _id:            '$wa_number',
+        last_message:   { $first: '$content' },
+        last_at:        { $first: '$created_at' },
+        last_direction: { $first: '$direction' },
+      },
+    },
+    { $sort: { last_at: -1 } },
+    { $limit: limit },
+    {
+      $lookup: {
+        from:         'leads',
+        localField:   '_id',
+        foreignField: 'wa_number',
+        as:           'lead',
+      },
+    },
+  ]);
+  return agg.map(r => ({
+    wa_number:      r._id,
+    last_message:   r.last_message,
+    last_at:        r.last_at instanceof Date ? r.last_at.toISOString() : (r.last_at || ''),
+    last_direction: r.last_direction,
+    name:           r.lead?.[0]?.name || null,
+  }));
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+async function getSetting(key) {
+  const doc = await Setting.findOne({ key }).lean();
+  return doc ? doc.value : null;
+}
+
+async function saveSetting(key, value) {
+  await Setting.findOneAndUpdate(
+    { key },
+    { $set: { value, updated_at: new Date() } },
+    { upsert: true }
   );
+}
 
-  CREATE TABLE IF NOT EXISTS availability (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    day_of_week   INTEGER,
-    start_time    TEXT,
-    end_time      TEXT,
-    slot_duration INTEGER DEFAULT 60,
-    max_per_slot  INTEGER DEFAULT 1
-  );
+async function getAllSettings() {
+  const docs = await Setting.find().lean();
+  const obj = {};
+  docs.forEach(d => { obj[d.key] = d.value; });
+  return obj;
+}
 
-  CREATE TABLE IF NOT EXISTS agents (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT NOT NULL,
-    wa_number  TEXT UNIQUE NOT NULL,
-    email      TEXT,
-    role       TEXT DEFAULT 'agent',
-    status     TEXT DEFAULT 'active',
-    created_at TEXT DEFAULT (datetime('now'))
-  );
-`);
+// ── Agents ────────────────────────────────────────────────────────────────────
+async function getAgents() {
+  const docs = await AgentModel.find({ status: 'active' }).lean();
+  return docs.map(d => ({
+    ...d,
+    id:         d._id.toString(),
+    created_at: d.created_at instanceof Date ? d.created_at.toISOString() : (d.created_at || ''),
+  }));
+}
 
-// --- Leads ---
-const insertLead = db.prepare(`
-  INSERT INTO leads (wa_number, name, flow_name, data, status, score, language)
-  VALUES (:wa_number, :name, :flow_name, :data, 'new', :score, :language)
-`);
+async function saveAgent(data) {
+  const doc = await AgentModel.create(data);
+  return normalizeDoc(doc);
+}
 
-const getAllLeads = db.prepare(`
-  SELECT * FROM leads ORDER BY score DESC, created_at DESC
-`);
+async function updateAgent(id, data) {
+  try { await AgentModel.findByIdAndUpdate(id, { $set: data }); } catch (_) {}
+}
 
-const updateLeadStatus = db.prepare(`
-  UPDATE leads SET status = :status WHERE id = :id
-`);
+async function deleteAgent(id) {
+  try { await AgentModel.findByIdAndUpdate(id, { $set: { status: 'inactive' } }); } catch (_) {}
+}
 
-const getStats = db.prepare(`
-  SELECT
-    COUNT(*)                                           AS total,
-    COUNT(CASE WHEN status = 'new'       THEN 1 END)  AS new,
-    COUNT(CASE WHEN status = 'contacted' THEN 1 END)  AS contacted,
-    COUNT(CASE WHEN status = 'converted' THEN 1 END)  AS converted,
-    COUNT(CASE WHEN status = 'lost'      THEN 1 END)  AS lost,
-    COUNT(CASE WHEN score >= 8           THEN 1 END)  AS hot,
-    ROUND(AVG(CASE WHEN score > 0 THEN score END), 1) AS avg_score
-  FROM leads
-`);
+// ── Listings ──────────────────────────────────────────────────────────────────
+async function getListings() {
+  const docs = await Listing.find({ status: 'available' }).lean();
+  return docs.map(d => ({
+    ...d,
+    id:         d._id.toString(),
+    created_at: d.created_at instanceof Date ? d.created_at.toISOString() : (d.created_at || ''),
+  }));
+}
 
-const getLeadsForFollowup = db.prepare(`
-  SELECT * FROM leads
-  WHERE status = 'new'
-    AND followup_sent = 0
-    AND created_at <= datetime('now', :offset)
-`);
+async function getAllListings() {
+  const docs = await Listing.find().sort({ created_at: -1 }).lean();
+  return docs.map(d => ({
+    ...d,
+    id:         d._id.toString(),
+    created_at: d.created_at instanceof Date ? d.created_at.toISOString() : (d.created_at || ''),
+  }));
+}
 
-const markFollowupSent = db.prepare(`
-  UPDATE leads SET followup_sent = 1 WHERE id = :id
-`);
+async function saveListing(data) {
+  const doc = await Listing.create(data);
+  return normalizeDoc(doc);
+}
 
-const getLeadsForBroadcast = db.prepare(`
-  SELECT * FROM leads WHERE 1=1
-`);
+async function updateListing(id, data) {
+  try { await Listing.findByIdAndUpdate(id, { $set: data }); } catch (_) {}
+}
 
-// --- Sessions ---
-const getSession = db.prepare(`
-  SELECT * FROM sessions WHERE wa_number = ?
-`);
+async function deleteListing(id) {
+  try { await Listing.findByIdAndDelete(id); } catch (_) {}
+}
 
-const upsertSession = db.prepare(`
-  INSERT INTO sessions (wa_number, current_step, collected_data, updated_at, language)
-  VALUES (:wa_number, :current_step, :collected_data, datetime('now'), :language)
-  ON CONFLICT(wa_number) DO UPDATE SET
-    current_step   = excluded.current_step,
-    collected_data = excluded.collected_data,
-    updated_at     = excluded.updated_at,
-    language       = excluded.language
-`);
+async function matchListings(criteria) {
+  const { type, min, max, area } = criteria;
+  const filter = { status: 'available', price: { $gte: min || 0, $lte: max || 99999999 } };
+  if (type) filter.type = type;
+  if (area && area !== 'open') filter.area = area;
+  const docs = await Listing.find(filter).limit(3).lean();
+  return docs.map(d => ({ ...d, id: d._id.toString() }));
+}
 
-const deleteSession = db.prepare(`
-  DELETE FROM sessions WHERE wa_number = ?
-`);
+// ── Appointments ──────────────────────────────────────────────────────────────
+async function getAppointments() {
+  const docs = await Appointment.find().sort({ slot_date: 1, slot_time: 1 }).lean();
+  return docs.map(d => ({
+    ...d,
+    id:         d._id.toString(),
+    lead_id:    d.lead_id?.toString(),
+    created_at: d.created_at instanceof Date ? d.created_at.toISOString() : (d.created_at || ''),
+  }));
+}
 
-const setHumanMode = db.prepare(`
-  UPDATE sessions SET human_mode = :human_mode, agent_number = :agent_number
-  WHERE wa_number = :wa_number
-`);
+async function saveAppointment(data) {
+  const doc = await Appointment.create(data);
+  return normalizeDoc(doc);
+}
 
-const getSessionByAgent = db.prepare(`
-  SELECT * FROM sessions WHERE agent_number = ? AND human_mode = 1
-`);
+async function updateAppointmentStatus(id, status) {
+  try { await Appointment.findByIdAndUpdate(id, { $set: { status } }); } catch (_) {}
+}
 
-// --- Pipeline ---
-const updateLeadPipelineStage = db.prepare(`
-  UPDATE leads SET pipeline_stage = :stage WHERE id = :id
-`);
+// ── Notes ─────────────────────────────────────────────────────────────────────
+async function getNotes(leadId) {
+  const docs = await LeadNote.find({ lead_id: leadId }).sort({ created_at: -1 }).lean();
+  return docs.map(d => ({
+    ...d,
+    id:         d._id.toString(),
+    lead_id:    d.lead_id?.toString(),
+    created_at: d.created_at instanceof Date ? d.created_at.toISOString() : (d.created_at || ''),
+  }));
+}
 
-// --- Messages ---
-const saveMessage = db.prepare(`
-  INSERT INTO messages (wa_number, direction, message_type, content, raw_data)
-  VALUES (:wa_number, :direction, :message_type, :content, :raw_data)
-`);
+async function saveNote(leadId, note) {
+  const doc = await LeadNote.create({ lead_id: leadId, note });
+  return normalizeDoc(doc);
+}
 
-const getMessages = db.prepare(`
-  SELECT * FROM messages WHERE wa_number = ? ORDER BY created_at ASC
-`);
+async function deleteNote(noteId) {
+  try { await LeadNote.findByIdAndDelete(noteId); } catch (_) {}
+}
 
-const getRecentConversations = db.prepare(`
-  SELECT m.wa_number,
-         m.content AS last_message,
-         m.created_at AS last_at,
-         m.direction AS last_direction,
-         l.name
-  FROM messages m
-  JOIN (SELECT wa_number, MAX(id) AS max_id FROM messages GROUP BY wa_number) latest
-    ON m.wa_number = latest.wa_number AND m.id = latest.max_id
-  LEFT JOIN leads l ON l.wa_number = m.wa_number
-  ORDER BY m.created_at DESC
-  LIMIT ?
-`);
+// ── Availability ──────────────────────────────────────────────────────────────
+async function getAvailability() {
+  return Availability.find().lean();
+}
 
-// --- Settings ---
-const getSetting = db.prepare(`SELECT value FROM settings WHERE key = ?`);
-const getAllSettings = db.prepare(`SELECT key, value FROM settings`);
-const upsertSetting = db.prepare(`
-  INSERT INTO settings (key, value, updated_at)
-  VALUES (:key, :value, datetime('now'))
-  ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-`);
-
-// --- Lead Notes ---
-const getNotes = db.prepare(`SELECT * FROM lead_notes WHERE lead_id = ? ORDER BY created_at DESC`);
-const insertNote = db.prepare(`INSERT INTO lead_notes (lead_id, note) VALUES (:lead_id, :note)`);
-const deleteNote = db.prepare(`DELETE FROM lead_notes WHERE id = ? AND lead_id = ?`);
-
-// --- Listings ---
-const getAllListings = db.prepare(`SELECT * FROM listings ORDER BY created_at DESC`);
-const insertListing = db.prepare(`
-  INSERT INTO listings (title, type, area, price, beds, baths, size_sqft, description, image_url, listing_url, status)
-  VALUES (:title, :type, :area, :price, :beds, :baths, :size_sqft, :description, :image_url, :listing_url, :status)
-`);
-const updateListing = db.prepare(`
-  UPDATE listings SET title=:title, type=:type, area=:area, price=:price,
-    beds=:beds, baths=:baths, size_sqft=:size_sqft, description=:description,
-    image_url=:image_url, listing_url=:listing_url, status=:status
-  WHERE id=:id
-`);
-const deleteListing = db.prepare(`DELETE FROM listings WHERE id = ?`);
-const matchListings = db.prepare(`
-  SELECT * FROM listings
-  WHERE status = 'available'
-    AND (type = :type OR :type = '')
-    AND price BETWEEN :min AND :max
-    AND (area = :area OR :area = 'open')
-  LIMIT 3
-`);
-
-// --- Appointments ---
-const getAllAppointments = db.prepare(`SELECT * FROM appointments ORDER BY slot_date, slot_time`);
-const insertAppointment = db.prepare(`
-  INSERT INTO appointments (lead_id, wa_number, slot_date, slot_time, notes)
-  VALUES (:lead_id, :wa_number, :slot_date, :slot_time, :notes)
-`);
-const updateAppointmentStatus = db.prepare(`UPDATE appointments SET status = :status WHERE id = :id`);
-
-// --- Agents ---
-const getAllAgents = db.prepare(`SELECT * FROM agents WHERE status = 'active' ORDER BY id`);
-const insertAgent = db.prepare(`
-  INSERT INTO agents (name, wa_number, email, role) VALUES (:name, :wa_number, :email, :role)
-`);
-const updateAgent = db.prepare(`
-  UPDATE agents SET name=:name, email=:email, role=:role, status=:status WHERE id=:id
-`);
-const deleteAgent = db.prepare(`UPDATE agents SET status = 'inactive' WHERE id = ?`);
-const updateLeadAgent = db.prepare(`
-  UPDATE leads SET assigned_agent = :agent_wa_number, assigned_at = datetime('now') WHERE id = :id
-`);
-
+// ── Exports ───────────────────────────────────────────────────────────────────
 module.exports = {
-  insertLead,
-  getAllLeads,
-  updateLeadStatus,
-  updateLeadPipelineStage,
-  getStats,
-  getLeadsForFollowup,
-  markFollowupSent,
-  getLeadsForBroadcast,
-  getSession,
-  upsertSession,
-  deleteSession,
-  setHumanMode,
-  getSessionByAgent,
+  mongoose,
+  // Leads
+  getLead, getLeadById, saveLead, insertLead,
+  updateLeadStatus, updateLeadPipelineStage, updateLeadScore, updateLeadAgent,
+  getAllLeads, getLeadStats, exportLeads, getLeadsForFollowup, markFollowupSent,
+  deleteLead, getLeadsByDateRange,
+  // Sessions
+  getSession, saveSession, clearSession, setHumanMode, getSessionByAgent, getSessionsHumanMode,
   // Messages
-  saveMessage,
-  getMessages,
-  getRecentConversations,
+  saveMessage, getMessages, getRecentConversations,
   // Settings
-  getSetting,
-  getAllSettings,
-  upsertSetting,
-  // Notes
-  getNotes,
-  insertNote,
-  deleteNote,
-  // Listings
-  getAllListings,
-  insertListing,
-  updateListing,
-  deleteListing,
-  matchListings,
-  // Appointments
-  getAllAppointments,
-  insertAppointment,
-  updateAppointmentStatus,
+  getSetting, saveSetting, getAllSettings,
   // Agents
-  getAllAgents,
-  insertAgent,
-  updateAgent,
-  deleteAgent,
-  updateLeadAgent,
-  db,
+  getAgents, saveAgent, updateAgent, deleteAgent,
+  // Listings
+  getListings, getAllListings, saveListing, updateListing, deleteListing, matchListings,
+  // Appointments
+  getAppointments, saveAppointment, updateAppointmentStatus,
+  // Notes
+  getNotes, saveNote, deleteNote,
+  // Availability
+  getAvailability,
 };

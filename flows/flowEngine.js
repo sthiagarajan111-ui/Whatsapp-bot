@@ -11,7 +11,13 @@
 const fs   = require('fs');
 const path = require('path');
 
-const { getSession, upsertSession, deleteSession, insertLead, saveMessage } = require('../db/database');
+const {
+  getSession,
+  saveSession:  dbSaveSession,
+  clearSession,
+  insertLead,
+  saveMessage:  dbSaveMessage,
+} = require('../db/database');
 const { sendText, sendButtons, sendList } = require('../whatsapp/api');
 const { detectLanguage }  = require('../utils/langDetect');
 const { isBusinessHours } = require('../utils/timeUtils');
@@ -59,36 +65,30 @@ function selectFlow(messageText) {
 
 function parseSession(row) {
   if (!row) return null;
-  let collected = {};
-  try { collected = JSON.parse(row.collected_data || '{}'); } catch (_) {}
+  const data = row.data || {};
   return {
-    currentStep:   row.current_step,
-    collectedData: collected,
+    currentStep:   row.step,
+    collectedData: data,
     language:      row.language || 'en',
-    flowName:      collected._flowName || null,
-    aiMode:        row.ai_mode === 1,
-    aiHistory:     (() => { try { return JSON.parse(row.ai_history || '[]'); } catch (_) { return []; } })(),
+    flowName:      data._flowName || null,
+    aiMode:        !!row.ai_mode,
+    aiHistory:     row.ai_history || [],
   };
 }
 
-function saveSession(waNumber, currentStep, collectedData, language, aiMode, aiHistory) {
-  upsertSession.run({
-    wa_number:      waNumber,
-    current_step:   currentStep,
-    collected_data: JSON.stringify(collectedData),
-    language:       language || 'en',
+async function persistSession(waNumber, currentStep, collectedData, language, aiMode, aiHistory) {
+  await dbSaveSession(waNumber, {
+    step:       currentStep,
+    data:       collectedData,
+    language:   language || 'en',
+    ai_mode:    !!aiMode,
+    ai_history: aiHistory || [],
   });
-  // Store ai_mode and ai_history via direct update if columns exist
-  try {
-    const db = require('../db/database').db;
-    db.prepare('UPDATE sessions SET ai_mode = ?, ai_history = ? WHERE wa_number = ?')
-      .run(aiMode ? 1 : 0, JSON.stringify(aiHistory || []), waNumber);
-  } catch (_) {}
 }
 
 // Save outbound message to messages table
-function saveOutbound(waNumber, type, content) {
-  try { saveMessage.run({ wa_number: waNumber, direction: 'outbound', message_type: type, content, raw_data: null }); } catch (_) {}
+async function saveOutbound(waNumber, type, content) {
+  try { await dbSaveMessage(waNumber, 'outbound', type, content, null); } catch (_) {}
 }
 
 // ── Main entry point ──────────────────────────────────────────────────────────
@@ -102,22 +102,20 @@ async function handleMessage(message) {
   // "menu" / "restart" → reset to START
   if (['menu', 'restart', 'start'].includes(rawText.toLowerCase())) {
     const flow = getDefaultFlow();
-    // Preserve the session's language on reset — 'menu'/'restart' text is never Arabic
-    const existingRow = getSession.get(from);
+    const existingRow = await getSession(from);
     const lang = existingRow?.language || 'en';
-    deleteSession.run(from);
+    await clearSession(from);
     await flow.STEPS.START.send(from, {}, API, lang);
-    saveOutbound(from, 'text', 'START prompt sent');
-    saveSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
+    await saveOutbound(from, 'text', 'START prompt sent');
+    await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
     return;
   }
 
   // Load or bootstrap session
-  const sessionRow = getSession.get(from);
+  const sessionRow = await getSession(from);
   let session = parseSession(sessionRow);
 
   if (!session) {
-    // New user — voice language takes priority over text detection
     const lang = (message._fromVoice && message._detectedLanguage)
       ? message._detectedLanguage
       : detectLanguage(rawText);
@@ -138,15 +136,14 @@ async function handleMessage(message) {
     }
 
     await flow.STEPS.START.send(from, {}, API, lang);
-    saveOutbound(from, 'text', 'START prompt sent');
-    saveSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
+    await saveOutbound(from, 'text', 'START prompt sent');
+    await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
     return;
   }
 
   const { currentStep, collectedData, language: savedLang, aiMode, aiHistory } = session;
 
-  // Re-detect language on every message — upgrades session to 'ar' if Arabic text is received.
-  // This handles Twilio Sandbox users who first send "join word" (English) then write in Arabic.
+  // Re-detect language on every message
   const detectedLang = rawText ? detectLanguage(rawText) : savedLang;
   const language = detectedLang === 'ar' ? 'ar' : savedLang;
 
@@ -157,15 +154,14 @@ async function handleMessage(message) {
       const aiReply = await getAIResponse(from, rawText, collectedData, updatedHistory, language);
       if (aiReply) {
         await sendText(from, aiReply);
-        saveOutbound(from, 'text', aiReply);
+        await saveOutbound(from, 'text', aiReply);
         updatedHistory.push({ role: 'assistant', content: aiReply });
-        saveSession(from, currentStep, collectedData, language, true, updatedHistory.slice(-20));
+        await persistSession(from, currentStep, collectedData, language, true, updatedHistory.slice(-20));
         return;
       }
     } catch (err) {
       console.error('[AI Mode] Error:', err.message);
     }
-    // Fallback if AI fails
     await sendText(from, language === 'ar'
       ? 'عذراً، حدث خطأ. يرجى المحاولة مرة أخرى أو كتابة "menu".'
       : 'Sorry, something went wrong. Please try again or type "menu".');
@@ -180,31 +176,28 @@ async function handleMessage(message) {
 
   if (!stepDef && currentStep !== 'AI_MODE') {
     // Corrupted session — reset
-    deleteSession.run(from);
+    await clearSession(from);
     const lang = language || 'en';
     await flow.STEPS.START.send(from, {}, API, lang);
-    saveSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
+    await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
     return;
   }
 
   // ── Validate input ──────────────────────────────────────────────────────────
   let inputValid = false;
-  let resolvedId = inputId; // may be overridden by numeric or text match
+  let resolvedId = inputId;
 
   if (stepDef.freeText) {
     inputValid = rawText.length > 0;
   } else if (stepDef.acceptIds) {
     if (inputId && stepDef.acceptIds.includes(inputId)) {
-      // Native button/list reply (Meta)
       inputValid = true;
     } else if (rawText) {
-      // Numeric input: '1', '2', '3' — Twilio numbered menus
       const num = parseInt(rawText, 10);
       if (!isNaN(num) && num >= 1 && num <= stepDef.acceptIds.length) {
         resolvedId = stepDef.acceptIds[num - 1];
         inputValid = true;
       } else {
-        // Text match: user types the id directly (e.g. 'buy', 'intent_buy')
         const matched = stepDef.acceptIds.find(
           (id) => id.toLowerCase() === rawText.toLowerCase()
         );
@@ -218,23 +211,20 @@ async function handleMessage(message) {
 
   if (!inputValid) {
     await stepDef.send(from, collectedData, API, language);
-    // Persist language upgrade if it changed (e.g. user switched from English to Arabic)
     if (language !== savedLang) {
-      saveSession(from, currentStep, collectedData, language, aiMode, aiHistory);
+      await persistSession(from, currentStep, collectedData, language, aiMode, aiHistory);
     }
     return;
   }
 
   // ── Collect data ────────────────────────────────────────────────────────────
   const collected = stepDef.collect({ id: resolvedId, text: rawText });
-  // Preserve internal fields
   const newData   = { ...collectedData, ...collected };
 
   const nextStep = stepDef.next;
 
   // ── Advance ─────────────────────────────────────────────────────────────────
   if (nextStep === 'COMPLETE' || flow.STEPS[nextStep]?.terminal) {
-    // Tag voice-sourced leads
     if (message._fromVoice) {
       newData.source             = 'voice';
       newData.originalTranscript = rawText;
@@ -250,20 +240,20 @@ async function handleMessage(message) {
 
     // Property listing matching
     try {
-      const listings = matchListings(newData);
+      const listings = await matchListings(newData);
       const msg = formatListingMessage(listings);
       if (msg) {
         await sendText(from, msg);
-        saveOutbound(from, 'text', msg);
+        await saveOutbound(from, 'text', msg);
       }
     } catch (_) {}
 
     // Enter AI mode if enabled
     if (process.env.AI_MODE_ENABLED !== 'false' && process.env.ANTHROPIC_API_KEY) {
       newData._score = score;
-      saveSession(from, 'AI_MODE', newData, language, true, []);
+      await persistSession(from, 'AI_MODE', newData, language, true, []);
     } else {
-      deleteSession.run(from);
+      await clearSession(from);
     }
     return;
   }
@@ -271,8 +261,8 @@ async function handleMessage(message) {
   // Send the next step prompt
   const nextDef = flow.STEPS[nextStep];
   await nextDef.send(from, newData, API, language);
-  saveOutbound(from, 'text', `Step: ${nextStep}`);
-  saveSession(from, nextStep, newData, language, false, []);
+  await saveOutbound(from, 'text', `Step: ${nextStep}`);
+  await persistSession(from, nextStep, newData, language, false, []);
 }
 
 module.exports = { handleMessage };

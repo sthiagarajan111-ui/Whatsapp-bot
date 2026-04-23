@@ -14,27 +14,23 @@ function startScheduler() {
 
 async function runFollowups() {
   const delayHours = parseInt(process.env.FOLLOWUP_DELAY_HOURS || '2', 10);
-  const offset     = `-${delayHours} hours`;
   const owner      = process.env.OWNER_WHATSAPP;
   const agency     = process.env.CLIENT_NAME || 'Our Agency';
 
   let leads;
   try {
-    leads = getLeadsForFollowup.all({ offset });
+    leads = await getLeadsForFollowup(delayHours);
   } catch (err) {
     console.error('[Scheduler] DB query failed:', err.message);
     return;
   }
 
   for (const lead of leads) {
-    let data = {};
-    try { data = JSON.parse(lead.data || '{}'); } catch (_) {}
-
+    const data = lead.data || {};
     const name = lead.name || 'there';
     const area = data.area || 'Dubai';
 
     try {
-      // Follow-up to customer
       await sendText(
         lead.wa_number,
         `Hi ${name}! 👋 This is ${agency} following up on your property enquiry. ` +
@@ -42,7 +38,6 @@ async function runFollowups() {
         `In the meantime, is there anything specific you would like to know about properties in ${area}?`
       );
 
-      // Reminder to owner
       if (owner) {
         await sendText(
           owner,
@@ -52,7 +47,7 @@ async function runFollowups() {
         );
       }
 
-      markFollowupSent.run({ id: lead.id });
+      await markFollowupSent(lead.id);
       console.log(`[Scheduler] Follow-up sent to ${lead.wa_number}`);
     } catch (err) {
       console.error(`[Scheduler] Failed to send follow-up to ${lead.wa_number}:`, err.message);
