@@ -1,0 +1,171 @@
+<style>
+.pipeline-bar { display: flex; align-items: center; gap: 12px; background: var(--white); padding: 14px 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; flex-wrap: wrap; }
+.pipeline-bar-stat { display: flex; flex-direction: column; align-items: center; padding: 0 16px; border-right: 1px solid var(--border); }
+.pipeline-bar-stat:last-child { border-right: none; }
+.pipeline-bar-stat .val { font-size: 18px; font-weight: 700; color: var(--text); }
+.pipeline-bar-stat .lbl { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+.kanban-scroll { overflow-x: auto; padding-bottom: 16px; }
+.kanban-board { display: flex; gap: 14px; min-width: max-content; align-items: flex-start; }
+.kanban-col { width: 240px; flex-shrink: 0; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); }
+.kanban-col-header { padding: 12px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); border-radius: 10px 10px 0 0; }
+.kanban-col-title { font-weight: 600; font-size: 13px; flex: 1; }
+.kanban-col-count { background: var(--white); border: 1px solid var(--border); border-radius: 20px; padding: 1px 8px; font-size: 11px; font-weight: 600; }
+.kanban-col-value { font-size: 11px; color: var(--text2); }
+.kanban-cards { padding: 10px; min-height: 80px; display: flex; flex-direction: column; gap: 8px; }
+.kanban-col.dragover { outline: 2px dashed var(--blue); outline-offset: -4px; background: var(--blue-l); }
+
+.kanban-card { background: var(--white); border-radius: 8px; border: 1px solid var(--border); padding: 11px 12px; cursor: grab; transition: box-shadow .15s; border-left: 4px solid transparent; }
+.kanban-card:hover { box-shadow: var(--sh2); }
+.kanban-card.dragging { opacity: .4; }
+.card-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.card-meta { font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+.card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.card-time { font-size: 10px; color: var(--text3); margin-top: 6px; }
+
+/* Stage colors */
+.stage-new_lead      { border-left-color: #3D7FFA; }
+.stage-ai_contacted  { border-left-color: #06C8E0; }
+.stage-hot           { border-left-color: #EF4444; }
+.stage-warm          { border-left-color: #F59E0B; }
+.stage-viewing_req   { border-left-color: #7C3AED; }
+.stage-viewing_conf  { border-left-color: #0D9488; }
+.stage-offer_made    { border-left-color: #F97316; }
+.stage-won           { border-left-color: #10B981; }
+.stage-lost          { border-left-color: #6B7280; }
+</style>
+
+<div style="padding: 20px 24px;">
+  <div class="page-header">
+    <div><div class="page-title">Opportunities Pipeline</div><div class="page-subtitle">Drag leads between stages to update their status</div></div>
+    <button class="btn btn-secondary" onclick="loadPipeline()">🔄 Refresh</button>
+  </div>
+
+  <div class="pipeline-bar" id="pipelineBar">
+    <div class="loading"><div class="spinner"></div> Loading...</div>
+  </div>
+
+  <div class="kanban-scroll">
+    <div class="kanban-board" id="kanbanBoard">
+      <div class="loading"><div class="spinner"></div> Loading pipeline...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(async function() {
+  const STAGES = [
+    { id: 'new_lead',     label: 'New Lead',           color: '#3D7FFA' },
+    { id: 'ai_contacted', label: 'AI Contacted',        color: '#06C8E0' },
+    { id: 'hot',          label: 'Qualified — HOT',     color: '#EF4444' },
+    { id: 'warm',         label: 'Qualified — WARM',    color: '#F59E0B' },
+    { id: 'viewing_req',  label: 'Viewing Requested',   color: '#7C3AED' },
+    { id: 'viewing_conf', label: 'Viewing Confirmed',   color: '#0D9488' },
+    { id: 'offer_made',   label: 'Offer Made',          color: '#F97316' },
+    { id: 'won',          label: 'Won',                 color: '#10B981' },
+    { id: 'lost',         label: 'Lost',                color: '#6B7280' },
+  ];
+
+  const BUDGET_MAP = {
+    'Under 500K': 250000, '500K – 1M': 750000, '1M – 2M': 1500000,
+    '2M – 5M': 3500000, 'Above 5M': 6000000
+  };
+
+  let pipeline = {};
+  let dragLeadId = null;
+
+  window.loadPipeline = async function() {
+    try {
+      pipeline = await shared.apiFetch('/api/pipeline');
+      renderBar();
+      renderBoard();
+    } catch(e) {
+      document.getElementById('kanbanBoard').innerHTML = '<div class="empty-state"><p>Failed to load pipeline</p></div>';
+    }
+  };
+
+  function renderBar() {
+    const allLeads = Object.values(pipeline).flat();
+    const total = allLeads.length;
+    const totalValue = allLeads.reduce((s, l) => {
+      let d = {}; try { d = JSON.parse(l.data||'{}'); } catch(_) {}
+      return s + (BUDGET_MAP[d.budget] || 0);
+    }, 0);
+    const won = (pipeline.won||[]).length;
+    const rate = total ? Math.round(won/total*100) : 0;
+
+    document.getElementById('pipelineBar').innerHTML = `
+      <div class="pipeline-bar-stat"><div class="val">${total}</div><div class="lbl">Total Leads</div></div>
+      <div class="pipeline-bar-stat"><div class="val">AED ${(totalValue/1e6).toFixed(1)}M</div><div class="lbl">Pipeline Value</div></div>
+      <div class="pipeline-bar-stat"><div class="val">${rate}%</div><div class="lbl">Win Rate</div></div>
+      <div class="pipeline-bar-stat"><div class="val">${(pipeline.hot||[]).length}</div><div class="lbl">HOT Leads</div></div>
+    `;
+  }
+
+  function renderBoard() {
+    const board = document.getElementById('kanbanBoard');
+    board.innerHTML = STAGES.map(stage => {
+      const leads = pipeline[stage.id] || [];
+      const totalVal = leads.reduce((s,l) => {
+        let d={}; try{d=JSON.parse(l.data||'{}')}catch(_){}
+        return s+(BUDGET_MAP[d.budget]||0);
+      }, 0);
+      const cards = leads.map(l => {
+        let d={}; try{d=JSON.parse(l.data||'{}')}catch(_){}
+        return `<div class="kanban-card stage-${stage.id}" draggable="true"
+          data-id="${l.id}" ondragstart="onDragStart(event,${l.id})">
+          <div class="card-name">${l.name||l.wa_number}</div>
+          <div class="card-meta">📍 ${d.area||'—'} · 💰 ${d.budget||'—'}</div>
+          <div class="card-tags">
+            ${shared.scoreBadge(l.score)}
+            ${l.language==='ar'?'<span class="badge badge-purple">AR</span>':''}
+            ${d.source==='voice'?'<span class="badge badge-cyan">🎙️</span>':''}
+          </div>
+          <div class="card-time">${shared.timeAgo(l.created_at)}</div>
+        </div>`;
+      }).join('');
+      return `<div class="kanban-col" data-stage="${stage.id}"
+        ondragover="onDragOver(event)" ondrop="onDrop(event,'${stage.id}')" ondragleave="onDragLeave(event)">
+        <div class="kanban-col-header" style="border-top: 3px solid ${stage.color}; border-radius: 10px 10px 0 0;">
+          <div class="kanban-col-title">${stage.label}</div>
+          <div class="kanban-col-count">${leads.length}</div>
+        </div>
+        <div class="kanban-col-value" style="padding:4px 14px;font-size:11px;color:var(--text3)">
+          ${totalVal > 0 ? 'AED ' + (totalVal/1e6).toFixed(1) + 'M' : ''}
+        </div>
+        <div class="kanban-cards">${cards||'<div style="color:var(--text3);font-size:12px;padding:8px">Drop here</div>'}</div>
+      </div>`;
+    }).join('');
+  }
+
+  window.onDragStart = function(e, leadId) {
+    dragLeadId = leadId;
+    e.currentTarget.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  window.onDragOver = function(e) {
+    e.preventDefault();
+    e.currentTarget.closest('.kanban-col')?.classList.add('dragover');
+  };
+  window.onDragLeave = function(e) {
+    e.currentTarget.closest('.kanban-col')?.classList.remove('dragover');
+  };
+  window.onDrop = async function(e, stage) {
+    e.preventDefault();
+    e.currentTarget.closest('.kanban-col')?.classList.remove('dragover');
+    if (!dragLeadId) return;
+    try {
+      await shared.apiFetch('/api/leads/'+dragLeadId+'/stage', {
+        method: 'POST', body: JSON.stringify({ stage })
+      });
+      shared.showToast('Stage updated');
+      await loadPipeline();
+    } catch(err) {
+      shared.showToast('Failed to update stage', 'error');
+    }
+    dragLeadId = null;
+  };
+
+  await loadPipeline();
+})();
+</script>

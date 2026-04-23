@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(rm:*)",
+      "Bash(taskkill:*)",
+      "Bash(notepad:*)",
+      "Bash(timeout 8 node:*)",
+      "Bash(curl:*)",
+      "Bash(ngrok config:*)",
+      "Bash(\"$NGROK_BIN\" config:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(\"/c/Users/40745/AppData/Roaming/npm/node_modules/ngrok/bin/ngrok.exe\" http:*)",
+      "Bash(powershell.exe:*)"
+    ]
+  }
+}

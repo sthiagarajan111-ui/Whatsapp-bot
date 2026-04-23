@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeadPulse CRM — Premium Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --bg:#F4F6FA;--sidebar:#1B2236;--sidebar2:#222D44;--sw:#A8B5CC;
+  --white:#FFFFFF;--border:#E4E9F2;--border2:#CDD5E5;
+  --text:#0F1A35;--text2:#5A6A8A;--text3:#9AAABB;
+  --blue:#3D7FFA;--blue2:#2563EB;--blue-l:#EEF4FF;
+  --cyan:#06C8E0;--cyan-l:#E0FAFE;
+  --green:#10B981;--green-l:#ECFDF5;
+  --red:#EF4444;--red-l:#FEF2F2;
+  --amber:#F59E0B;--amber-l:#FFFBEB;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --teal:#0D9488;--teal-l:#F0FDFA;
+  --pink:#EC4899;--pink-l:#FDF2F8;
+  --sh:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --sh2:0 4px 20px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
+
+/* ── Layout ─────────────────── */
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+
+/* ── Sidebar ─────────────────── */
+.sb{background:var(--sidebar);color:var(--sw);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sb-logo{padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.05)}
+.lw{display:flex;align-items:center;gap:10px}
+.lb{width:34px;height:34px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lb svg{width:17px;height:17px;fill:white}
+.ln{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:15px;color:#fff}
+.lt{font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.5px}
+.sb-client{padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.05)}
+.sc-lbl{font-size:10px;color:rgba(255,255,255,.25);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px}
+.sc-name{font-size:12px;font-weight:600;color:#fff;display:flex;align-items:center;gap:6px}
+.sc-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 2px rgba(16,185,129,.25);flex-shrink:0}
+.sb-sec{padding:16px 12px 0}
+.ss-lbl{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.2);padding:0 8px;margin-bottom:5px}
+.ni{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;transition:all .15s;color:var(--sw);font-size:12px;font-weight:400;text-decoration:none;margin-bottom:1px}
+.ni:hover{background:rgba(255,255,255,.06);color:#fff}
+.ni.active{background:rgba(61,127,250,.18);color:#fff;border-left:2px solid var(--blue)}
+.ni.active .ni-ico{color:var(--blue)}
+.ni-ico{width:15px;height:15px;flex-shrink:0;opacity:.65}
+.ni.active .ni-ico{opacity:1}
+.nb{margin-left:auto;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
+.nb-red{background:var(--red);color:#fff}
+.nb-blue{background:var(--blue);color:#fff}
+.nb-amber{background:var(--amber);color:#fff}
+.sb-foot{margin-top:auto;padding:14px 20px;border-top:1px solid rgba(255,255,255,.05)}
+.sf-row{display:flex;align-items:center;gap:7px;font-size:11px;color:rgba(255,255,255,.25)}
+.sf-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.4)}50%{box-shadow:0 0 0 4px rgba(16,185,129,0)}}
+
+/* ── Main ─────────────────────── */
+.main{min-width:0;overflow:hidden}
+
+/* ── Topbar ───────────────────── */
+.tb{background:var(--white);border-bottom:1px solid var(--border);padding:0 28px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
+.tb-l{display:flex;align-items:center;gap:12px}
+.tb-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;color:var(--text)}
+.dr-btn{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:5px 11px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .15s}
+.dr-btn:hover{border-color:var(--blue);color:var(--blue)}
+.tb-r{display:flex;align-items:center;gap:9px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;border:none;font-family:'Inter',sans-serif;text-decoration:none}
+.btn-o{background:var(--white);border:1px solid var(--border2);color:var(--text2)}
+.btn-o:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
+.btn-b{background:var(--blue);color:#fff}
+.btn-b:hover{background:var(--blue2);box-shadow:0 4px 14px rgba(61,127,250,.35)}
+.btn svg{width:12px;height:12px}
+.tok-pill{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
+.tok-ok{background:var(--green-l);color:var(--green);border:1px solid rgba(16,185,129,.2)}
+.tok-err{background:var(--red-l);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.tok-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.rt{font-size:11px;color:var(--text3)}
+
+/* ── Content ──────────────────── */
+.content{padding:22px 28px}
+
+/* ── KPI Scorecards ───────────── */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:16px 18px;box-shadow:var(--sh);transition:all .2s;position:relative;overflow:hidden}
+.kpi:hover{box-shadow:var(--sh2);transform:translateY(-1px)}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0}
+.kpi.k-blue::after{background:linear-gradient(90deg,var(--blue),var(--cyan))}
+.kpi.k-red::after{background:linear-gradient(90deg,var(--red),#ff8a94)}
+.kpi.k-green::after{background:linear-gradient(90deg,var(--green),#34d399)}
+.kpi.k-amber::after{background:linear-gradient(90deg,var(--amber),#fcd34d)}
+.kpi.k-purple::after{background:linear-gradient(90deg,var(--purple),#a78bfa)}
+.kpi-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.kpi-lbl{font-size:10px;font-weight:600;color:var(--text2);letter-spacing:.3px;text-transform:uppercase}
+.kpi-ib{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.ib-bl{background:var(--blue-l)}.ib-re{background:var(--red-l)}.ib-gr{background:var(--green-l)}.ib-am{background:var(--amber-l)}.ib-pu{background:var(--purple-l)}
+.kpi-ib svg{width:14px;height:14px}
+.kpi-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:26px;color:var(--text);letter-spacing:-1px;line-height:1;margin-bottom:5px}
+.kpi-sub{font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px}
+.kpi-badge{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;padding:2px 5px;border-radius:4px}
+.kb-up{background:var(--green-l);color:var(--green)}
+.kb-ne{background:var(--bg);color:var(--text3)}
+
+/* ── Grid helpers ─────────────── */
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.g2l{display:grid;grid-template-columns:1fr 360px;gap:16px;margin-bottom:16px}
+.g2r{display:grid;grid-template-columns:360px 1fr;gap:16px;margin-bottom:16px}
+.mb16{margin-bottom:16px}
+
+/* ── Widget ───────────────────── */
+.w{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh);overflow:hidden}
+.w-hd{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.w-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;color:var(--text);display:flex;align-items:center;gap:7px}
+.wtd{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.wd-bl{background:var(--blue)}.wd-cy{background:var(--cyan)}.wd-gr{background:var(--green)}.wd-am{background:var(--amber)}.wd-pu{background:var(--purple)}.wd-re{background:var(--red)}.wd-te{background:var(--teal)}.wd-pi{background:var(--pink)}
+.w-acts{display:flex;align-items:center;gap:7px}
+.w-sel{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;padding:4px 8px;outline:none;font-family:'Inter',sans-serif;cursor:pointer}
+.w-sel:focus{border-color:var(--blue)}
+.w-tag{padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.wt-bl{background:var(--blue-l);color:var(--blue)}.wt-gr{background:var(--green-l);color:var(--green)}.wt-am{background:var(--amber-l);color:var(--amber)}
+.w-btn{padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;background:var(--bg);border:1px solid var(--border);color:var(--text2);cursor:pointer;transition:all .12s}
+.w-btn:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ── Donut widget ─────────────── */
+.donut-wrap{padding:20px;display:flex;gap:16px;align-items:center}
+.donut-chart-cont{position:relative;width:130px;height:130px;flex-shrink:0}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.dc-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:24px;color:var(--text)}
+.dc-lbl{font-size:10px;color:var(--text3)}
+.donut-legend{flex:1}
+.dl-item{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)}
+.dl-item:last-child{border:none}
+.dl-left{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2)}
+.dl-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.dl-right{text-align:right}
+.dl-val{font-weight:700;color:var(--text);font-size:12px}
+.dl-pct{font-size:10px;color:var(--text3)}
+
+/* ── Conversion ring ──────────── */
+.conv-wrap{padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.conv-ring-cont{position:relative;width:140px;height:140px}
+.conv-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.conv-pct{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:26px;color:var(--text)}
+.conv-lbl{font-size:10px;color:var(--text3)}
+.conv-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.cs-item{background:var(--bg);border-radius:7px;padding:8px 10px;text-align:center}
+.cs-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;margin-bottom:2px}
+.cs-lbl{font-size:10px;color:var(--text3)}
+
+/* ── Funnel widget (GHL style) ── */
+.funnel-wrap{padding:16px 18px}
+.funnel-hd{display:grid;grid-template-columns:1fr 80px 80px;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.fh-lbl{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.fh-lbl.right{text-align:center}
+.funnel-row{display:grid;grid-template-columns:1fr 80px 80px;gap:8px;align-items:center;margin-bottom:6px;cursor:pointer;transition:background .12s;border-radius:6px;padding:4px 0}
+.funnel-row:hover{background:var(--bg)}
+.fr-bar-wrap{display:flex;align-items:center;gap:8px}
+.fr-label{font-size:11px;color:var(--text);font-weight:500;white-space:nowrap;min-width:80px}
+.fr-track{flex:1;height:22px;background:var(--bg);border-radius:4px;overflow:hidden;position:relative}
+.fr-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:10px;font-weight:600;color:white;transition:width .8s cubic-bezier(.4,0,.2,1);white-space:nowrap;min-width:30px}
+.fr-count{font-size:11px;font-weight:700;color:var(--text);text-align:center}
+.fr-pct{font-size:11px;color:var(--text2);text-align:center;font-weight:500}
+.funnel-colors{--f0:#3D7FFA;--f1:#06C8E0;--f2:#7C3AED;--f3:#A78BFA;--f4:#10B981;--f5:#34D399;--f6:#F59E0B;--f7:#10B981;--f8:#EF4444}
+
+/* ── Pipeline value bar chart ─── */
+.chart-wrap{padding:16px 18px;height:200px;position:relative}
+
+/* ── Lead source table ─────────── */
+.ls-table{width:100%;border-collapse:collapse}
+.ls-table th{padding:8px 14px;background:var(--bg);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap}
+.ls-table th.right{text-align:right}
+.ls-table td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)}
+.ls-table tr:hover td{background:var(--bg)}
+.ls-table tr:last-child td{border:none}
+.ls-source{display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text)}
+.ls-ico{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.li-wa{background:#DCFCE7;color:#16A34A}.li-vc{background:var(--cyan-l);color:var(--cyan)}.li-rf{background:var(--purple-l);color:var(--purple)}
+.ls-num{font-weight:700;color:var(--text);text-align:right}
+.ls-win{font-weight:700;text-align:right}
+.win-good{color:var(--green)}.win-med{color:var(--amber)}.win-low{color:var(--red)}
+.ls-bar{width:70px}
+.lsb-track{height:4px;background:var(--bg);border-radius:2px;overflow:hidden}
+.lsb-fill{height:100%;border-radius:2px;background:var(--blue);transition:width .8s ease}
+.ls-cmp{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:2px 5px;border-radius:4px}
+.cmp-up{background:var(--green-l);color:var(--green)}.cmp-ne{background:var(--bg);color:var(--text3)}
+
+/* ── Leads table ──────────────── */
+.lt-wrap{overflow-x:auto}
+.lt{width:100%;border-collapse:collapse}
+.lt th{padding:8px 13px;background:var(--bg);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap}
+.lt td{padding:10px 13px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)}
+.lt tr:hover td{background:#F8FAFF}
+.lt tr:last-child td{border:none}
+.lt-av{display:flex;align-items:center;gap:9px}
+.av{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:10px;flex-shrink:0}
+.av-0{background:var(--blue-l);color:var(--blue)}.av-1{background:var(--green-l);color:var(--green)}.av-2{background:var(--amber-l);color:var(--amber)}.av-3{background:var(--purple-l);color:var(--purple)}.av-4{background:var(--cyan-l);color:var(--cyan)}
+.lt-nm{font-weight:600;color:var(--text);font-size:12px}
+.lt-nb{font-size:10px;color:var(--text3)}
+
+/* ── Score tags ───────────────── */
+.stag{display:inline-flex;align-items:center;gap:3px;padding:3px 7px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid transparent}
+.s-hot{background:rgba(239,68,68,.07);color:var(--red);border-color:rgba(239,68,68,.15)}
+.s-warm{background:rgba(245,158,11,.07);color:var(--amber);border-color:rgba(245,158,11,.15)}
+.s-cold{background:rgba(61,127,250,.07);color:var(--blue);border-color:rgba(61,127,250,.15)}
+.stag-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+
+/* ── Status pills ─────────────── */
+.spl{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+.spl-new{background:var(--blue-l);color:var(--blue)}
+.spl-con{background:var(--amber-l);color:var(--amber)}
+.spl-cvt{background:var(--green-l);color:var(--green)}
+.spl-lst{background:var(--bg);color:var(--text3)}
+.spl-lv{background:rgba(239,68,68,.1);color:var(--red);animation:lp 1.5s infinite}
+@keyframes lp{0%,100%{opacity:1}50%{opacity:.6}}
+.spl-dot{width:4px;height:4px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+/* ── Filter bar ───────────────── */
+.fb{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);overflow-x:auto;flex-wrap:nowrap}
+.ft{padding:4px 11px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;color:var(--text2);border:1px solid transparent;white-space:nowrap}
+.ft:hover{background:var(--bg);color:var(--text)}
+.ft.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.ft.hot.active{background:var(--red);border-color:var(--red)}
+.ft.warm.active{background:var(--amber);border-color:var(--amber)}
+.srch{position:relative;flex:1;max-width:200px;min-width:140px}
+.si{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:4px 9px 4px 26px;font-size:11px;color:var(--text);outline:none;font-family:'Inter',sans-serif}
+.si:focus{border-color:var(--blue);background:#fff}
+.si-ico{position:absolute;left:8px;top:50%;transform:translateY(-50%);width:11px;height:11px;color:var(--text3)}
+
+/* ── Tasks ────────────────────── */
+.task-list{padding:0}
+.ti{display:flex;align-items:flex-start;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);transition:background .12s;cursor:pointer}
+.ti:hover{background:var(--bg)}
+.ti:last-child{border:none}
+.ti-cb{width:15px;height:15px;border:1.5px solid var(--border2);border-radius:4px;flex-shrink:0;margin-top:1px;cursor:pointer;transition:all .15s}
+.ti-cb:hover{border-color:var(--blue)}
+.ti-cb.done{background:var(--green);border-color:var(--green)}
+.ti-body{flex:1;min-width:0}
+.ti-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:2px;display:flex;align-items:center;gap:6px}
+.ti-sub{font-size:10px;color:var(--text3)}
+.ti-time{font-size:10px;flex-shrink:0}
+.ti-ov{background:rgba(239,68,68,.1);color:var(--red);padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700}
+.ti-due{background:var(--amber-l);color:var(--amber);padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700}
+
+/* ── Manual actions ───────────── */
+.ma-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px 18px}
+.ma-item{background:var(--bg);border-radius:8px;padding:12px;text-align:center}
+.ma-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:22px;color:var(--text);margin-bottom:2px}
+.ma-lbl{font-size:10px;color:var(--text3)}
+.ma-link{padding:10px 18px;border-top:1px solid var(--border);display:block;text-align:right;font-size:11px;color:var(--blue);text-decoration:none;font-weight:500}
+.ma-link:hover{color:var(--blue2)}
+
+/* ── Broadcast ────────────────── */
+.bc-form{padding:14px 18px}
+.bc-lbl{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;display:block}
+.bc-ta{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 11px;font-size:12px;color:var(--text);font-family:'Inter',sans-serif;resize:none;height:66px;outline:none;transition:border-color .15s;line-height:1.5}
+.bc-ta:focus{border-color:var(--blue);background:#fff}
+.bc-row{display:flex;gap:7px;margin-top:9px;align-items:center}
+.bc-sel{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;padding:5px 8px;outline:none;font-family:'Inter',sans-serif;cursor:pointer}
+.bc-sel:focus{border-color:var(--blue)}
+.bc-prev{font-size:11px;color:var(--text3);margin-top:6px;text-align:right}
+.bc-prev span{color:var(--blue);font-weight:600}
+
+/* ── Inline select ───────────── */
+.isel{background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:11px;padding:3px 7px;outline:none;font-family:'Inter',sans-serif;cursor:pointer}
+.isel:focus{border-color:var(--blue)}
+
+/* ── Empty ────────────────────── */
+.empty{padding:32px;text-align:center}
+.empty-ico{font-size:24px;opacity:.2;margin-bottom:8px}
+.empty-t{font-weight:600;color:var(--text2);font-size:12px;margin-bottom:3px}
+.empty-s{font-size:11px;color:var(--text3);line-height:1.6}
+
+/* ── Scrollbar ────────────────── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* ── Animations ───────────────── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.kpi{animation:fadeUp .35s ease both}
+.kpi:nth-child(1){animation-delay:.04s}.kpi:nth-child(2){animation-delay:.08s}.kpi:nth-child(3){animation-delay:.12s}.kpi:nth-child(4){animation-delay:.16s}.kpi:nth-child(5){animation-delay:.2s}
+.w{animation:fadeUp .35s ease both;animation-delay:.22s}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ═══ SIDEBAR ══════════════════════════════════════════ -->
+<aside class="sb">
+  <div class="sb-logo">
+    <div class="lw">
+      <div class="lb"><svg viewBox="0 0 18 18"><path d="M9 1.5C5 1.5 1.5 5 1.5 9S5 16.5 9 16.5 16.5 13 16.5 9 13 1.5 9 1.5zm0 2.5a5 5 0 110 10A5 5 0 019 4zm0 1.5v3.5l2.5 1.5-.75 1.25L8 10V5.5H9z"/></svg></div>
+      <div><div class="ln">LeadPulse</div><div class="lt">AI WhatsApp CRM</div></div>
+    </div>
+  </div>
+  <div class="sb-client">
+    <div class="sc-lbl">Active Client</div>
+    <div class="sc-name"><span class="sc-dot"></span><span id="sbClientName">My Real Estate Agency</span></div>
+  </div>
+  <div class="sb-sec">
+    <div class="ss-lbl">Main Menu</div>
+    <a class="ni active nav-link" href="#dashboard" data-page="dashboard"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>Dashboard</a>
+    <a class="ni nav-link" href="#conversations" data-page="conversations"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v1L8 10 2 5V4zm0 3l6 4 6-4v5H2V7z"/></svg>Conversations<span class="nb nb-blue" id="nbNew">0</span></a>
+    <a class="ni nav-link" href="#opportunities" data-page="opportunities"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4a1 1 0 011-1zm5 2L4 9h2v2h4V9h2L8 5z"/></svg>Pipeline</a>
+    <a class="ni nav-link" href="#analytics" data-page="analytics"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><path d="M9 11.5h5M11.5 9v5"/></svg>Analytics</a>
+    <a class="ni nav-link" href="#settings" data-page="settings"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 5a3 3 0 100 6A3 3 0 008 5zm-6 3a6 6 0 1112 0A6 6 0 012 8z"/></svg>Settings</a>
+  </div>
+  <div class="sb-sec">
+    <div class="ss-lbl">Reports</div>
+    <a class="ni" href="/api/leads/export?status=all"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v8M5 6l3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>Export Leads</a>
+    <a class="ni" href="#broadcast-w"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M13 8a5 5 0 01-5 5v-2a3 3 0 000-6V3a5 5 0 015 5z"/><circle cx="4" cy="8" r="2"/></svg>Broadcast<span class="nb nb-amber">New</span></a>
+    <a class="ni" href="/health"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1z"/><path d="M5 8h2l1-2 2 4 1-2h1" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>System Health</a>
+  </div>
+  <div class="sb-foot">
+    <div class="sf-row"><span class="sf-dot"></span><span id="liveStatus">Bot online · auto-sync 30s</span></div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ══════════════════════════════════════════════ -->
+<main class="main">
+
+  <!-- Topbar -->
+  <div class="tb">
+    <div class="tb-l">
+      <div class="tb-title" id="tbTitle">Dashboard</div>
+      <div class="dr-btn">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v2M11 1v2M2 5h12M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/></svg>
+        Last 30 Days
+        <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+    </div>
+    <div class="tb-r">
+      <div class="rt" id="lastRefreshed">—</div>
+      <div class="tok-pill tok-err" id="tokPill"><span class="tok-dot"></span><span id="tokTxt">Token Pending</span></div>
+      <a class="btn btn-o" href="/api/leads/export?status=all"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v8M5 6l3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>Export</a>
+      <button class="btn btn-b" onclick="loadAll()"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 8a6 6 0 0110.5-4M14 8a6 6 0 01-10.5 4M2 4v3h3M14 12v-3h-3"/></svg>Edit Dashboard</button>
+    </div>
+  </div>
+
+  <div id="page-content" style="display:none"></div>
+  <div id="main-dashboard">
+  <div class="content">
+
+    <!-- ── KPI SCORECARDS ── -->
+    <div class="kpi-row">
+      <div class="kpi k-blue">
+        <div class="kpi-hd"><div class="kpi-lbl">Total Opportunities</div><div class="kpi-ib ib-bl"><svg viewBox="0 0 16 16" fill="var(--blue)"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-5 6a5 5 0 0110 0H3z"/></svg></div></div>
+        <div class="kpi-val" id="kTotal">0</div>
+        <div class="kpi-sub"><span class="kpi-badge kb-up" id="kTotalBadge">All time</span></div>
+      </div>
+      <div class="kpi k-red">
+        <div class="kpi-hd"><div class="kpi-lbl">HOT Leads</div><div class="kpi-ib ib-re"><svg viewBox="0 0 16 16" fill="var(--red)"><path d="M8 1c0 4-3 5-3 8a3 3 0 006 0c0-3-3-4-3-8z"/></svg></div></div>
+        <div class="kpi-val" id="kHot" style="color:var(--red)">0</div>
+        <div class="kpi-sub"><span class="kpi-badge kb-ne" id="kHotPct">Score 8–10</span></div>
+      </div>
+      <div class="kpi k-green">
+        <div class="kpi-hd"><div class="kpi-lbl">Won / Converted</div><div class="kpi-ib ib-gr"><svg viewBox="0 0 16 16" fill="var(--green)"><path d="M2 8l4 4 8-8" stroke="var(--green)" stroke-width="2" fill="none"/></svg></div></div>
+        <div class="kpi-val" id="kConverted" style="color:var(--green)">0</div>
+        <div class="kpi-sub"><span class="kpi-badge kb-ne" id="kConvRate">0% win rate</span></div>
+      </div>
+      <div class="kpi k-amber">
+        <div class="kpi-hd"><div class="kpi-lbl">Pipeline Value</div><div class="kpi-ib ib-am"><svg viewBox="0 0 16 16" fill="var(--amber)"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3v2h2v1H7v-1H5V5h2V4h1zm0 6v2H7v-2h1z"/></svg></div></div>
+        <div class="kpi-val" id="kPipeVal" style="color:var(--amber);font-size:20px">AED 0</div>
+        <div class="kpi-sub"><span class="kpi-badge kb-ne">Estimated</span></div>
+      </div>
+      <div class="kpi k-purple">
+        <div class="kpi-hd"><div class="kpi-lbl">Avg Lead Score</div><div class="kpi-ib ib-pu"><svg viewBox="0 0 16 16" fill="var(--purple)"><path d="M8 1l2 4 5 .7-3.5 3.4.8 4.9L8 12l-4.3 2 .8-4.9L1 5.7 6 5z"/></svg></div></div>
+        <div class="kpi-val" id="kAvgScore" style="color:var(--purple)">—</div>
+        <div class="kpi-sub"><span class="kpi-badge kb-ne">Out of 10</span></div>
+      </div>
+    </div>
+
+    <!-- ── ROW 2: Opportunity Status + Pipeline Revenue Bar + Conversion Rate ── -->
+    <div class="g3 mb16">
+      <!-- Opportunity Status Donut (GHL widget 1) -->
+      <div class="w">
+        <div class="w-hd">
+          <div class="w-title"><span class="wtd wd-bl"></span>Opportunity Status</div>
+          <select class="w-sel"><option>All Pipelines</option></select>
+        </div>
+        <div class="donut-wrap">
+          <div class="donut-chart-cont">
+            <canvas id="oppDonut" role="img" aria-label="Opportunity status donut chart">No data</canvas>
+            <div class="donut-center"><div class="dc-val" id="oppTotal">0</div><div class="dc-lbl">Total</div></div>
+          </div>
+          <div class="donut-legend" id="oppLegend">
+            <div class="dl-item"><div class="dl-left"><span class="dl-dot" style="background:var(--blue)"></span>Open / New</div><div class="dl-right"><div class="dl-val" id="dl-new">0</div><div class="dl-pct" id="dlp-new">0%</div></div></div>
+            <div class="dl-item"><div class="dl-left"><span class="dl-dot" style="background:var(--amber)"></span>In Progress</div><div class="dl-right"><div class="dl-val" id="dl-con">0</div><div class="dl-pct" id="dlp-con">0%</div></div></div>
+            <div class="dl-item"><div class="dl-left"><span class="dl-dot" style="background:var(--green)"></span>Won</div><div class="dl-right"><div class="dl-val" id="dl-won">0</div><div class="dl-pct" id="dlp-won">0%</div></div></div>
+            <div class="dl-item"><div class="dl-left"><span class="dl-dot" style="background:#E4E9F2"></span>Abandoned</div><div class="dl-right"><div class="dl-val" id="dl-lost">0</div><div class="dl-pct" id="dlp-lost">0%</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Opportunity Value by Stage (GHL widget 2 - horizontal bar) -->
+      <div class="w">
+        <div class="w-hd">
+          <div class="w-title"><span class="wtd wd-cy"></span>Opportunity Value</div>
+          <select class="w-sel"><option>All Pipelines</option></select>
+        </div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="valBar" role="img" aria-label="Opportunity value by stage bar chart">No data</canvas>
+        </div>
+      </div>
+
+      <!-- Conversion Rate Ring (GHL widget 3) -->
+      <div class="w">
+        <div class="w-hd">
+          <div class="w-title"><span class="wtd wd-gr"></span>Conversion Rate</div>
+          <select class="w-sel"><option>All Pipelines</option></select>
+        </div>
+        <div class="conv-wrap">
+          <div class="conv-ring-cont">
+            <canvas id="convRing" role="img" aria-label="Conversion rate ring gauge">No data</canvas>
+            <div class="conv-center">
+              <div class="conv-pct" id="convPct">0%</div>
+              <div class="conv-lbl">Win rate</div>
+            </div>
+          </div>
+          <div class="conv-stats">
+            <div class="cs-item"><div class="cs-val" id="cs-total" style="color:var(--blue)">0</div><div class="cs-lbl">Total leads</div></div>
+            <div class="cs-item"><div class="cs-val" id="cs-won" style="color:var(--green)">0</div><div class="cs-lbl">Won</div></div>
+            <div class="cs-item"><div class="cs-val" id="cs-rev" style="color:var(--amber);font-size:13px">AED 0</div><div class="cs-lbl">Won revenue</div></div>
+            <div class="cs-item"><div class="cs-val" id="cs-hot" style="color:var(--red)">0</div><div class="cs-lbl">HOT score</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ROW 3: Funnel (GHL style) + Stage Distribution ── -->
+    <div class="g2 mb16">
+      <!-- Funnel - GHL style with cumulative % and next step conversion % -->
+      <div class="w">
+        <div class="w-hd">
+          <div class="w-title"><span class="wtd wd-am"></span>Funnel</div>
+          <div class="w-acts"><span class="w-tag wt-am">Lead Pipeline</span></div>
+        </div>
+        <div class="funnel-wrap funnel-colors">
+          <div class="funnel-hd">
+            <div class="fh-lbl">Stage</div>
+            <div class="fh-lbl right">Cumulative</div>
+            <div class="fh-lbl right">Next Step</div>
+          </div>
+          <div id="funnelRows"></div>
+        </div>
+      </div>
+
+      <!-- Stage Distribution donut + leads by area bar -->
+      <div class="w">
+        <div class="w-hd">
+          <div class="w-title"><span class="wtd wd-pu"></span>Stage Distribution</div>
+          <select class="w-sel"><option>Lead Pipeline</option></select>
+        </div>
+        <div style="padding:16px 18px">
+          <div style="position:relative;height:180px;display:flex;justify-content:center">
+            <canvas id="stageDist" role="img" aria-label="Stage distribution donut chart">No data</canvas>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+              <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:22px;color:var(--text)" id="sdTotal">0</div>
+              <div style="font-size:10px;color:var(--text3)">Leads</div>
+            </div>
+          </div>
+          <div id="sdLegend" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ROW 4: Leads over time + Lead Source Report (GHL style) ── -->
+    <div class="g2 mb16">
+      <!-- Line chart -->
+      <div class="w">
+        <div class="w-hd">
+          <div class="w-title"><span class="wtd wd-bl"></span>Leads Over Time</div>
+          <span class="w-tag wt-bl">Last 7 days</span>
+        </div>
+        <div class="chart-wrap" style="height:180px">
+          <canvas id="lineChart" role="img" aria-label="Leads captured over last 7 days line chart">No data</canvas>
+        </div>
+      </div>
+
+      <!-- Lead Source Report (GHL style table) -->
+      <div class="w">
+        <div class="w-hd">
+          <div class="w-title"><span class="wtd wd-gr"></span>Lead Source Report</div>
+          <select class="w-sel"><option>All Pipelines</option></select>
+        </div>
+        <div style="padding:12px 18px;display:flex;align-items:baseline;gap:8px;border-bottom:1px solid var(--border)">
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:26px;color:var(--text)" id="lsTotal">0</div>
+          <div class="ls-cmp cmp-up" id="lsCmp">+100% vs prev</div>
+        </div>
+        <table class="ls-table">
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th class="right">Total Leads</th>
+              <th class="right">Open</th>
+              <th class="right">Won</th>
+              <th class="right">Lost</th>
+              <th class="right">Win%</th>
+            </tr>
+          </thead>
+          <tbody id="lsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── ROW 5: All Leads table + Tasks + Manual Actions ── -->
+    <div class="g2l mb16">
+      <!-- Full leads table -->
+      <div class="w">
+        <div class="w-hd">
+          <div class="w-title"><span class="wtd wd-bl"></span>All Contacts<span style="background:var(--blue-l);color:var(--blue);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px" id="tableCount">0</span></div>
+          <div class="w-acts">
+            <a class="w-btn" href="/api/leads/export?status=new">Export New</a>
+            <a class="w-btn" href="/api/leads/export?status=all">Export All</a>
+          </div>
+        </div>
+        <div class="fb">
+          <div class="ft active" onclick="setFilter('all',this)">All</div>
+          <div class="ft hot" onclick="setFilter('hot',this)">🔥 HOT</div>
+          <div class="ft warm" onclick="setFilter('warm',this)">◐ WARM</div>
+          <div class="ft" onclick="setFilter('new',this)">New</div>
+          <div class="ft" onclick="setFilter('contacted',this)">Contacted</div>
+          <div class="ft" onclick="setFilter('converted',this)">Converted</div>
+          <div class="srch"><svg class="si-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M6 2a4 4 0 100 8A4 4 0 006 2zm0 1.5a2.5 2.5 0 110 5 2.5 2.5 0 010-5zm4.22 5.28l3 3-1.06 1.06-3-3 1.06-1.06z"/></svg><input type="text" class="si" placeholder="Search..." id="searchInput" oninput="renderTable()"></div>
+        </div>
+        <div class="lt-wrap">
+          <table class="lt">
+            <thead><tr><th>Contact</th><th>Interest</th><th>Budget</th><th>Area</th><th>Score</th><th>Lang</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+            <tbody id="leadsBody"></tbody>
+          </table>
+          <div id="emptyLeads" class="empty" style="display:none"><div class="empty-ico">👤</div><div class="empty-t">No leads yet</div><div class="empty-s">Leads appear here once your WhatsApp bot is connected and customers start messaging.</div></div>
+        </div>
+      </div>
+
+      <!-- Right column: Tasks + Manual Actions + Broadcast -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+
+        <!-- Tasks (GHL style) -->
+        <div class="w">
+          <div class="w-hd">
+            <div class="w-title"><span class="wtd wd-am"></span>Tasks</div>
+            <div class="w-acts">
+              <select class="w-sel"><option>Pending</option></select>
+              <select class="w-sel"><option>Due Date</option></select>
+            </div>
+          </div>
+          <div class="task-list" id="taskList">
+            <div class="empty" style="padding:20px"><div class="empty-ico">✓</div><div class="empty-t">All caught up</div><div class="empty-s">No pending follow-ups</div></div>
+          </div>
+          <a class="ma-link" href="#">Go to Manual Actions →</a>
+        </div>
+
+        <!-- Manual Actions (GHL widget) -->
+        <div class="w">
+          <div class="w-hd">
+            <div class="w-title"><span class="wtd wd-re"></span>Manual Actions</div>
+            <div class="w-acts"><select class="w-sel"><option>All</option></select></div>
+          </div>
+          <div class="ma-grid">
+            <div class="ma-item"><div class="ma-val" id="maPhone" style="color:var(--blue)">0</div><div class="ma-lbl">WhatsApp</div></div>
+            <div class="ma-item"><div class="ma-val" id="maSMS" style="color:var(--green)">0</div><div class="ma-lbl">Followed Up</div></div>
+            <div class="ma-item"><div class="ma-val" id="maTotal" style="color:var(--red)">0</div><div class="ma-lbl">Overdue</div></div>
+          </div>
+          <a class="ma-link" href="#">Go to Manual Actions →</a>
+        </div>
+
+        <!-- Broadcast -->
+        <div class="w" id="broadcast-w">
+          <div class="w-hd">
+            <div class="w-title"><span class="wtd wd-bl"></span>Send Broadcast</div>
+          </div>
+          <div class="bc-form">
+            <label class="bc-lbl">Message</label>
+            <textarea class="bc-ta" id="broadcastMsg" placeholder="Hi {name}, we have a new listing matching your interest in {area}..."></textarea>
+            <div class="bc-row">
+              <select class="bc-sel" id="broadcastFilter">
+                <option value="all">All leads</option>
+                <option value="new">New leads</option>
+                <option value="hot">HOT leads</option>
+                <option value="contacted">Contacted</option>
+              </select>
+              <button class="btn btn-o" style="font-size:11px;padding:5px 10px" onclick="previewBroadcast()">Preview</button>
+              <button class="btn btn-b" style="font-size:11px;padding:5px 10px" onclick="sendBroadcast()">Send</button>
+            </div>
+            <div class="bc-prev" id="broadcastPreview"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /content -->
+  </div><!-- #main-dashboard -->
+</main>
+</div>
+
+<script>
+// ── DATA ───────────────────────────────────────────────────
+let allLeads = [];
+let currentFilter = 'all';
+let oppChart, valChart, convChart, lineChart, stageChart;
+
+const budgetMap = {under_500k:'< 500K','500k_1m':'500K–1M','1m_2m':'1M–2M','2m_5m':'2M–5M',above_5m:'5M+'};
+const budgetVal = {under_500k:250000,'500k_1m':750000,'1m_2m':1500000,'2m_5m':3500000,above_5m:6000000};
+const areaMap = {downtown:'Downtown',marina:'Marina',jvc:'JVC/JVT',business_bay:'Business Bay',palm:'Palm',mirdif:'Mirdif',open:'Flexible'};
+const funnelStages = ['New Lead','AI Contacted','Qualified Hot','Qualified Warm','Viewing Requested','Viewing Confirmed','Offer Made','Won','Lost'];
+const funnelColors = ['#3D7FFA','#06C8E0','#7C3AED','#A78BFA','#10B981','#34D399','#F59E0B','#10B981','#EF4444'];
+
+function parseD(l){try{return typeof l.data==='string'?JSON.parse(l.data):(l.data||{})}catch(e){return{}}}
+function initials(n){if(!n)return'?';const p=n.trim().split(' ');return(p[0][0]+(p[1]?p[1][0]:'')).toUpperCase()}
+function avColor(n){const c=['av-0','av-1','av-2','av-3','av-4'];return c[((n||'?').charCodeAt(0))%c.length]}
+function fmtDate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-AE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+function timeAgo(d){if(!d)return'';const s=Math.floor((Date.now()-new Date(d))/1000);if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
+function pct(n,t){return t>0?Math.round((n/t)*100):0}
+
+// ── CHARTS INIT ────────────────────────────────────────────
+function initCharts(){
+  // Opportunity status donut
+  oppChart = new Chart(document.getElementById('oppDonut').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:['New','In Progress','Won','Lost'],datasets:[{data:[0,0,0,0],backgroundColor:['#3D7FFA','#F59E0B','#10B981','#E4E9F2'],borderWidth:0,hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{display:false}}}
+  });
+
+  // Value bar chart (horizontal)
+  valChart = new Chart(document.getElementById('valBar').getContext('2d'),{
+    type:'bar',
+    data:{labels:['Won','Contacted','New','Lost'],datasets:[{label:'Value (AED)',data:[0,0,0,0],backgroundColor:['#10B981','#F59E0B','#3D7FFA','#E4E9F2'],borderRadius:4,borderSkipped:false}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' AED '+Math.round(c.raw).toLocaleString()}}},scales:{x:{grid:{color:'#F4F6FA'},ticks:{font:{size:10},color:'#9AAABB',callback:v=>v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':v}},y:{grid:{display:false},ticks:{font:{size:11},color:'#5A6A8A'}}}}
+  });
+
+  // Conversion rate ring
+  convChart = new Chart(document.getElementById('convRing').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:['Won','Remaining'],datasets:[{data:[0,100],backgroundColor:['#10B981','#F4F6FA'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'80%',plugins:{legend:{display:false},tooltip:{enabled:false}}}
+  });
+
+  // Line chart
+  lineChart = new Chart(document.getElementById('lineChart').getContext('2d'),{
+    type:'line',
+    data:{labels:getLast7Days(),datasets:[{label:'Leads',data:[0,0,0,0,0,0,0],borderColor:'#3D7FFA',backgroundColor:'rgba(61,127,250,0.07)',borderWidth:2,fill:true,tension:0.4,pointBackgroundColor:'#3D7FFA',pointRadius:4,pointHoverRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#9AAABB'}},y:{grid:{color:'#F4F6FA'},ticks:{font:{size:10},color:'#9AAABB',stepSize:1},beginAtZero:true}}}
+  });
+
+  // Stage distribution donut
+  stageChart = new Chart(document.getElementById('stageDist').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:['New','Contacted','Converted','Lost'],datasets:[{data:[0,0,0,0],backgroundColor:['#3D7FFA','#F59E0B','#10B981','#E4E9F2'],borderWidth:0,hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false}}}
+  });
+}
+
+function getLast7Days(){const d=[];for(let i=6;i>=0;i--){const t=new Date();t.setDate(t.getDate()-i);d.push(t.toLocaleDateString('en-AE',{weekday:'short',day:'numeric'}))}return d}
+function getLast7Counts(leads){const c=new Array(7).fill(0);const now=new Date();leads.forEach(l=>{const diff=Math.floor((now-new Date(l.created_at))/86400000);if(diff>=0&&diff<7)c[6-diff]++});return c}
+
+// ── UPDATE ALL ─────────────────────────────────────────────
+function updateAll(stats,leads){
+  const total=stats.totalLeads||0;
+  const conv=stats.convertedLeads||0;
+  const newL=stats.newLeads||0;
+  const contacted=stats.contactedLeads||0;
+  const lost=leads.filter(l=>l.status==='lost').length;
+  const hot=leads.filter(l=>(l.score||0)>=8).length;
+  const warm=leads.filter(l=>(l.score||0)>=5&&(l.score||0)<8).length;
+  const avgScore=total>0?(leads.reduce((a,l)=>a+(l.score||0),0)/total).toFixed(1):'—';
+  const convRate=pct(conv,total);
+
+  // KPIs
+  let pipeVal=0;leads.filter(l=>l.status!=='lost').forEach(l=>{const d=parseD(l);pipeVal+=budgetVal[d.budget]||1000000});
+  document.getElementById('kTotal').textContent=total;
+  document.getElementById('kHot').textContent=hot;
+  document.getElementById('kConverted').textContent=conv;
+  document.getElementById('kPipeVal').textContent='AED '+(pipeVal/1000000).toFixed(1)+'M';
+  document.getElementById('kAvgScore').textContent=avgScore;
+  document.getElementById('kHotPct').textContent=total>0?pct(hot,total)+'% of total':'Score 8–10';
+  document.getElementById('kConvRate').textContent=convRate+'% win rate';
+  document.getElementById('nbNew').textContent=newL;
+  document.getElementById('cs-total').textContent=total;
+  document.getElementById('cs-won').textContent=conv;
+  document.getElementById('cs-hot').textContent=hot;
+  let wonVal=0;leads.filter(l=>l.status==='converted').forEach(l=>{const d=parseD(l);wonVal+=budgetVal[d.budget]||1000000});
+  document.getElementById('cs-rev').textContent='AED '+(wonVal/1000000).toFixed(1)+'M';
+
+  // Opportunity donut
+  const od=[newL,contacted,conv,lost];
+  oppChart.data.datasets[0].data=od;
+  oppChart.update('none');
+  document.getElementById('oppTotal').textContent=total;
+  ['new','con','won','lost'].forEach((k,i)=>{const n=od[i];document.getElementById('dl-'+k).textContent=n;document.getElementById('dlp-'+k).textContent=pct(n,total)+'%'});
+
+  // Value bar
+  let vByStage={Won:0,Contacted:0,New:0,Lost:0};
+  leads.forEach(l=>{const d=parseD(l);const v=budgetVal[d.budget]||1000000;const s=l.status==='converted'?'Won':l.status==='contacted'?'Contacted':l.status==='lost'?'Lost':'New';vByStage[s]+=v});
+  valChart.data.datasets[0].data=Object.values(vByStage);
+  valChart.update('none');
+
+  // Conversion ring
+  const remaining=Math.max(0,100-convRate);
+  convChart.data.datasets[0].data=[convRate,remaining];
+  convChart.update('none');
+  document.getElementById('convPct').textContent=convRate+'%';
+
+  // Line chart
+  lineChart.data.datasets[0].data=getLast7Counts(leads);
+  lineChart.update('none');
+
+  // Stage distribution donut
+  stageChart.data.datasets[0].data=[newL,contacted,conv,lost];
+  stageChart.update('none');
+  document.getElementById('sdTotal').textContent=total;
+  const sdColors=['#3D7FFA','#F59E0B','#10B981','#E4E9F2'];
+  const sdLabels=['New','Contacted','Won','Lost'];
+  document.getElementById('sdLegend').innerHTML=[newL,contacted,conv,lost].map((n,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><span style="width:8px;height:8px;border-radius:2px;background:${sdColors[i]};flex-shrink:0"></span>${sdLabels[i]}<span style="margin-left:auto;font-weight:700;color:var(--text)">${n}</span></div>`).join('');
+
+  // Funnel (GHL style)
+  const fData=[total,Math.floor(total*.68),hot,warm,Math.floor(contacted*.5),Math.floor(contacted*.3),Math.floor(conv*1.5),conv,lost];
+  const maxF=fData[0]||1;
+  document.getElementById('funnelRows').innerHTML=funnelStages.map((s,i)=>{
+    const n=fData[i]||0;
+    const cumPct=pct(n,maxF);
+    const nextPct=i<fData.length-1?pct(fData[i+1]||0,n||1):0;
+    const barW=Math.max(cumPct,5);
+    return `<div class="funnel-row">
+      <div class="fr-bar-wrap">
+        <div class="fr-label">${s}</div>
+        <div class="fr-track"><div class="fr-fill" style="width:${barW}%;background:${funnelColors[i]}">${n}</div></div>
+      </div>
+      <div class="fr-count">${cumPct}%</div>
+      <div class="fr-pct">${nextPct}%</div>
+    </div>`;
+  }).join('');
+
+  // Lead source report
+  document.getElementById('lsTotal').textContent=total;
+  const voiceLeads=leads.filter(l=>{const d=parseD(l);return d.source==='voice'});
+  const waLeads=leads.filter(l=>{const d=parseD(l);return d.source!=='voice'});
+  const sources=[
+    {name:'WhatsApp',ico:'WA',cls:'li-wa',leads:waLeads},
+    {name:'Voice Note',ico:'🎙',cls:'li-vc',leads:voiceLeads},
+  ].filter(s=>s.leads.length>0);
+  document.getElementById('lsBody').innerHTML=sources.map(s=>{
+    const t=s.leads.length;
+    const won=s.leads.filter(l=>l.status==='converted').length;
+    const open=s.leads.filter(l=>l.status==='new').length;
+    const ls=s.leads.filter(l=>l.status==='lost').length;
+    const winP=pct(won,t);
+    const winCls=winP>=30?'win-good':winP>=10?'win-med':'win-low';
+    return `<tr>
+      <td><div class="ls-source"><span class="ls-ico ${s.cls}">${s.ico}</span>${s.name}</div></td>
+      <td class="ls-num">${t}</td>
+      <td class="ls-num">${open}</td>
+      <td class="ls-num">${won}</td>
+      <td class="ls-num">${ls}</td>
+      <td class="ls-win ${winCls}">${winP}%</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3);font-size:12px">No source data yet</td></tr>';
+
+  // Manual actions
+  document.getElementById('maPhone').textContent=total;
+  document.getElementById('maSMS').textContent=contacted;
+  const overdue=leads.filter(l=>l.status==='new'&&l.followup_sent==0&&(Date.now()-new Date(l.created_at))/3600000>2).length;
+  document.getElementById('maTotal').textContent=overdue;
+
+  // Tasks
+  const pending=leads.filter(l=>l.status==='new'&&l.followup_sent==0);
+  if(pending.length===0){
+    document.getElementById('taskList').innerHTML='<div class="empty" style="padding:20px"><div class="empty-ico">✓</div><div class="empty-t">All caught up</div><div class="empty-s">No pending follow-ups</div></div>';
+  }else{
+    document.getElementById('taskList').innerHTML=pending.slice(0,5).map(l=>{
+      const d=parseD(l);
+      const hoursOld=Math.floor((Date.now()-new Date(l.created_at))/3600000);
+      const isOverdue=hoursOld>2;
+      const badge=isOverdue?`<span class="ti-ov">Overdue · ${hoursOld}h</span>`:`<span class="ti-due">Due soon</span>`;
+      return `<div class="ti">
+        <div class="ti-cb" onclick="this.classList.toggle('done')"></div>
+        <div class="ti-body">
+          <div class="ti-title">Follow up: ${l.name||'Unknown'} ${badge}</div>
+          <div class="ti-sub">${areaMap[d.area]||'Dubai'} · ${d.interest||'Enquiry'} · ${l.wa_number}</div>
+        </div>
+        <div class="ti-time" style="color:${isOverdue?'var(--red)':'var(--text3)'}">${timeAgo(l.created_at)}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ── LEADS TABLE ────────────────────────────────────────────
+function getScoreTag(s){
+  if(!s||s<1)return`<span class="stag s-cold"><span class="stag-dot"></span>COLD</span>`;
+  if(s>=8)return`<span class="stag s-hot"><span class="stag-dot"></span>HOT·${s}</span>`;
+  if(s>=5)return`<span class="stag s-warm"><span class="stag-dot"></span>WARM·${s}</span>`;
+  return`<span class="stag s-cold"><span class="stag-dot"></span>COLD·${s}</span>`;
+}
+function getSPill(status,hm){
+  if(hm==1)return'<span class="spl spl-lv"><span class="spl-dot"></span>LIVE</span>';
+  const m={new:'<span class="spl spl-new"><span class="spl-dot"></span>New</span>',contacted:'<span class="spl spl-con"><span class="spl-dot"></span>Contacted</span>',converted:'<span class="spl spl-cvt"><span class="spl-dot"></span>Won</span>',lost:'<span class="spl spl-lst"><span class="spl-dot"></span>Lost</span>'};
+  return m[status]||m['new'];
+}
+
+function renderTable(){
+  const srch=(document.getElementById('searchInput').value||'').toLowerCase();
+  let leads=[...allLeads];
+  if(currentFilter==='hot')leads=leads.filter(l=>(l.score||0)>=8);
+  else if(currentFilter==='warm')leads=leads.filter(l=>(l.score||0)>=5&&(l.score||0)<8);
+  else if(['new','contacted','converted','lost'].includes(currentFilter))leads=leads.filter(l=>l.status===currentFilter);
+  if(srch)leads=leads.filter(l=>{const d=parseD(l);return(l.name||'').toLowerCase().includes(srch)||(l.wa_number||'').includes(srch)||(d.area||'').toLowerCase().includes(srch)});
+
+  const tbody=document.getElementById('leadsBody');
+  const empty=document.getElementById('emptyLeads');
+  document.getElementById('tableCount').textContent=leads.length;
+
+  if(!leads.length){tbody.innerHTML='';empty.style.display='block';return}
+  empty.style.display='none';
+
+  tbody.innerHTML=leads.map(l=>{
+    const d=parseD(l);
+    const lang=l.language||d.language||'en';
+    const interest=d.interest?d.interest.charAt(0).toUpperCase()+d.interest.slice(1):'—';
+    const voiceBadge=d.source==='voice'?' <span style="font-size:9px">🎙</span>':'';
+    return`<tr>
+      <td><div class="lt-av"><div class="av ${avColor(l.name)}">${initials(l.name)}</div><div><div class="lt-nm">${l.name||'Unknown'}${voiceBadge}</div><div class="lt-nb">${l.wa_number||'—'}</div></div></div></td>
+      <td>${interest}</td>
+      <td style="font-size:11px">${budgetMap[d.budget]||d.budget||'—'}</td>
+      <td style="font-size:11px;text-transform:capitalize">${areaMap[d.area]||d.area||'—'}</td>
+      <td>${getScoreTag(l.score)}</td>
+      <td><span style="background:${lang==='ar'?'#FFFBEB':'var(--bg)'};color:${lang==='ar'?'var(--amber)':'var(--text3)'};font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;border:1px solid ${lang==='ar'?'rgba(245,158,11,.2)':'var(--border)'}">${lang==='ar'?'AR':'EN'}</span></td>
+      <td>${getSPill(l.status,l.human_mode)}</td>
+      <td style="font-size:11px;color:var(--text3)">${fmtDate(l.created_at)}</td>
+      <td><select class="isel" onchange="updateStatus(${l.id},this.value)"><option value="new" ${l.status==='new'?'selected':''}>New</option><option value="contacted" ${l.status==='contacted'?'selected':''}>Contacted</option><option value="converted" ${l.status==='converted'?'selected':''}>Won</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
+    </tr>`;
+  }).join('');
+}
+
+function setFilter(f,el){currentFilter=f;document.querySelectorAll('.ft').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderTable()}
+
+async function updateStatus(id,status){
+  await fetch(`/api/leads/${id}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+  await loadAll();
+}
+
+async function previewBroadcast(){
+  const filter=document.getElementById('broadcastFilter').value;
+  try{const r=await fetch('/api/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'__preview__',filter:{status:filter==='all'?undefined:filter},preview:true})});const d=await r.json();document.getElementById('broadcastPreview').innerHTML=`Will reach <span>${d.count||0}</span> leads`;}catch(e){document.getElementById('broadcastPreview').textContent='Preview unavailable';}
+}
+
+async function sendBroadcast(){
+  const msg=document.getElementById('broadcastMsg').value.trim();
+  if(!msg){alert('Enter a message first');return}
+  const filter=document.getElementById('broadcastFilter').value;
+  if(!confirm(`Send to all ${filter} leads?`))return;
+  try{const r=await fetch('/api/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,filter:{status:filter==='all'?undefined:filter}})});const d=await r.json();document.getElementById('broadcastPreview').innerHTML=`<span style="color:var(--green)">Sent to ${d.sent||0} leads</span>`;document.getElementById('broadcastMsg').value='';}catch(e){document.getElementById('broadcastPreview').innerHTML='<span style="color:var(--red)">Send failed</span>';}
+}
+
+async function checkToken(){
+  try{const r=await fetch('/api/token-check');const d=await r.json();const p=document.getElementById('tokPill');const t=document.getElementById('tokTxt');if(d.valid){p.className='tok-pill tok-ok';t.textContent='WhatsApp Connected';}else{p.className='tok-pill tok-err';t.textContent='Token Pending';}}catch(e){}
+}
+
+async function loadAll(){
+  try{
+    const[lr,sr]=await Promise.all([fetch('/api/leads'),fetch('/api/stats')]);
+    allLeads=await lr.json();
+    const stats=await sr.json();
+    if(stats.clientName){document.getElementById('sbClientName').textContent=stats.clientName;document.getElementById('tbTitle').textContent=stats.clientName+' — Dashboard';}
+    updateAll(stats,allLeads);
+    renderTable();
+    document.getElementById('lastRefreshed').textContent='Updated '+new Date().toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }catch(e){document.getElementById('lastRefreshed').textContent='Connection error';}
+}
+
+// ── INIT ───────────────────────────────────────────────────
+initCharts();
+loadAll();
+checkToken();
+setInterval(loadAll,30000);
+setInterval(checkToken,60000);
+</script>
+<script src="/dashboard/js/shared.js"></script>
+<script src="/dashboard/js/router.js"></script>
+</body>
+</html>

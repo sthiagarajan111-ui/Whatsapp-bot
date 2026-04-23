@@ -1,0 +1,69 @@
+/* Shared dashboard styles */
+:root {
+  --bg: #F4F6FA; --sidebar: #1B2236; --sidebar2: #222D44; --sw: #A8B5CC;
+  --white: #FFFFFF; --border: #E4E9F2; --border2: #CDD5E5;
+  --text: #0F1A35; --text2: #5A6A8A; --text3: #9AAABB;
+  --blue: #3D7FFA; --blue2: #2563EB; --blue-l: #EEF4FF;
+  --cyan: #06C8E0; --cyan-l: #E0FAFE;
+  --green: #10B981; --green-l: #ECFDF5;
+  --red: #EF4444; --red-l: #FEF2F2;
+  --amber: #F59E0B; --amber-l: #FFFBEB;
+  --purple: #7C3AED; --purple-l: #F5F3FF;
+  --teal: #0D9488; --teal-l: #F0FDFA;
+  --pink: #EC4899; --pink-l: #FDF2F8;
+  --sh: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+  --sh2: 0 4px 20px rgba(0,0,0,.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+
+.card { background: var(--white); border-radius: 12px; border: 1px solid var(--border); box-shadow: var(--sh); }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-blue   { background: var(--blue-l); color: var(--blue); }
+.badge-green  { background: var(--green-l); color: var(--green); }
+.badge-red    { background: var(--red-l); color: var(--red); }
+.badge-amber  { background: var(--amber-l); color: var(--amber); }
+.badge-purple { background: var(--purple-l); color: var(--purple); }
+.badge-cyan   { background: var(--cyan-l); color: var(--cyan); }
+.badge-teal   { background: var(--teal-l); color: var(--teal); }
+.badge-gray   { background: #F1F5F9; color: var(--text2); }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue2); }
+.btn-secondary { background: var(--white); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--bg); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.page-title { font-size: 20px; font-weight: 700; color: var(--text); }
+.page-subtitle { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: var(--text3); text-align: center; }
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: .5; }
+.empty-state p { font-size: 14px; }
+
+.loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--text3); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; margin-right: 8px; }
+
+.avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+.avatar-blue   { background: var(--blue-l); color: var(--blue); }
+.avatar-green  { background: var(--green-l); color: var(--green); }
+.avatar-purple { background: var(--purple-l); color: var(--purple); }
+.avatar-amber  { background: var(--amber-l); color: var(--amber); }
+.avatar-red    { background: var(--red-l); color: var(--red); }
+
+input, select, textarea { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: inherit; color: var(--text); background: var(--white); outline: none; width: 100%; transition: border-color .15s; }
+input:focus, select:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(61,127,250,.1); }
+label { font-size: 12px; font-weight: 600; color: var(--text2); display: block; margin-bottom: 4px; }
+.form-group { margin-bottom: 16px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th { text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
+tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tbody tr:hover { background: var(--bg); }
+tbody tr:last-child td { border-bottom: none; }

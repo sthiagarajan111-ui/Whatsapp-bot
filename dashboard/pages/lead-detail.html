@@ -1,0 +1,209 @@
+<style>
+.lead-detail-layout { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
+.lead-header { background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 24px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 20px; }
+.lead-avatar-lg { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 24px; flex-shrink: 0; }
+.lead-info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.info-card { background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 18px; }
+.info-card-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+.info-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+.info-row .lbl { color: var(--text2); flex: 0 0 100px; font-size: 12px; }
+.info-row .val { font-weight: 500; }
+.mini-chat { background: #f0f2f5; border-radius: 10px; padding: 12px; max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.mini-msg { padding: 7px 10px; border-radius: 8px; font-size: 12px; max-width: 80%; }
+.mini-msg.in { background: var(--white); align-self: flex-start; }
+.mini-msg.out { background: #d9fdd3; align-self: flex-end; }
+.timeline-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.timeline-item:last-child { border-bottom: none; }
+.timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); margin-top: 4px; flex-shrink: 0; }
+.timeline-text { font-size: 13px; }
+.timeline-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.notes-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.note-item { background: var(--amber-l); border-left: 3px solid var(--amber); padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: 13px; }
+.note-meta { font-size: 11px; color: var(--text3); margin-top: 4px; display: flex; justify-content: space-between; }
+</style>
+
+<div style="padding: 20px 24px;" id="leadDetailRoot">
+  <div class="loading"><div class="spinner"></div> Loading lead...</div>
+</div>
+
+<script>
+(async function() {
+  // Get lead ID from URL hash e.g. #lead-detail?id=5
+  const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
+  const id = params.get('id') || (window._leadDetailId);
+  if (!id) {
+    document.getElementById('leadDetailRoot').innerHTML = '<div class="empty-state"><p>No lead ID specified. Click a lead from the leads table.</p></div>';
+    return;
+  }
+
+  let detail = null;
+  try {
+    detail = await shared.apiFetch('/api/leads/' + id + '/detail');
+  } catch(e) {
+    document.getElementById('leadDetailRoot').innerHTML = '<div class="empty-state"><p>Failed to load lead</p></div>';
+    return;
+  }
+
+  const lead = detail.lead;
+  let d = {}; try { d = JSON.parse(lead.data||'{}'); } catch(_) {}
+  const initials = (lead.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const colors = ['avatar-blue','avatar-green','avatar-purple','avatar-amber','avatar-red'];
+  const cls = colors[(initials.charCodeAt(0)||0)%colors.length];
+
+  document.getElementById('leadDetailRoot').innerHTML = `
+    <div class="page-header">
+      <div>
+        <a href="#dashboard" style="font-size:13px;color:var(--blue);text-decoration:none">← Back</a>
+        <div class="page-title" style="margin-top:4px">${lead.name||lead.wa_number}</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" onclick="exportLead(${id})">📥 Export</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteLead(${id})">🗑 Delete</button>
+      </div>
+    </div>
+
+    <div class="lead-header">
+      <div class="lead-avatar-lg ${cls}" style="background:var(--blue-l);color:var(--blue)">${initials}</div>
+      <div style="flex:1">
+        <div style="font-size:20px;font-weight:700">${lead.name||'Unknown'}</div>
+        <div style="font-size:14px;color:var(--text2);margin:4px 0">${lead.wa_number}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          ${shared.scoreBadge(lead.score)}
+          ${shared.statusBadge(lead.status)}
+          ${lead.language==='ar'?'<span class="badge badge-purple">Arabic</span>':'<span class="badge badge-blue">English</span>'}
+          ${d.source==='voice'?'<span class="badge badge-cyan">🎙️ Voice</span>':''}
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="takeOverLead('${lead.wa_number}')">🎧 Take Over</button>
+    </div>
+
+    <div class="lead-detail-layout">
+      <div>
+        <div class="lead-info-cards">
+          <div class="info-card">
+            <div class="info-card-title">Contact Details</div>
+            <div class="info-row"><span class="lbl">WhatsApp</span><span class="val">${lead.wa_number}</span></div>
+            <div class="info-row"><span class="lbl">Language</span><span class="val">${lead.language==='ar'?'Arabic':'English'}</span></div>
+            <div class="info-row"><span class="lbl">Source</span><span class="val">${d.source||'text'}</span></div>
+            <div class="info-row"><span class="lbl">Flow</span><span class="val">${lead.flow_name||'—'}</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">Property Interest</div>
+            <div class="info-row"><span class="lbl">Intent</span><span class="val">${d.intent||'—'}</span></div>
+            <div class="info-row"><span class="lbl">Type</span><span class="val">${d.propertyType||'—'}</span></div>
+            <div class="info-row"><span class="lbl">Budget</span><span class="val">${d.budget||'—'}</span></div>
+            <div class="info-row"><span class="lbl">Area</span><span class="val">${d.area||'—'}</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">Timeline</div>
+            <div class="info-row"><span class="lbl">First contact</span><span class="val">${shared.formatDate(lead.created_at)}</span></div>
+            <div class="info-row"><span class="lbl">Last message</span><span class="val">${shared.formatDate(detail.lastMessage?.created_at)}</span></div>
+            <div class="info-row"><span class="lbl">Follow-up sent</span><span class="val">${lead.followup_sent?'Yes':'No'}</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">Change Status</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${['new','contacted','converted','lost'].map(s=>`
+                <button class="btn btn-secondary btn-sm${lead.status===s?' btn-primary':''}" onclick="changeStatus(${id},'${s}')">${s}</button>
+              `).join('')}
+            </div>
+            <div style="margin-top:10px">
+              <label style="font-size:11px;">Pipeline Stage</label>
+              <select onchange="changeStage(${id},this.value)" style="margin-top:4px">
+                ${['new_lead','ai_contacted','hot','warm','viewing_req','viewing_conf','offer_made','won','lost'].map(s=>`
+                  <option value="${s}" ${lead.pipeline_stage===s?'selected':''}>${s.replace(/_/g,' ')}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:20px;margin-bottom:20px">
+          <div class="chart-title" style="font-weight:600;margin-bottom:12px">💬 Conversation History</div>
+          <div class="mini-chat" id="miniChat">
+            ${(detail.messages||[]).map(m=>`
+              <div class="mini-msg ${m.direction==='outbound'?'out':'in'}">
+                ${m.message_type==='audio'?'🎙️ ':''}${m.content||'(media)'}
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">${shared.formatDate(m.created_at)}</div>
+              </div>`).join('') || '<div style="color:var(--text3);text-align:center">No messages recorded</div>'}
+          </div>
+        </div>
+
+        <div class="card" style="padding:20px">
+          <div class="chart-title" style="font-weight:600;margin-bottom:12px">📋 Activity Timeline</div>
+          <div id="timeline">
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div><div class="timeline-text">Lead captured via ${lead.flow_name} flow</div><div class="timeline-time">${shared.formatDate(lead.created_at)}</div></div>
+            </div>
+            ${lead.followup_sent?`<div class="timeline-item"><div class="timeline-dot" style="background:var(--amber)"></div><div><div class="timeline-text">Follow-up message sent</div></div></div>`:''}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="padding:20px;margin-bottom:20px">
+          <div class="chart-title" style="font-weight:600;margin-bottom:12px">📝 Notes</div>
+          <div class="notes-list" id="notesList">
+            ${(detail.notes||[]).map(n=>`
+              <div class="note-item" id="note-${n.id}">
+                ${n.note}
+                <div class="note-meta">
+                  <span>${shared.formatDate(n.created_at)}</span>
+                  <button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px" onclick="deleteNote(${id},${n.id})">Delete</button>
+                </div>
+              </div>`).join('') || '<div style="color:var(--text3);font-size:13px">No notes yet</div>'}
+          </div>
+          <textarea id="noteInput" rows="3" placeholder="Add a note..." style="margin-top:8px"></textarea>
+          <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="addNote(${id})">Add Note</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('miniChat').scrollTop = 999999;
+
+  window.addNote = async function(leadId) {
+    const note = document.getElementById('noteInput').value.trim();
+    if (!note) return;
+    try {
+      const r = await shared.apiFetch('/api/leads/'+leadId+'/notes', { method:'POST', body: JSON.stringify({note}) });
+      const nl = document.getElementById('notesList');
+      nl.innerHTML += `<div class="note-item" id="note-${r.id}">${note}<div class="note-meta"><span>just now</span><button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px" onclick="deleteNote(${leadId},${r.id})">Delete</button></div></div>`;
+      document.getElementById('noteInput').value = '';
+      shared.showToast('Note added');
+    } catch(e) { shared.showToast('Failed','error'); }
+  };
+
+  window.deleteNote = async function(leadId, noteId) {
+    if (!confirm('Delete note?')) return;
+    await shared.apiFetch('/api/leads/'+leadId+'/notes/'+noteId, { method:'DELETE' });
+    document.getElementById('note-'+noteId)?.remove();
+  };
+
+  window.changeStatus = async function(leadId, status) {
+    await shared.apiFetch('/api/leads/'+leadId+'/status', { method:'POST', body: JSON.stringify({status}) });
+    shared.showToast('Status updated');
+  };
+
+  window.changeStage = async function(leadId, stage) {
+    await shared.apiFetch('/api/leads/'+leadId+'/stage', { method:'POST', body: JSON.stringify({stage}) });
+    shared.showToast('Stage updated');
+  };
+
+  window.takeOverLead = function(wa) {
+    shared.showToast('Send "TAKE '+wa+'" from owner WhatsApp to take over');
+  };
+
+  window.exportLead = function(leadId) {
+    window.open('/api/leads/export?status=all', '_blank');
+  };
+
+  window.deleteLead = async function(leadId) {
+    if (!confirm('Delete this lead permanently? This cannot be undone.')) return;
+    await shared.apiFetch('/api/leads/'+leadId, { method:'DELETE' });
+    shared.showToast('Lead deleted');
+    location.hash = '#dashboard';
+  };
+
+})();
+</script>

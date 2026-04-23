@@ -1,0 +1,395 @@
+<style>
+.settings-layout { display: grid; grid-template-columns: 200px 1fr; gap: 24px; }
+.settings-nav { background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 12px; align-self: start; position: sticky; top: 20px; }
+.settings-nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .12s; }
+.settings-nav-item:hover { background: var(--bg); }
+.settings-nav-item.active { background: var(--blue-l); color: var(--blue); }
+.settings-section { display: none; }
+.settings-section.active { display: block; }
+.section-card { background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 24px; margin-bottom: 20px; }
+.section-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+.section-desc { font-size: 12px; color: var(--text2); margin-bottom: 20px; }
+.save-bar { display: flex; align-items: center; gap: 10px; padding: 14px 0; border-top: 1px solid var(--border); margin-top: 8px; }
+.tok-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.tok-ok  { background: var(--green-l); color: var(--green); }
+.tok-err { background: var(--red-l);   color: var(--red); }
+.checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.checkbox-row input[type=checkbox] { width: auto; }
+.list-editor { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.list-editor-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.list-editor-item:last-child { border-bottom: none; }
+.list-editor-add { display: flex; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--bg); }
+</style>
+
+<div style="padding: 20px 24px;">
+  <div class="page-header">
+    <div><div class="page-title">Settings</div><div class="page-subtitle">Configure your bot and dashboard from here</div></div>
+  </div>
+
+  <div class="settings-layout">
+    <div class="settings-nav">
+      <div class="settings-nav-item active" onclick="showTab('bot')" data-tab="bot">🤖 Bot Config</div>
+      <div class="settings-nav-item" onclick="showTab('whatsapp')" data-tab="whatsapp">📱 WhatsApp</div>
+      <div class="settings-nav-item" onclick="showTab('flow')" data-tab="flow">⚡ Flow</div>
+      <div class="settings-nav-item" onclick="showTab('notifications')" data-tab="notifications">🔔 Notifications</div>
+      <div class="settings-nav-item" onclick="showTab('listings')" data-tab="listings">🏠 Listings</div>
+      <div class="settings-nav-item" onclick="showTab('agents')" data-tab="agents">👥 Agents</div>
+      <div class="settings-nav-item" onclick="showTab('branding')" data-tab="branding">🎨 Branding</div>
+    </div>
+
+    <div>
+      <!-- Bot Config -->
+      <div class="settings-section active" id="tab-bot">
+        <div class="section-card">
+          <div class="section-title">Bot Configuration</div>
+          <div class="section-desc">Core settings for how the bot behaves</div>
+          <div class="form-row">
+            <div class="form-group"><label>Client Name</label><input id="s-client-name" placeholder="My Real Estate Agency"></div>
+            <div class="form-group"><label>Active Flow</label>
+              <select id="s-active-flow">
+                <option value="realEstate">Real Estate</option>
+                <option value="restaurant">Restaurant</option>
+                <option value="clinic">Clinic</option>
+                <option value="retail">Retail</option>
+                <option value="salon">Salon</option>
+                <option value="carDealer">Car Dealer</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Business Hours Start</label><input id="s-hours-start" type="time"></div>
+            <div class="form-group"><label>Business Hours End</label><input id="s-hours-end" type="time"></div>
+          </div>
+          <div class="form-group"><label>Business Days</label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+              ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>`
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:400;">
+                  <input type="checkbox" class="bd-check" value="${i+1}" style="width:auto;"> ${d}
+                </label>`).join('')}
+            </div>
+          </div>
+          <div class="form-group"><label>Follow-up Delay (hours)</label><input id="s-followup" type="number" min="1" max="48" placeholder="2"></div>
+          <div class="form-group"><label>Out-of-Hours Message</label><textarea id="s-ooh" rows="3" placeholder="We'll be back during business hours..."></textarea></div>
+          <div class="save-bar">
+            <button class="btn btn-primary" onclick="saveBotConfig()">Save Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- WhatsApp -->
+      <div class="settings-section" id="tab-whatsapp">
+        <div class="section-card">
+          <div class="section-title">WhatsApp Connection</div>
+          <div class="section-desc">Manage your WhatsApp Business API connection</div>
+          <div class="form-group">
+            <label>Token Status</label>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+              <span id="tokStatus" class="tok-indicator">Checking...</span>
+              <button class="btn btn-secondary btn-sm" onclick="checkToken()">🔍 Test Connection</button>
+            </div>
+          </div>
+          <div class="form-group"><label>Phone Number ID</label><input id="s-phone-id" placeholder="Your Phone Number ID" type="password"></div>
+          <div class="form-group"><label>Owner WhatsApp Number</label><input id="s-owner-wa" placeholder="971501234567"></div>
+          <div class="save-bar"><button class="btn btn-primary" onclick="saveWAConfig()">Save</button></div>
+        </div>
+      </div>
+
+      <!-- Flow Customization -->
+      <div class="settings-section" id="tab-flow">
+        <div class="section-card">
+          <div class="section-title">Flow Customization</div>
+          <div class="section-desc">Customize messages and options in the flow</div>
+          <div class="form-group"><label>Completion Message</label><textarea id="s-complete-msg" rows="3" placeholder="Thank you! Our agent will contact you shortly."></textarea></div>
+          <div class="form-group"><label>AI Mode Knowledge Base</label><textarea id="s-knowledge" rows="4" placeholder="Optional: paste property info, FAQs, etc."></textarea></div>
+          <div class="save-bar"><button class="btn btn-primary" onclick="saveFlowConfig()">Save</button></div>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="settings-section" id="tab-notifications">
+        <div class="section-card">
+          <div class="section-title">Notifications</div>
+          <div class="section-desc">Control where and how you receive lead alerts</div>
+          <div class="checkbox-row"><input type="checkbox" id="s-email-notif"> <label for="s-email-notif" style="margin:0">Email notifications on new lead</label></div>
+          <div class="form-group"><label>Notification Email</label><input id="s-email" type="email" placeholder="agent@agency.com"></div>
+          <div class="checkbox-row"><input type="checkbox" id="s-wa-notif"> <label for="s-wa-notif" style="margin:0">WhatsApp notification on new lead</label></div>
+          <div class="checkbox-row"><input type="checkbox" id="s-daily-report"> <label for="s-daily-report" style="margin:0">Daily summary report</label></div>
+          <div class="form-group"><label>Report Time</label><input id="s-report-time" type="time" placeholder="08:00"></div>
+          <div class="save-bar"><button class="btn btn-primary" onclick="saveNotifConfig()">Save</button></div>
+        </div>
+      </div>
+
+      <!-- Listings -->
+      <div class="settings-section" id="tab-listings">
+        <div class="section-card">
+          <div class="section-title">Property Listings</div>
+          <div class="section-desc">Manage listings the bot can match with leads</div>
+          <div id="listingsTable" style="margin-bottom:16px"><div class="loading"><div class="spinner"></div></div></div>
+          <button class="btn btn-primary" onclick="showAddListing()">+ Add Listing</button>
+        </div>
+        <div class="section-card" id="addListingForm" style="display:none">
+          <div class="section-title">Add / Edit Listing</div>
+          <input type="hidden" id="listing-id">
+          <div class="form-row">
+            <div class="form-group"><label>Title</label><input id="l-title" placeholder="2BR Apartment Downtown"></div>
+            <div class="form-group"><label>Type</label>
+              <select id="l-type"><option value="apartment">Apartment</option><option value="villa">Villa</option><option value="commercial">Commercial</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Area</label><input id="l-area" placeholder="jvc, marina, downtown..."></div>
+            <div class="form-group"><label>Price (AED)</label><input id="l-price" type="number" placeholder="750000"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Beds</label><input id="l-beds" type="number" placeholder="2"></div>
+            <div class="form-group"><label>Baths</label><input id="l-baths" type="number" placeholder="2"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Size (sqft)</label><input id="l-size" type="number" placeholder="1200"></div>
+            <div class="form-group"><label>Listing URL</label><input id="l-url" placeholder="https://..."></div>
+          </div>
+          <div class="form-group"><label>Description</label><textarea id="l-desc" rows="2"></textarea></div>
+          <div class="save-bar">
+            <button class="btn btn-primary" onclick="saveListing()">Save Listing</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('addListingForm').style.display='none'">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agents -->
+      <div class="settings-section" id="tab-agents">
+        <div class="section-card">
+          <div class="section-title">Team Agents</div>
+          <div class="section-desc">Manage agents who handle leads</div>
+          <div id="agentsTable" style="margin-bottom:16px"><div class="loading"><div class="spinner"></div></div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <input id="ag-name" placeholder="Agent Name" style="flex:1;min-width:140px">
+            <input id="ag-wa" placeholder="WhatsApp Number" style="flex:1;min-width:140px">
+            <input id="ag-email" placeholder="Email" style="flex:1;min-width:140px">
+            <select id="ag-role" style="flex:0 0 120px"><option value="agent">Agent</option><option value="admin">Admin</option></select>
+            <button class="btn btn-primary" onclick="addAgent()">Add Agent</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Branding -->
+      <div class="settings-section" id="tab-branding">
+        <div class="section-card">
+          <div class="section-title">Branding</div>
+          <div class="section-desc">Customize the dashboard appearance</div>
+          <div class="form-group"><label>Dashboard Title</label><input id="s-brand-name" placeholder="LeadPulse CRM"></div>
+          <div class="form-group"><label>Logo URL</label><input id="s-logo-url" placeholder="https://your-logo.png"></div>
+          <div class="form-row">
+            <div class="form-group"><label>Primary Color</label><input id="s-color-primary" type="color" value="#3D7FFA" style="height:40px;padding:4px;cursor:pointer"></div>
+            <div class="form-group"><label>Secondary Color</label><input id="s-color-secondary" type="color" value="#06C8E0" style="height:40px;padding:4px;cursor:pointer"></div>
+          </div>
+          <div class="save-bar"><button class="btn btn-primary" onclick="saveBranding()">Save Branding</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(async function() {
+  let settings = {};
+  let listings = [];
+  let agents = [];
+
+  async function loadSettings() {
+    try { settings = await shared.apiFetch('/api/settings'); } catch(_) { settings = {}; }
+    populateSettings();
+  }
+
+  function populateSettings() {
+    const s = settings;
+    setVal('s-client-name', s.client_name || '');
+    setVal('s-active-flow', s.active_flow || 'realEstate');
+    setVal('s-hours-start', s.hours_start || '09:00');
+    setVal('s-hours-end', s.hours_end || '18:00');
+    setVal('s-followup', s.followup_delay || '2');
+    setVal('s-ooh', s.ooh_message || '');
+    setVal('s-complete-msg', s.completion_message || '');
+    setVal('s-knowledge', s.knowledge_base || '');
+    setVal('s-email', s.notification_email || '');
+    setVal('s-report-time', s.report_time || '08:00');
+    setVal('s-brand-name', s.brand_name || '');
+    setVal('s-logo-url', s.brand_logo || '');
+    setVal('s-color-primary', s.brand_color_primary || '#3D7FFA');
+    setVal('s-color-secondary', s.brand_color_secondary || '#06C8E0');
+    setCheck('s-email-notif', s.email_notifications === 'true');
+    setCheck('s-wa-notif', s.wa_notifications === 'true');
+    setCheck('s-daily-report', s.daily_report === 'true');
+    // Business days
+    const days = (s.business_days || '1,2,3,4,5,6').split(',').map(Number);
+    document.querySelectorAll('.bd-check').forEach(c => c.checked = days.includes(Number(c.value)));
+  }
+
+  function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+  function setCheck(id, v) { const el = document.getElementById(id); if (el) el.checked = v; }
+  function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+  function getCheck(id) { const el = document.getElementById(id); return el ? el.checked : false; }
+
+  window.showTab = function(tab) {
+    document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('tab-'+tab)?.classList.add('active');
+    document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active');
+    if (tab === 'listings') loadListings();
+    if (tab === 'agents') loadAgents();
+  };
+
+  async function saveSettings(obj) {
+    await shared.apiFetch('/api/settings', { method: 'POST', body: JSON.stringify(obj) });
+    settings = { ...settings, ...obj };
+    shared.showToast('Settings saved');
+  }
+
+  window.saveBotConfig = async function() {
+    const days = [...document.querySelectorAll('.bd-check:checked')].map(c=>c.value).join(',');
+    await saveSettings({
+      client_name: getVal('s-client-name'),
+      active_flow: getVal('s-active-flow'),
+      hours_start: getVal('s-hours-start'),
+      hours_end: getVal('s-hours-end'),
+      business_days: days,
+      followup_delay: getVal('s-followup'),
+      ooh_message: getVal('s-ooh'),
+    });
+  };
+
+  window.saveWAConfig = async function() {
+    await saveSettings({ owner_whatsapp: getVal('s-owner-wa') });
+  };
+
+  window.saveFlowConfig = async function() {
+    await saveSettings({ completion_message: getVal('s-complete-msg'), knowledge_base: getVal('s-knowledge') });
+  };
+
+  window.saveNotifConfig = async function() {
+    await saveSettings({
+      email_notifications: String(getCheck('s-email-notif')),
+      notification_email: getVal('s-email'),
+      wa_notifications: String(getCheck('s-wa-notif')),
+      daily_report: String(getCheck('s-daily-report')),
+      report_time: getVal('s-report-time'),
+    });
+  };
+
+  window.saveBranding = async function() {
+    const obj = {
+      brand_name: getVal('s-brand-name'),
+      brand_logo: getVal('s-logo-url'),
+      brand_color_primary: getVal('s-color-primary'),
+      brand_color_secondary: getVal('s-color-secondary'),
+    };
+    await saveSettings(obj);
+    document.documentElement.style.setProperty('--blue', obj.brand_color_primary);
+  };
+
+  window.checkToken = async function() {
+    const el = document.getElementById('tokStatus');
+    el.textContent = '⏳ Checking...'; el.className = 'tok-indicator';
+    try {
+      const r = await shared.apiFetch('/api/token-check');
+      el.className = 'tok-indicator ' + (r.valid ? 'tok-ok' : 'tok-err');
+      el.textContent = r.valid ? '✅ Valid' : '❌ ' + (r.error||'Invalid');
+    } catch(e) { el.className = 'tok-indicator tok-err'; el.textContent = '❌ Error'; }
+  };
+
+  // Listings
+  async function loadListings() {
+    try { listings = await shared.apiFetch('/api/listings'); renderListings(); } catch(_) {}
+  }
+
+  function renderListings() {
+    const el = document.getElementById('listingsTable');
+    if (!listings.length) { el.innerHTML = '<div class="empty-state"><p>No listings yet</p></div>'; return; }
+    el.innerHTML = `<table><thead><tr><th>Title</th><th>Type</th><th>Area</th><th>Price</th><th>Beds</th><th>Status</th><th></th></tr></thead>
+      <tbody>${listings.map(l=>`<tr>
+        <td>${l.title||'—'}</td><td>${l.type||'—'}</td><td>${l.area||'—'}</td>
+        <td>AED ${(l.price||0).toLocaleString()}</td><td>${l.beds||'—'}</td>
+        <td><span class="badge ${l.status==='available'?'badge-green':'badge-gray'}">${l.status}</span></td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="editListing(${l.id})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="delListing(${l.id})">Del</button>
+        </td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
+  window.showAddListing = function() {
+    document.getElementById('listing-id').value = '';
+    ['l-title','l-area','l-price','l-beds','l-baths','l-size','l-url','l-desc'].forEach(id=>setVal(id,''));
+    document.getElementById('addListingForm').style.display = 'block';
+  };
+
+  window.editListing = function(id) {
+    const l = listings.find(x=>x.id===id); if(!l) return;
+    document.getElementById('listing-id').value = l.id;
+    setVal('l-title', l.title||''); setVal('l-area', l.area||''); setVal('l-price', l.price||'');
+    setVal('l-beds', l.beds||''); setVal('l-baths', l.baths||''); setVal('l-size', l.size_sqft||'');
+    setVal('l-url', l.listing_url||''); setVal('l-desc', l.description||'');
+    document.getElementById('addListingForm').style.display = 'block';
+  };
+
+  window.saveListing = async function() {
+    const id = document.getElementById('listing-id').value;
+    const body = {
+      title:getVal('l-title'), type:getVal('l-type'), area:getVal('l-area'),
+      price:parseInt(getVal('l-price'))||0, beds:parseInt(getVal('l-beds'))||0,
+      baths:parseInt(getVal('l-baths'))||0, size_sqft:parseInt(getVal('l-size'))||0,
+      listing_url:getVal('l-url'), description:getVal('l-desc'), status:'available'
+    };
+    try {
+      const method = id ? 'PUT' : 'POST';
+      const url = id ? '/api/listings/'+id : '/api/listings';
+      await shared.apiFetch(url, { method, body: JSON.stringify(body) });
+      shared.showToast('Listing saved');
+      document.getElementById('addListingForm').style.display = 'none';
+      await loadListings();
+    } catch(e) { shared.showToast('Failed to save listing', 'error'); }
+  };
+
+  window.delListing = async function(id) {
+    if (!confirm('Delete this listing?')) return;
+    await shared.apiFetch('/api/listings/'+id, { method:'DELETE' });
+    shared.showToast('Deleted');
+    await loadListings();
+  };
+
+  // Agents
+  async function loadAgents() {
+    try { agents = await shared.apiFetch('/api/agents'); renderAgents(); } catch(_) {}
+  }
+
+  function renderAgents() {
+    const el = document.getElementById('agentsTable');
+    if (!agents.length) { el.innerHTML = '<div class="empty-state"><p>No agents yet</p></div>'; return; }
+    el.innerHTML = `<table><thead><tr><th>Name</th><th>WhatsApp</th><th>Email</th><th>Role</th><th></th></tr></thead>
+      <tbody>${agents.map(a=>`<tr>
+        <td>${a.name}</td><td>${a.wa_number}</td><td>${a.email||'—'}</td>
+        <td><span class="badge ${a.role==='admin'?'badge-purple':'badge-blue'}">${a.role}</span></td>
+        <td><button class="btn btn-danger btn-sm" onclick="removeAgent(${a.id})">Remove</button></td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
+  window.addAgent = async function() {
+    const body = { name:getVal('ag-name'), wa_number:getVal('ag-wa'), email:getVal('ag-email'), role:getVal('ag-role') };
+    if (!body.name||!body.wa_number) return shared.showToast('Name and WhatsApp required','error');
+    try {
+      await shared.apiFetch('/api/agents', { method:'POST', body: JSON.stringify(body) });
+      shared.showToast('Agent added');
+      await loadAgents();
+    } catch(e) { shared.showToast('Failed','error'); }
+  };
+
+  window.removeAgent = async function(id) {
+    if (!confirm('Remove this agent?')) return;
+    await shared.apiFetch('/api/agents/'+id, { method:'DELETE' });
+    shared.showToast('Agent removed');
+    await loadAgents();
+  };
+
+  await loadSettings();
+})();
+</script>
