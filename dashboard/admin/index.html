@@ -143,7 +143,7 @@
     </a>
   </nav>
   <div class="sidebar-footer">
-    <a class="logout-btn" href="/admin/logout">Sign out</a>
+    <a class="logout-btn" id="logoutLink" href="/admin/logout">Sign out</a>
   </div>
 </div>
 
@@ -346,6 +346,11 @@
 const ADMIN_KEY = new URLSearchParams(location.search).get('admin_key') || '';
 const headers   = ADMIN_KEY ? { 'x-api-key': ADMIN_KEY } : {};
 
+// Keep admin_key in the logout URL so the login page loads cleanly
+if (ADMIN_KEY) {
+  document.getElementById('logoutLink').href = `/admin/logout?admin_key=${encodeURIComponent(ADMIN_KEY)}`;
+}
+
 let allClients = [];
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -389,7 +394,6 @@ function clientRow(c) {
   const industry = { realEstate:'Real Estate', restaurant:'Restaurant', clinic:'Clinic', retail:'Retail', salon:'Salon', carDealer:'Car Dealer' }[c.industry] || c.industry;
   const planClass = { starter:'plan-starter', professional:'plan-professional', agency:'plan-agency', enterprise:'plan-enterprise' }[c.plan] || 'plan-professional';
   const statusClass = { active:'status-active', suspended:'status-suspended', cancelled:'status-cancelled' }[c.status] || 'status-active';
-  const platformUrl = window.location.origin;
 
   const actionBtns = c.status === 'active'
     ? `<button class="ab ab-suspend" onclick="suspendClient('${c.client_id}')">Suspend</button>`
@@ -409,7 +413,7 @@ function clientRow(c) {
     <td style="font-size:12px">${created}</td>
     <td>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="ab ab-view" onclick="window.open('${platformUrl}/client-dashboard/${c.client_id}','_blank')">Dashboard</button>
+        <button class="ab ab-view" onclick="window.open('/client-dashboard/${c.client_id}','_blank')">Dashboard</button>
         <button class="ab ab-settings" onclick="openSettings('${c.client_id}')">Settings</button>
         ${actionBtns}
         <button class="ab ab-delete" onclick="deleteClient('${c.client_id}')">Delete</button>

@@ -38,10 +38,16 @@ function generateApiKey() {
 
 // ── Admin auth middleware ─────────────────────────────────────────────────────
 function requireAdmin(req, res, next) {
-  const apiKey     = req.headers['x-api-key'] || req.query.admin_key;
-  const sessionKey = req.cookies?.admin_session;
-  if ((apiKey && apiKey === process.env.ADMIN_API_KEY) ||
-      (sessionKey && sessionKey === process.env.ADMIN_API_KEY)) {
+  const adminPass  = process.env.ADMIN_PASSWORD || process.env.ADMIN_API_KEY;
+  const queryKey   = req.query.admin_key;
+  const headerKey  = req.headers['x-api-key'];
+  const cookieKey  = req.cookies?.admin_session;
+
+  if (adminPass && (
+    (queryKey  && queryKey  === adminPass) ||
+    (headerKey && headerKey === adminPass) ||
+    (cookieKey && cookieKey === adminPass)
+  )) {
     return next();
   }
   res.redirect('/admin/login');
@@ -1250,14 +1256,20 @@ app.get('/admin/login', (_req, res) => {
 
 app.post('/admin/login', express.urlencoded({ extended: false }), (req, res) => {
   const { password } = req.body;
-  if (password && password === process.env.ADMIN_API_KEY) {
-    res.cookie('admin_session', process.env.ADMIN_API_KEY, {
+  const adminPass = process.env.ADMIN_PASSWORD || process.env.ADMIN_API_KEY;
+  console.log('[Admin] Login attempt. ADMIN_PASSWORD set:', !!process.env.ADMIN_PASSWORD, '| ADMIN_API_KEY set:', !!process.env.ADMIN_API_KEY);
+
+  if (password && adminPass && password === adminPass) {
+    // Set cookie for browser session persistence
+    res.cookie('admin_session', adminPass, {
       httpOnly: true,
-      maxAge:   24 * 60 * 60 * 1000, // 24 hours
+      maxAge:   24 * 60 * 60 * 1000,
       sameSite: 'lax',
     });
-    return res.redirect('/admin/dashboard');
+    // Also redirect with query param — works even if cookies are blocked
+    return res.redirect(`/admin/dashboard?admin_key=${encodeURIComponent(adminPass)}`);
   }
+  console.log('[Admin] Login failed — password mismatch or env var not set');
   res.redirect('/admin/login?error=1');
 });
 
