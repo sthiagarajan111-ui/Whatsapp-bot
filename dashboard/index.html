@@ -334,10 +334,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="tb">
     <div class="tb-l">
       <div class="tb-title" id="tbTitle">Dashboard</div>
-      <div class="dr-btn">
-        <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v2M11 1v2M2 5h12M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/></svg>
-        Last 30 Days
-        <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4"/></svg>
+      <div id="dateRangeWrap" style="position:relative">
+        <div class="dr-btn" onclick="toggleDateDropdown()" style="cursor:pointer;user-select:none">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v2M11 1v2M2 5h12M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/></svg>
+          <span id="dateRangeLabel">Last 30 Days</span>
+          <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4"/></svg>
+        </div>
+        <div id="dateDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.1);z-index:500;min-width:160px;overflow:hidden">
+          <div class="dr-option" onclick="applyDateFilter(1,'Today')" style="padding:9px 14px;font-size:12px;color:var(--text2);cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--bg)'" onmouseout="if(dateFilter!==1)this.style.background='white'">Today</div>
+          <div class="dr-option" onclick="applyDateFilter(7,'Last 7 Days')" style="padding:9px 14px;font-size:12px;color:var(--text2);cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--bg)'" onmouseout="if(dateFilter!==7)this.style.background='white'">Last 7 Days</div>
+          <div class="dr-option" onclick="applyDateFilter(30,'Last 30 Days')" style="padding:9px 14px;font-size:12px;color:var(--blue);background:var(--blue-l);cursor:pointer;font-weight:500">Last 30 Days</div>
+          <div class="dr-option" onclick="applyDateFilter(90,'Last 90 Days')" style="padding:9px 14px;font-size:12px;color:var(--text2);cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--bg)'" onmouseout="if(dateFilter!==90)this.style.background='white'">Last 90 Days</div>
+          <div class="dr-option" onclick="applyDateFilter(0,'All Time')" style="padding:9px 14px;font-size:12px;color:var(--text2);cursor:pointer;transition:background .12s;border-top:1px solid var(--border)" onmouseover="this.style.background='var(--bg)'" onmouseout="if(dateFilter!==0)this.style.background='white'">All Time</div>
+        </div>
       </div>
     </div>
     <div class="tb-r">
@@ -699,7 +708,50 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <script>
 // ── DATA ───────────────────────────────────────────────────
 let allLeads = [];
+let dateFilter = 30;
 let currentFilter = 'all';
+
+function filterLeadsByDate(leads, days) {
+  if (days === 0) return leads;
+  const cutoff = new Date(Date.now() - days * 86400000);
+  return leads.filter(l => new Date(l.created_at) >= cutoff);
+}
+
+function applyDateFilter(days, label) {
+  dateFilter = days;
+  document.getElementById('dateRangeLabel').textContent = label;
+  document.getElementById('dateDropdown').style.display = 'none';
+  document.querySelectorAll('.dr-option').forEach(el => {
+    el.style.background = 'white';
+    el.style.color = 'var(--text2)';
+    el.style.fontWeight = '400';
+  });
+  event.target.style.background = 'var(--blue-l)';
+  event.target.style.color = 'var(--blue)';
+  event.target.style.fontWeight = '500';
+  const filtered = filterLeadsByDate(allLeads, days);
+  const filteredStats = {
+    totalLeads: filtered.length,
+    newLeads: filtered.filter(l => l.status === 'new').length,
+    contactedLeads: filtered.filter(l => l.status === 'contacted').length,
+    convertedLeads: filtered.filter(l => l.status === 'converted').length,
+    clientName: document.getElementById('sbClientName').textContent
+  };
+  updateAll(filteredStats, filtered);
+  renderTable();
+}
+
+function toggleDateDropdown() {
+  const dd = document.getElementById('dateDropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('dateDropdown');
+  if (dd && !e.target.closest('#dateRangeWrap')) {
+    dd.style.display = 'none';
+  }
+});
 let oppChart, valChart, convChart, lineChart, stageChart;
 
 const budgetMap = {under_500k:'< 500K','500k_1m':'500K–1M','1m_2m':'1M–2M','2m_5m':'2M–5M',above_5m:'5M+'};
@@ -1007,7 +1059,8 @@ async function loadAll(){
     allLeads=await lr.json();
     const stats=await sr.json();
     if(stats.clientName){document.getElementById('sbClientName').textContent=stats.clientName;document.getElementById('tbTitle').textContent=stats.clientName+' — Dashboard';}
-    updateAll(stats,allLeads);
+    const filtered = filterLeadsByDate(allLeads, dateFilter);
+    updateAll(stats,filtered);
     renderTable();
     document.getElementById('lastRefreshed').textContent='Updated '+new Date().toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }catch(e){document.getElementById('lastRefreshed').textContent='Connection error';}
