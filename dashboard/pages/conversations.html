@@ -122,6 +122,12 @@
           </div>
         </div>
         <div class="chat-thread" id="chatThread">${renderMessages(messages)}</div>
+        <div style="padding:10px 16px;border-top:1px solid var(--border);background:var(--bg);display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <button class="btn btn-sm btn-o" onclick="openSendProperty('${waNumber}')" style="font-size:11px">🏠 Send Property</button>
+          <button class="btn btn-sm btn-o" onclick="openSendMedia('${waNumber}','image')" style="font-size:11px">📷 Send Image</button>
+          <button class="btn btn-sm btn-o" onclick="openSendMedia('${waNumber}','video')" style="font-size:11px">🎥 Send Video</button>
+          <button class="btn btn-sm btn-b" onclick="openSendMessage('${waNumber}')" style="font-size:11px">💬 Send Message</button>
+        </div>
       `;
       const thread = document.getElementById('chatThread');
       thread.scrollTop = thread.scrollHeight;
@@ -165,6 +171,53 @@
     } catch(e) {
       alert('Connection error');
     }
+  };
+
+  window.openSendMedia = async function(waNumber, mediaType) {
+    const url = prompt(`Enter ${mediaType} URL:`);
+    if (!url) return;
+    const caption = prompt('Caption (optional):') || '';
+    try {
+      const r = await fetch(`/api/leads/${waNumber}/send-media`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ mediaUrl: url, caption, mediaType })
+      });
+      const d = await r.json();
+      if (d.success) { shared.showToast('Media sent!'); selectConv(waNumber); }
+      else alert('Error: ' + (d.error || 'Send failed'));
+    } catch(e) { alert('Connection error'); }
+  };
+
+  window.openSendProperty = async function(waNumber) {
+    try {
+      const listings = await shared.apiFetch('/api/listings');
+      if (!listings.length) { alert('No listings available. Add listings in Settings first.'); return; }
+      const opts = listings.map((l,i) => `${i+1}. ${l.title} — AED ${(l.price||0).toLocaleString()} (${l.area})`).join('\n');
+      const choice = prompt(`Select listing number:\n\n${opts}`);
+      const idx = parseInt(choice) - 1;
+      if (isNaN(idx) || !listings[idx]) return;
+      const r = await fetch(`/api/leads/${waNumber}/send-property`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ listingId: listings[idx].id })
+      });
+      const d = await r.json();
+      if (d.success) { shared.showToast('Property card sent!'); selectConv(waNumber); }
+      else alert('Error: ' + (d.error || 'Send failed'));
+    } catch(e) { alert('Connection error'); }
+  };
+
+  window.openSendMessage = async function(waNumber) {
+    const msg = prompt('Enter message to send:');
+    if (!msg) return;
+    try {
+      const r = await fetch(`/api/leads/${waNumber}/message`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ message: msg })
+      });
+      const d = await r.json();
+      if (d.success || d.ok) { shared.showToast('Message sent!'); selectConv(waNumber); }
+      else alert('Error: ' + (d.error || 'Send failed'));
+    } catch(e) { alert('Connection error'); }
   };
 
   await loadConversations();

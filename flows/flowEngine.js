@@ -28,6 +28,7 @@ const { createZohoLead }  = require('../utils/integrations/zohoSync');
 const { sendLeadEmail }   = require('../utils/integrations/emailNotifier');
 const { triggerZapier }      = require('../utils/integrations/zapierWebhook');
 const { triggerHotLeadAlert } = require('../utils/hotLeadAlert');
+const { handleOptOut } = require('../utils/reengagementEngine');
 
 // ── Load all flow files from this directory ───────────────────────────────────
 const flows = {};
@@ -100,6 +101,23 @@ async function handleMessage(message) {
   const rawText = (text || '').trim();
   const inputId = buttonId || listId || null;
 
+  // Re-engagement: STOP → opt-out
+  if (rawText.toLowerCase() === 'stop') {
+    await handleOptOut(from);
+    return;
+  }
+
+  // Re-engagement: YES/SHOW ME → clear session and restart flow
+  if (['yes','show me','نعم','أرني'].includes(rawText.toLowerCase())) {
+    try {
+      const lead = await require('../db/database').getLead(from);
+      if (lead && lead.status !== 'converted') {
+        await clearSession(from);
+        // Fall through to normal flow start (session will be null)
+      }
+    } catch(_) {}
+  }
+
   // "menu" / "restart" → reset to START
   if (['menu', 'restart', 'start'].includes(rawText.toLowerCase())) {
     const flow = getDefaultFlow();
@@ -117,6 +135,20 @@ async function handleMessage(message) {
   let session = parseSession(sessionRow);
 
   if (!session) {
+    // Referral link: REF-{agentId} — tag lead with referral agent
+    if (rawText.startsWith('REF-')) {
+      const agentId = rawText.replace('REF-', '').trim();
+      const lang = detectLanguage('') || 'en';
+      const flow = getDefaultFlow();
+      const welcomeMsg = lang === 'ar'
+        ? `مرحباً! 👋 شكراً لتواصلك معنا. كيف يمكنني مساعدتك اليوم؟`
+        : `Hello! 👋 Welcome! I'm your AI property assistant. How can I help you today?`;
+      await sendText(from, welcomeMsg);
+      await persistSession(from, 'START', { _flowName: flow.FLOW_NAME, referral_agent: agentId, source: 'Referral Link' }, lang, false, []);
+      await flow.STEPS.START.send(from, { referral_agent: agentId }, API, lang);
+      return;
+    }
+
     const lang = (message._fromVoice && message._detectedLanguage)
       ? message._detectedLanguage
       : detectLanguage(rawText);

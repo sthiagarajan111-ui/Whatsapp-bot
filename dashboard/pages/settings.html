@@ -170,6 +170,11 @@
             <button class="btn btn-primary" onclick="addAgent()">Add Agent</button>
           </div>
         </div>
+        <div class="section-card" style="margin-top:16px">
+          <div class="section-title">🔗 Referral Links</div>
+          <div class="section-desc">Each agent gets a unique WhatsApp link. Leads who click it are auto-tagged with the agent's name.</div>
+          <div id="referralLinks" style="margin-top:12px"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
       </div>
 
       <!-- Branding -->
@@ -359,7 +364,30 @@
 
   // Agents
   async function loadAgents() {
-    try { agents = await shared.apiFetch('/api/agents'); renderAgents(); } catch(_) {}
+    try { agents = await shared.apiFetch('/api/agents'); renderAgents(); renderReferralLinks(); } catch(_) {}
+  }
+
+  async function renderReferralLinks() {
+    const el = document.getElementById('referralLinks');
+    if (!el) return;
+    if (!agents.length) {
+      el.innerHTML = '<div style="color:var(--text3);font-size:13px">Add agents above to generate referral links.</div>';
+      return;
+    }
+    const rows = await Promise.all(agents.map(async a => {
+      try {
+        const d = await shared.apiFetch(`/api/agents/${a.id}/referral-link`);
+        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+          <img src="${d.qrCodeUrl}" width="60" height="60" style="border-radius:6px;border:1px solid var(--border)" alt="QR">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px">${a.name}</div>
+            <div style="font-size:11px;color:var(--text2);word-break:break-all">${d.link}</div>
+          </div>
+          <button onclick="navigator.clipboard.writeText('${d.link}').then(()=>shared.showToast('Link copied!'))" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:11px;flex-shrink:0">Copy Link</button>
+        </div>`;
+      } catch(_) { return ''; }
+    }));
+    el.innerHTML = rows.join('');
   }
 
   function renderAgents() {

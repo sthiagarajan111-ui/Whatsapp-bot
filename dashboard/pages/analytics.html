@@ -39,6 +39,12 @@
   <div class="analytics-grid" id="analyticsGrid">
     <div class="loading"><div class="spinner"></div> Loading charts...</div>
   </div>
+
+  <!-- Agent Leaderboard -->
+  <div class="chart-card" style="margin-top:20px">
+    <div class="chart-title">🏆 Agent Performance Leaderboard</div>
+    <div id="agentLeaderboard"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+  </div>
 </div>
 
 <script>
@@ -181,5 +187,45 @@
 
   // Default: last 30 days
   loadAnalytics(currentRange);
+
+  // Agent Leaderboard
+  (async function loadLeaderboard() {
+    const el = document.getElementById('agentLeaderboard');
+    try {
+      const agents = await shared.apiFetch('/api/agents/performance');
+      if (!agents.length) {
+        el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Add agents in <a href="#settings" style="color:var(--blue)">Settings</a> to track performance</div>';
+        return;
+      }
+      const medals = ['🥇','🥈','🥉'];
+      el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--bg)">
+          ${['Rank','Agent','Leads','HOT','Converted','Win%','Avg Score'].map(h=>`<th style="padding:8px 12px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:2px solid var(--border)">${h}</th>`).join('')}
+        </tr></thead>
+        <tbody>${agents.map(a => {
+          const winColor = a.conversionRate >= 20 ? 'var(--green)' : a.conversionRate >= 10 ? 'var(--amber)' : 'var(--red)';
+          const medal = medals[a.rank-1] || `#${a.rank}`;
+          return `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:10px 12px;font-size:13px">${medal}</td>
+            <td style="padding:10px 12px;font-weight:600;font-size:13px">${a.name}</td>
+            <td style="padding:10px 12px;font-size:13px">${a.totalLeads}</td>
+            <td style="padding:10px 12px;font-size:13px;color:var(--red)">${a.hotLeads}</td>
+            <td style="padding:10px 12px;font-size:13px;color:var(--green)">${a.converted}</td>
+            <td style="padding:10px 12px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;min-width:60px">
+                  <div style="height:100%;width:${Math.min(a.conversionRate,100)}%;background:${winColor};border-radius:3px"></div>
+                </div>
+                <span style="font-size:12px;font-weight:700;color:${winColor};min-width:32px">${a.conversionRate}%</span>
+              </div>
+            </td>
+            <td style="padding:10px 12px;font-size:13px;color:var(--purple)">${a.avgScore}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+    } catch(e) {
+      el.innerHTML = '<div style="padding:16px;color:var(--text3)">Failed to load agent data</div>';
+    }
+  })();
 })();
 </script>

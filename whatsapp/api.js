@@ -53,4 +53,33 @@ async function sendList(to, headerText, bodyText, _buttonText, sections) {
  */
 function markAsRead(_messageId) {}
 
-module.exports = { sendText, sendButtons, sendList, markAsRead };
+/**
+ * Send an image or video via Twilio media URL.
+ */
+async function sendImage(to, imageUrl, caption) {
+  try {
+    const message = await getClient().messages.create({
+      from: fromNumber(),
+      to:   `whatsapp:+${to}`,
+      mediaUrl: [imageUrl],
+      body: caption || ''
+    });
+    return message.sid;
+  } catch(e) {
+    console.error('[Twilio] sendImage error:', e.message);
+    throw e;
+  }
+}
+
+/**
+ * Send a formatted property card as a text message.
+ */
+async function sendPropertyCard(to, listing, language) {
+  const isAr = language === 'ar';
+  const msg = isAr
+    ? `🏠 *${listing.title}*\n\n💰 السعر: AED ${listing.price?.toLocaleString()}\n📍 الموقع: ${listing.area}\n🛏 غرف النوم: ${listing.beds}\n🚿 الحمامات: ${listing.baths}\n📐 المساحة: ${listing.size_sqft} قدم مربع\n\n${listing.description||''}\n${listing.listing_url?'\n🔗 '+listing.listing_url:''}`
+    : `🏠 *${listing.title}*\n\n💰 Price: AED ${listing.price?.toLocaleString()}\n📍 Location: ${listing.area}\n🛏 Bedrooms: ${listing.beds}\n🚿 Bathrooms: ${listing.baths}\n📐 Size: ${listing.size_sqft} sqft\n\n${listing.description||''}\n${listing.listing_url?'\n🔗 View listing: '+listing.listing_url:''}`;
+  return await sendText(to, msg);
+}
+
+module.exports = { sendText, sendButtons, sendList, markAsRead, sendImage, sendPropertyCard };

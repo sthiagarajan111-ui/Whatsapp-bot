@@ -5,7 +5,7 @@ const path     = require('path');
 const fs       = require('fs');
 const mongoose = require('mongoose');
 const { handleMessage } = require('./flows/flowEngine');
-const { markAsRead, sendText }    = require('./whatsapp/api');
+const { markAsRead, sendText, sendImage, sendPropertyCard } = require('./whatsapp/api');
 const db = require('./db/database');
 const { startScheduler, sendDailyReport } = require('./utils/scheduler');
 const { processVoiceMessage } = require('./utils/voiceHandler');
@@ -451,20 +451,57 @@ app.delete('/api/leads/:id', async (req, res) => {
 });
 
 // ── API: listings ─────────────────────────────────────────────────────────────
+// ── Property Match Notifications ──────────────────────────────────────────────
+async function notifyMatchingLeads(listing) {
+  if (process.env.PROPERTY_MATCH_ALERTS !== 'true') return;
+  const leads = await db.getAllLeads();
+  const budgetRanges = {
+    under_500k: {min:0, max:500000},
+    '500k_1m': {min:500000, max:1000000},
+    '1m_2m': {min:1000000, max:2000000},
+    '2m_5m': {min:2000000, max:5000000},
+    above_5m: {min:5000000, max:999999999}
+  };
+  let notified = 0;
+  for (const lead of leads) {
+    if (lead.status === 'converted' || lead.status === 'lost') continue;
+    const data = typeof lead.data === 'string' ? JSON.parse(lead.data||'{}') : (lead.data||{});
+    const range = budgetRanges[data.budget];
+    if (!range) continue;
+    const priceMatch = listing.price >= range.min && listing.price <= range.max;
+    const areaMatch = !data.area || data.area === 'open' || data.area === listing.area;
+    if (priceMatch && areaMatch) {
+      const lang = lead.language || 'en';
+      const msg = lang === 'ar'
+        ? `مرحباً ${lead.name}! 🏠 عقار جديد يناسب معاييرك:\n\n*${listing.title}*\n💰 AED ${listing.price?.toLocaleString()}\n📍 ${listing.area}\n🛏 ${listing.beds} غرف\n\nهل تريد تحديد موعد للمعاينة؟`
+        : `Hi ${lead.name}! 🏠 New listing matching your criteria:\n\n*${listing.title}*\n💰 AED ${listing.price?.toLocaleString()}\n📍 ${listing.area}\n🛏 ${listing.beds} beds | 📐 ${listing.size_sqft} sqft\n${listing.listing_url ? '\n🔗 ' + listing.listing_url : ''}\n\nWould you like to schedule a viewing? Reply YES`;
+      try {
+        await sendText(lead.wa_number, msg);
+        notified++;
+        await new Promise(r => setTimeout(r, 500));
+      } catch(e) { console.error('[Property Match] Send failed:', e.message); }
+    }
+  }
+  console.log(`[Property Match] Notified ${notified} matching leads for listing: ${listing.title}`);
+  return notified;
+}
+
 app.get('/api/listings', async (_req, res) => {
   res.json(await db.getAllListings());
 });
 
 app.post('/api/listings', async (req, res) => {
   const b = req.body;
-  const result = await db.saveListing({
+  const listing = {
     title: b.title || '', type: b.type || 'apartment', area: b.area || '',
     price: b.price || 0, beds: b.beds || 0, baths: b.baths || 0,
     size_sqft: b.size_sqft || 0, description: b.description || '',
     image_url: b.image_url || '', listing_url: b.listing_url || '',
     status: b.status || 'available',
-  });
+  };
+  const result = await db.saveListing(listing);
   res.json({ ok: true, id: result.id });
+  notifyMatchingLeads({ ...listing, id: result.id }).catch(e => console.error('[Property Match]', e.message));
 });
 
 app.put('/api/listings/:id', async (req, res) => {
@@ -563,6 +600,34 @@ app.post('/api/leads/:waNumber/release', async (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
+});
+
+// ── API: Agent Media Sharing ──────────────────────────────────────────────────
+app.post('/api/leads/:waNumber/send-media', async (req, res) => {
+  const { waNumber } = req.params;
+  const { mediaUrl, caption, mediaType } = req.body;
+  if (!mediaUrl) return res.status(400).json({ error: 'mediaUrl required' });
+  try {
+    await sendImage(waNumber, mediaUrl, caption || '');
+    await db.saveMessage(waNumber, 'outbound', mediaType || 'image', caption || '[media]', { mediaUrl }).catch(() => {});
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/leads/:waNumber/send-property', async (req, res) => {
+  const { waNumber } = req.params;
+  const { listingId } = req.body;
+  if (!listingId) return res.status(400).json({ error: 'listingId required' });
+  try {
+    const listings = await db.getAllListings();
+    const listing = listings.find(l => String(l.id) === String(listingId));
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    const lead = await db.getLead(waNumber);
+    const lang = lead?.language || 'en';
+    await sendPropertyCard(waNumber, listing, lang);
+    await db.saveMessage(waNumber, 'outbound', 'text', `[Property Card: ${listing.title}]`, {}).catch(() => {});
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── API: reports ──────────────────────────────────────────────────────────────
@@ -690,11 +755,37 @@ app.get('/webhook/facebook', (req, res) => {
   res.sendStatus(403);
 });
 
-// ── POST /webhook/facebook — receive Meta Lead Ads ────────────────────────────
+// ── Instagram DM processor ────────────────────────────────────────────────────
+async function processInstagramDM(senderId, text) {
+  try {
+    console.log(`[Instagram] DM from ${senderId}: ${text}`);
+    await db.saveLead(senderId, 'Instagram User', 'new', 5, {
+      source: 'Instagram DM',
+      channel: 'instagram',
+      ig_sender_id: senderId,
+      first_message: text
+    }, 'en');
+    console.log(`[Instagram] Lead saved — manual follow-up required for IG sender ${senderId}`);
+  } catch(e) { console.error('[Instagram] processInstagramDM error:', e.message); }
+}
+
+// ── POST /webhook/facebook — receive Meta Lead Ads + Instagram DMs ────────────
 app.post('/webhook/facebook', (req, res) => {
   res.sendStatus(200); // respond immediately — Meta requires fast response
   try {
     const entry  = req.body.entry?.[0];
+    if (!entry) return;
+
+    // Instagram DM handling
+    if (entry.messaging) {
+      for (const msg of entry.messaging) {
+        if (msg.message && msg.message.text) {
+          processInstagramDM(msg.sender.id, msg.message.text).catch(e => console.error('[Instagram] Error:', e.message));
+        }
+      }
+      return;
+    }
+
     const change = entry?.changes?.[0];
     if (!change) return;
 
@@ -719,24 +810,162 @@ app.post('/webhook/facebook', (req, res) => {
 // ── POST /webhook/google-lead — Google Ads Lead Form webhook ──────────────────
 app.post('/webhook/google-lead', (req, res) => {
   res.sendStatus(200); // respond immediately
-  try {
-    const body    = req.body;
-    const payload = {
-      field_data: [
-        { name: 'full_name',    values: [body.name  || 'Google Lead'] },
-        { name: 'phone_number', values: [body.phone || ''] },
-        { name: 'email',        values: [body.email || ''] },
-      ].filter(f => f.values[0]),
-      ad_name:       `Google Ad: ${body.campaign_name || body.campaign || 'Google Ad'}`,
-      campaign_name: body.campaign_name || body.campaign || 'Google Ad',
-      ad_id:         body.ad_id   || null,
-      form_id:       body.form_id || null,
-    };
+  processGoogleLead(req.body).catch(e => console.error('[Google Lead] Error:', e.message));
+});
 
-    processFacebookLead(payload).catch(e => console.error('[Google Lead] Error:', e.message));
-  } catch (e) {
-    console.error('[Google Lead] Parse error:', e.message);
+async function processGoogleLead(body) {
+  try {
+    // Support both Google Ads Lead Form Extension format and simple format
+    let name, phone, email;
+    const columns = body.user_column_data;
+    if (Array.isArray(columns)) {
+      // Native Google Ads Lead Form Extension format
+      const get = (colName) => columns.find(c => c.column_name === colName)?.string_value || '';
+      name  = get('Full Name')     || get('full_name')     || 'Google Lead';
+      phone = get('Phone number')  || get('phone_number')  || get('phone') || '';
+      email = get('Email')         || get('email')         || '';
+    } else {
+      // Simple/legacy format
+      name  = body.name  || 'Google Lead';
+      phone = body.phone || '';
+      email = body.email || '';
+    }
+
+    let waNumber = phone.replace(/[^0-9]/g, '');
+    if (waNumber.startsWith('0')) waNumber = '971' + waNumber.slice(1);
+
+    const campaignId = body.campaign_id || body.campaign_name || body.campaign || 'Google Ad';
+    const source     = `Google Ad: ${campaignId}`;
+
+    console.log(`[Google Lead] New lead: ${name} (${waNumber}) campaign: ${campaignId}`);
+
+    await db.saveLead(waNumber || `google_${Date.now()}`, name, 'new', 6, {
+      source, campaign: campaignId, email,
+      ad_id:    body.creative_id || body.ad_id || null,
+      form_id:  body.form_id     || null,
+      lead_id:  body.lead_id     || null,
+      interest: 'buy',
+      channel:  'google_ads',
+    }, 'en');
+
+    if (waNumber) {
+      const clientName = process.env.CLIENT_NAME || 'Our Agency';
+      await sendText(waNumber,
+        `Hello ${name}! 👋\n\nThank you for your interest in ${clientName} from our Google ad.\n\nI'm your AI property assistant. What are you looking for?\n\n1. Buy a Property\n2. Rent a Property\n3. Sell My Property\n\nReply with a number to choose`
+      ).catch(() => {});
+    }
+
+    console.log(`[Google Lead] Processed: ${name}`);
+  } catch(e) {
+    console.error('[Google Lead] Processing error:', e.message);
   }
+}
+
+// ── POST /webhook/email-lead — Property Finder / Bayut email parser ──────────
+app.post('/webhook/email-lead', async (req, res) => {
+  res.json({ success: true });
+  try {
+    const { from: senderEmail, subject, body: emailBody, source: rawSource } = req.body;
+    if (!emailBody) return;
+    const source = rawSource ||
+      (senderEmail?.includes('propertyfinder') ? 'Property Finder' :
+       senderEmail?.includes('bayut') ? 'Bayut' : 'Email Lead');
+    const phoneMatch = emailBody.match(/(\+?971[\s-]?\d{2}[\s-]?\d{3}[\s-]?\d{4}|\+?9\d{9,12})/);
+    const nameMatch  = emailBody.match(/Name:\s*([^\n]+)/i) || emailBody.match(/From:\s*([^\n<]+)/i);
+    const phone = phoneMatch ? phoneMatch[1] : null;
+    const name  = nameMatch  ? nameMatch[1].trim() : 'Email Lead';
+    let waNumber = phone ? phone.replace(/[^0-9]/g, '') : null;
+    if (waNumber && waNumber.startsWith('0')) waNumber = '971' + waNumber.slice(1);
+    if (!waNumber) { console.log(`[EmailLead] No phone in email from ${senderEmail}`); return; }
+    await db.saveLead(waNumber, name, 'new', 6, {
+      source, channel: 'email', email_subject: subject,
+      raw_email: emailBody.slice(0, 500)
+    }, 'en');
+    const clientName = process.env.CLIENT_NAME || 'Our Agency';
+    await sendText(waNumber,
+      `Hello ${name}! 👋\n\nThank you for your property enquiry via ${source}. I'm the AI assistant for ${clientName}.\n\nTo help you find the perfect property, what are you looking for?\n\n1. Buy a Property\n2. Rent a Property\n3. Sell My Property\n\nReply with a number to choose`
+    ).catch(() => {});
+    console.log(`[EmailLead] Lead captured: ${name} (${waNumber}) from ${source}`);
+  } catch(e) { console.error('[EmailLead] Error:', e.message); }
+});
+
+// ── GET /api/setup/email-forwarding — setup instructions ─────────────────────
+app.get('/api/setup/email-forwarding', (_req, res) => {
+  const baseUrl = process.env.RENDER_URL || `http://localhost:${process.env.PORT || 3000}`;
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html><html><head><title>Email Forwarding Setup</title>
+<style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#333}
+h1{color:#3D7FFA}h2{margin-top:32px}code{background:#f4f4f4;padding:2px 6px;border-radius:4px;font-size:13px}
+pre{background:#f4f4f4;padding:16px;border-radius:8px;overflow-x:auto}
+.step{background:#fff;border:1px solid #e4e9f2;border-radius:8px;padding:16px;margin:12px 0}
+</style></head><body>
+<h1>📧 Email Lead Forwarding Setup</h1>
+<p>When Property Finder or Bayut sends you a lead enquiry email, forward it to your bot via webhook.</p>
+<h2>Webhook Endpoint</h2>
+<pre>POST ${baseUrl}/webhook/email-lead</pre>
+<h2>Method 1 — Zapier / Make (Recommended)</h2>
+<div class="step"><b>Step 1:</b> Create a Zapier account at zapier.com</div>
+<div class="step"><b>Step 2:</b> Trigger: Gmail → "New Email matching search" → from:propertyfinder.ae OR from:bayut.com</div>
+<div class="step"><b>Step 3:</b> Action: Webhooks by Zapier → POST to <code>${baseUrl}/webhook/email-lead</code></div>
+<div class="step"><b>Step 4:</b> Map fields: from=sender, subject=subject, body=body_plain, source=Property Finder</div>
+<h2>Method 2 — Gmail Filter + Forward</h2>
+<div class="step"><b>Step 1:</b> In Gmail, create a filter for emails from propertyfinder.ae or bayut.com</div>
+<div class="step"><b>Step 2:</b> Set the filter to forward to a Zapier/Make email webhook address</div>
+<div class="step"><b>Step 3:</b> The Zapier/Make webhook posts to <code>${baseUrl}/webhook/email-lead</code></div>
+<h2>Test your webhook</h2>
+<pre>curl -X POST ${baseUrl}/webhook/email-lead \\
+  -H "Content-Type: application/json" \\
+  -d '{"from":"enquiry@propertyfinder.ae","subject":"New Enquiry","body":"Name: Ahmed\\nPhone: +971501234567","source":"Property Finder"}'</pre>
+</body></html>`);
+});
+
+// ── POST /webhook/web-form — website lead capture ────────────────────────────
+app.post('/webhook/web-form', async (req, res) => {
+  res.json({ success: true });
+  try {
+    const { name, phone, email, message, source, page_url } = req.body;
+    let waNumber = (phone || '').replace(/[^0-9]/g, '');
+    if (waNumber.startsWith('0')) waNumber = '971' + waNumber.slice(1);
+    if (!waNumber) { console.log('[WebForm] No phone number'); return; }
+    const leadName = name || 'Website Lead';
+    await db.saveLead(waNumber, leadName, 'new', 5, {
+      source: source || 'Website',
+      email: email || null,
+      message: message || null,
+      page_url: page_url || null,
+      channel: 'web_form'
+    }, 'en');
+    const clientName = process.env.CLIENT_NAME || 'Our Agency';
+    await sendText(waNumber,
+      `Hello ${leadName}! 👋\n\nThank you for your enquiry on ${clientName}'s website.\n\nI'm your AI property assistant. To help you find the perfect property, what are you looking for?\n\n1. Buy a Property\n2. Rent a Property\n3. Sell My Property\n\nReply with a number to choose`
+    ).catch(() => {});
+    console.log(`[WebForm] Lead captured: ${leadName} (${waNumber}) from ${page_url||'website'}`);
+  } catch(e) { console.error('[WebForm] Error:', e.message); }
+});
+
+// ── GET /snippet/web-form.js — embed script for client websites ───────────────
+app.get('/snippet/web-form.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  const baseUrl = process.env.RENDER_URL || `http://localhost:${process.env.PORT || 3000}`;
+  res.send(`
+(function() {
+  var forms = document.querySelectorAll('form');
+  forms.forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+      var data = new FormData(form);
+      var obj = {};
+      data.forEach(function(v,k){ obj[k]=v; });
+      obj.page_url = window.location.href;
+      obj.source = 'Website';
+      fetch('${baseUrl}/webhook/web-form', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(obj)
+      });
+    });
+  });
+})();
+  `);
 });
 
 // ── POST /api/test/facebook-lead — simulate a Facebook lead for testing ───────
@@ -757,6 +986,55 @@ app.post('/api/test/facebook-lead', async (req, res) => {
 
   await processFacebookLead(payload);
   res.json({ success: true, waNumber, name });
+});
+
+// ── API: Referral Links ───────────────────────────────────────────────────────
+app.get('/api/agents/:agentId/referral-link', async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const waNumber = (process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886').replace('+','');
+    const refCode = `REF-${agentId}`;
+    const link = `https://wa.me/${waNumber}?text=${encodeURIComponent(refCode)}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(link)}`;
+    res.json({ link, qrCodeUrl, refCode });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/referral/:agentId', (req, res) => {
+  const { agentId } = req.params;
+  const waNumber = (process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886').replace('+','');
+  const refCode = `REF-${agentId}`;
+  const link = `https://wa.me/${waNumber}?text=${encodeURIComponent(refCode)}`;
+  res.redirect(302, link);
+});
+
+// ── API: Agent Performance Leaderboard ───────────────────────────────────────
+app.get('/api/agents/performance', async (_req, res) => {
+  try {
+    const [agents, leads] = await Promise.all([db.getAgents(), db.getAllLeads()]);
+    const perf = agents.map(agent => {
+      const agentLeads = leads.filter(l => l.agent_wa_number === agent.wa_number);
+      const totalLeads = agentLeads.length;
+      const hotLeads = agentLeads.filter(l => (l.score||0) >= 8).length;
+      const converted = agentLeads.filter(l => l.status === 'converted').length;
+      const conversionRate = totalLeads > 0 ? Math.round(converted / totalLeads * 100) : 0;
+      const avgScore = totalLeads > 0 ? Math.round(agentLeads.reduce((s,l) => s+(l.score||0),0) / totalLeads * 10) / 10 : 0;
+      return { id: agent.id, name: agent.name, wa_number: agent.wa_number, email: agent.email,
+               totalLeads, hotLeads, converted, conversionRate, avgScore };
+    });
+    perf.sort((a,b) => b.conversionRate - a.conversionRate);
+    perf.forEach((p,i) => p.rank = i + 1);
+    res.json(perf);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Re-engagement ────────────────────────────────────────────────────────
+app.get('/api/reengagement/run', async (_req, res) => {
+  try {
+    const { runReengagement } = require('./utils/reengagementEngine');
+    const sent = await runReengagement();
+    res.json({ ok: true, sent: sent || 0 });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── API: DB status ────────────────────────────────────────────────────────────

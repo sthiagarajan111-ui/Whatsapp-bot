@@ -8,6 +8,7 @@ const cron = require('node-cron');
 const { getLeadsForFollowup, markFollowupSent } = require('../db/database');
 const db = require('../db/database');
 const { sendText } = require('../whatsapp/api');
+const { runReengagement } = require('./reengagementEngine');
 
 function startScheduler() {
   const intervalMs = 5 * 60 * 1000; // 5 minutes
@@ -57,6 +58,9 @@ async function runFollowups() {
     }
   }
 }
+
+// ── Daily 10AM re-engagement ────────────────────────────────────────────────
+cron.schedule('0 10 * * *', async () => { await runReengagement(); }, { timezone: 'Asia/Dubai' });
 
 // ── Daily 8AM email report ──────────────────────────────────────────────────
 cron.schedule('0 8 * * *', async () => {
