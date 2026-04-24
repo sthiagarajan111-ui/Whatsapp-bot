@@ -12,7 +12,8 @@
       "Bash(\"$NGROK_BIN\" config:*)",
       "Bash(cmd.exe:*)",
       "Bash(\"/c/Users/40745/AppData/Roaming/npm/node_modules/ngrok/bin/ngrok.exe\" http:*)",
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "WebFetch(domain:whatsapp-bot-41x7.onrender.com)"
     ]
   }
 }

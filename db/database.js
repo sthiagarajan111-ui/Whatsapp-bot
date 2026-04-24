@@ -123,7 +123,7 @@ async function saveLead(waNumber, name, status, score, data, language, flowName,
       },
       $setOnInsert: { created_at: new Date() },
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
   return normalizeLead(doc);
 }
@@ -228,7 +228,7 @@ async function saveSession(waNumber, sessionData, clientId = 'default') {
   await Session.findOneAndUpdate(
     { wa_number: waNumber, client_id: clientId },
     { $set: { ...sessionData, client_id: clientId, updated_at: new Date() } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
@@ -319,7 +319,7 @@ async function saveSetting(key, value, clientId = 'default') {
   return await Setting.findOneAndUpdate(
     { key, client_id: clientId },
     { $set: { value, updated_at: new Date() } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
