@@ -56,7 +56,7 @@
   .appt-empty{text-align:center;padding:48px 24px;color:#9CA3AF}
   .appt-empty-icon{font-size:40px;margin-bottom:12px}
   .calendar-view{display:none}
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
   .cal-day{background:#fff;border-radius:10px;border:1px solid #E5E7EB;padding:10px;min-height:100px}
   .cal-day-header{font-size:11px;font-weight:700;color:#6B7280;margin-bottom:6px;text-align:center}
   .cal-day-date{font-size:16px;font-weight:800;color:#111827;text-align:center;margin-bottom:6px}
@@ -134,8 +134,8 @@
 
   async function init() {
     const [appts, stats] = await Promise.all([
-      fetch('/api/appointments').then(r => r.json()).catch(() => []),
-      fetch('/api/appointments/stats').then(r => r.json()).catch(() => ({})),
+      shared.apiFetch('/api/appointments').catch(() => []),
+      shared.apiFetch('/api/appointments/stats').catch(() => ({})),
     ]);
     allAppointments = Array.isArray(appts) ? appts : [];
 
@@ -236,7 +236,7 @@
       <td><span class="date-badge ${dc}">${display}</span></td>
       <td style="font-size:12px;color:#374151">${a.time_slot || a.slot_time || '—'}</td>
       <td><span class="industry-badge ${industryClass}">${industry}</span></td>
-      <td>${scoreBadge(a.lead_score || 0)}</td>
+      <td>${scoreBadge(a.lead_score ?? a.score ?? 0)}</td>
       <td><span class="status-pill status-${a.status || 'confirmed'}">${a.status || 'confirmed'}</span></td>
       <td style="font-size:12px;color:#6B7280">${a.agent_wa || '—'}</td>
       <td>
@@ -267,7 +267,8 @@
     document.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('apptTableView').style.display    = view === 'table'    ? '' : 'none';
-    document.getElementById('apptCalendarView').style.display = view === 'calendar' ? '' : 'none';
+    document.getElementById('apptCalendarView').style.display = view === 'calendar' ? 'block' : 'none';
+    if (view === 'calendar') renderCalendar(allAppointments);
   };
 
   function renderCalendar(appts) {
@@ -275,22 +276,36 @@
     if (!grid) return;
     const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const now = new Date();
-    const cells = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(now);
-      d.setDate(d.getDate() + i);
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    const monthName = now.toLocaleString('en-AE', { month: 'long', year: 'numeric' });
+
+    // Build header with month label
+    const header = `<div style="grid-column:1/-1;font-size:14px;font-weight:700;color:#111827;margin-bottom:8px;padding:4px 0">${monthName}</div>`;
+    const dayHeaders = days.map(d => `<div style="text-align:center;font-size:11px;font-weight:700;color:#6B7280;padding:6px 0;border-bottom:2px solid #E5E7EB">${d}</div>`).join('');
+
+    // Leading empty cells for days before the 1st
+    const startPad = Array.from({length: firstDay.getDay()}, () => '<div class="cal-day" style="background:#F9FAFB;opacity:.5"></div>').join('');
+
+    // Day cells
+    const dayCells = Array.from({length: lastDate}, (_, i) => {
+      const day = i + 1;
+      const d = new Date(year, month, day);
+      const isToday = d.toDateString() === now.toDateString();
       const dayAppts = appts.filter(a => {
         if (!a.appointment_date) return false;
-        return new Date(a.appointment_date).toDateString() === d.toDateString();
+        const ad = new Date(a.appointment_date);
+        return ad.getFullYear() === year && ad.getMonth() === month && ad.getDate() === day;
       });
-      const isToday = d.toDateString() === now.toDateString();
-      cells.push(`<div class="cal-day${isToday?' today':''}">
-        <div class="cal-day-header">${days[d.getDay()]}</div>
-        <div class="cal-day-date">${d.getDate()}</div>
-        ${dayAppts.map(a => `<div class="cal-appt ${a.status||''}" title="${a.lead_name||''}">${(a.lead_name||'?').split(' ')[0]} · ${(a.time_slot||'').split('(')[0].trim()}</div>`).join('')}
-      </div>`);
-    }
-    grid.innerHTML = cells.join('');
+      return `<div class="cal-day${isToday?' today':''}">
+        <div class="cal-day-date">${day}</div>
+        ${dayAppts.map(a => `<div class="cal-appt ${a.status||''}" title="${a.lead_name||''}${a.time_slot?' · '+a.time_slot:''}">${(a.lead_name||'?').split(' ')[0]}</div>`).join('')}
+      </div>`;
+    }).join('');
+
+    grid.innerHTML = header + dayHeaders + startPad + dayCells;
   }
 
   window.apptExportCSV = function() {

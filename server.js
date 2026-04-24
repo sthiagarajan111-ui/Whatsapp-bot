@@ -398,8 +398,10 @@ app.get('/api/conversations', async (_req, res) => {
 });
 
 app.get('/api/conversations/:waNumber', async (req, res) => {
-  const msgs = await db.getMessages(decodeURIComponent(req.params.waNumber));
-  res.json(msgs);
+  const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+  const wa = decodeURIComponent(req.params.waNumber);
+  const msgs = await db.getMessages(wa, clientId);
+  res.json(msgs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
 });
 
 app.get('/api/conversations/:waNumber/lead', async (req, res) => {
@@ -610,16 +612,20 @@ app.delete('/api/listings/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── API: appointments ─────────────────────────────────────────────────────────
-app.get('/api/appointments', async (_req, res) => {
-  res.json(await db.getAppointments());
-});
-
+// ── API: appointments (POST only — GET is handled below with enrichment) ───────
 app.post('/api/appointments', async (req, res) => {
   const b = req.body;
+  let lead_score = 0, lead_label = 'cold';
+  if (b.wa_number) {
+    try {
+      const lead = await db.getLead(b.wa_number);
+      if (lead) { lead_score = lead.score || 0; lead_label = lead.score_label || 'cold'; }
+    } catch(_) {}
+  }
   const result = await db.saveAppointment({
     lead_id: b.lead_id || null, wa_number: b.wa_number,
     slot_date: b.slot_date, slot_time: b.slot_time, notes: b.notes || '',
+    lead_score, lead_label,
   });
   res.json({ ok: true, id: result.id });
 });

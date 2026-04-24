@@ -1103,13 +1103,16 @@ async function checkToken(){
 
 async function loadAll(){
   try{
-    const[lr,sr]=await Promise.all([fetch('/api/leads'),fetch('/api/stats')]);
+    const[lr,sr,ar]=await Promise.all([fetch('/api/leads'),fetch('/api/stats'),fetch('/api/appointments/stats')]);
     allLeads=await lr.json();
     const stats=await sr.json();
+    const apptStats=await ar.json().catch(()=>({}));
     if(stats.clientName){document.getElementById('sbClientName').textContent=stats.clientName;document.getElementById('tbTitle').textContent=stats.clientName+' — Dashboard';}
     const filtered = filterLeadsByDate(allLeads, dateFilter);
     updateAll(stats,filtered);
     renderTable();
+    const nbA=document.getElementById('nbAppts');
+    if(nbA) nbA.textContent=apptStats.today??'0';
     document.getElementById('lastRefreshed').textContent='Updated '+new Date().toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }catch(e){document.getElementById('lastRefreshed').textContent='Connection error';}
   calcROI();

@@ -12,6 +12,8 @@ const appointmentSchema = new mongoose.Schema({
   slot_date:                { type: String },   // legacy
   slot_time:                { type: String },   // legacy
   status:                   { type: String, default: 'confirmed' },
+  lead_score:               { type: Number, default: 0 },
+  lead_label:               { type: String, default: 'cold' },
   agent_wa:                 { type: String },
   industry:                 { type: String },
   notes:                    { type: String },
