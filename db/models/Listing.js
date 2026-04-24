@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const listingSchema = new mongoose.Schema({
+  client_id:   { type: String, index: true, default: 'default' },
   title:       { type: String },
   type:        { type: String },
   area:        { type: String },

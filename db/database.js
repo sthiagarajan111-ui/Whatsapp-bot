@@ -1,6 +1,7 @@
 /**
  * Database layer — MongoDB Atlas via Mongoose.
- * All functions are async. Drop-in replacement for the SQLite version.
+ * All functions are async and accept an optional clientId (default: 'default')
+ * to support multi-tenancy while remaining fully backwards compatible.
  */
 const mongoose = require('mongoose');
 
@@ -77,8 +78,8 @@ function flattenLead(d) {
 }
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
-async function getLead(waNumber) {
-  const doc = await Lead.findOne({ wa_number: waNumber });
+async function getLead(waNumber, clientId = 'default') {
+  const doc = await Lead.findOne({ wa_number: waNumber, client_id: clientId });
   return normalizeLead(doc);
 }
 
@@ -89,9 +90,9 @@ async function getLeadById(id) {
   } catch (_) { return null; }
 }
 
-async function saveLead(waNumber, name, status, score, data, language, flowName, pipelineStage) {
+async function saveLead(waNumber, name, status, score, data, language, flowName, pipelineStage, clientId = 'default') {
   const doc = await Lead.findOneAndUpdate(
-    { wa_number: waNumber },
+    { wa_number: waNumber, client_id: clientId },
     {
       $set: {
         name:           name || '',
@@ -101,6 +102,7 @@ async function saveLead(waNumber, name, status, score, data, language, flowName,
         language:       language || 'en',
         flow_name:      flowName || 'realEstate',
         pipeline_stage: pipelineStage || 'new_lead',
+        client_id:      clientId,
         updated_at:     new Date(),
       },
       $setOnInsert: { created_at: new Date() },
@@ -110,21 +112,22 @@ async function saveLead(waNumber, name, status, score, data, language, flowName,
   return normalizeLead(doc);
 }
 
-// Compatibility wrapper for flows — replaces insertLead.run({...})
-async function insertLead(params) {
+// Compatibility wrapper for flows
+async function insertLead(params, clientId = 'default') {
   let data = params.data;
   if (typeof data === 'string') {
     try { data = JSON.parse(data); } catch (_) { data = {}; }
   }
   return saveLead(
     params.wa_number,
-    params.name        || '',
-    params.status      || 'new',
-    params.score       || 0,
-    data               || {},
-    params.language    || 'en',
-    params.flow_name   || 'realEstate',
-    params.pipeline_stage || 'new_lead'
+    params.name           || '',
+    params.status         || 'new',
+    params.score          || 0,
+    data                  || {},
+    params.language       || 'en',
+    params.flow_name      || 'realEstate',
+    params.pipeline_stage || 'new_lead',
+    clientId
   );
 }
 
@@ -136,21 +139,22 @@ async function updateLeadPipelineStage(id, stage) {
   try { await Lead.findByIdAndUpdate(id, { $set: { pipeline_stage: stage, updated_at: new Date() } }); } catch (_) {}
 }
 
-async function updateLeadScore(waNumber, score) {
-  await Lead.findOneAndUpdate({ wa_number: waNumber }, { $set: { score, updated_at: new Date() } });
+async function updateLeadScore(waNumber, score, clientId = 'default') {
+  await Lead.findOneAndUpdate({ wa_number: waNumber, client_id: clientId }, { $set: { score, updated_at: new Date() } });
 }
 
 async function updateLeadAgent(id, agentWaNumber) {
   try { await Lead.findByIdAndUpdate(id, { $set: { assigned_agent: agentWaNumber, updated_at: new Date() } }); } catch (_) {}
 }
 
-async function getAllLeads() {
-  const docs = await Lead.find().sort({ score: -1, created_at: -1 }).lean();
+async function getAllLeads(clientId = 'default') {
+  const docs = await Lead.find({ client_id: clientId }).sort({ score: -1, created_at: -1 }).lean();
   return docs.map(flattenLead);
 }
 
-async function getLeadStats() {
+async function getLeadStats(clientId = 'default') {
   const result = await Lead.aggregate([
+    { $match: { client_id: clientId } },
     {
       $group: {
         _id:       null,
@@ -169,15 +173,16 @@ async function getLeadStats() {
   return { ...r, avg_score: r.avg_score != null ? Math.round(r.avg_score * 10) / 10 : null };
 }
 
-async function exportLeads(status) {
-  const filter = status && status !== 'all' ? { status } : {};
+async function exportLeads(status, clientId = 'default') {
+  const filter = { client_id: clientId };
+  if (status && status !== 'all') filter.status = status;
   const docs = await Lead.find(filter).sort({ created_at: -1 }).lean();
   return docs.map(flattenLead);
 }
 
-async function getLeadsForFollowup(delayHours) {
+async function getLeadsForFollowup(delayHours, clientId = 'default') {
   const cutoff = new Date(Date.now() - delayHours * 60 * 60 * 1000);
-  const docs = await Lead.find({ status: 'new', followup_sent: 0, created_at: { $lte: cutoff } }).lean();
+  const docs = await Lead.find({ client_id: clientId, status: 'new', followup_sent: 0, created_at: { $lte: cutoff } }).lean();
   return docs.map(flattenLead);
 }
 
@@ -189,8 +194,8 @@ async function deleteLead(id) {
   try { await Lead.findByIdAndDelete(id); } catch (_) {}
 }
 
-async function getLeadsByDateRange(from, to) {
-  const filter = {};
+async function getLeadsByDateRange(from, to, clientId = 'default') {
+  const filter = { client_id: clientId };
   if (from) filter.created_at = { $gte: new Date(from) };
   if (to)   filter.created_at = { ...(filter.created_at || {}), $lt: new Date(to) };
   const docs = await Lead.find(filter).sort({ created_at: 1 }).lean();
@@ -198,54 +203,54 @@ async function getLeadsByDateRange(from, to) {
 }
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
-async function getSession(waNumber) {
-  const doc = await Session.findOne({ wa_number: waNumber });
+async function getSession(waNumber, clientId = 'default') {
+  const doc = await Session.findOne({ wa_number: waNumber, client_id: clientId });
   return normalizeSession(doc);
 }
 
-async function saveSession(waNumber, sessionData) {
+async function saveSession(waNumber, sessionData, clientId = 'default') {
   await Session.findOneAndUpdate(
-    { wa_number: waNumber },
-    { $set: { ...sessionData, updated_at: new Date() } },
+    { wa_number: waNumber, client_id: clientId },
+    { $set: { ...sessionData, client_id: clientId, updated_at: new Date() } },
     { upsert: true, new: true }
   );
 }
 
-async function clearSession(waNumber) {
-  await Session.deleteOne({ wa_number: waNumber });
+async function clearSession(waNumber, clientId = 'default') {
+  await Session.deleteOne({ wa_number: waNumber, client_id: clientId });
 }
 
-async function setHumanMode(waNumber, humanMode, agentNumber) {
+async function setHumanMode(waNumber, humanMode, agentNumber, clientId = 'default') {
   await Session.findOneAndUpdate(
-    { wa_number: waNumber },
-    { $set: { human_mode: !!humanMode, agent_number: agentNumber || null, updated_at: new Date() } },
+    { wa_number: waNumber, client_id: clientId },
+    { $set: { human_mode: !!humanMode, agent_number: agentNumber || null, client_id: clientId, updated_at: new Date() } },
     { upsert: true }
   );
 }
 
-async function getSessionByAgent(agentNumber) {
-  const doc = await Session.findOne({ agent_number: agentNumber, human_mode: true });
+async function getSessionByAgent(agentNumber, clientId = 'default') {
+  const doc = await Session.findOne({ agent_number: agentNumber, human_mode: true, client_id: clientId });
   return normalizeSession(doc);
 }
 
-async function getSessionsHumanMode() {
-  const docs = await Session.find({ human_mode: true }, { wa_number: 1, human_mode: 1 }).lean();
+async function getSessionsHumanMode(clientId = 'default') {
+  const docs = await Session.find({ human_mode: true, client_id: clientId }, { wa_number: 1, human_mode: 1 }).lean();
   const result = {};
   docs.forEach(d => { result[d.wa_number] = 1; });
   return result;
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────
-async function saveMessage(waNumber, direction, type, content, rawData) {
+async function saveMessage(waNumber, direction, type, content, rawData, clientId = 'default') {
   let raw = rawData;
   if (typeof rawData === 'string') {
     try { raw = JSON.parse(rawData); } catch (_) { raw = rawData; }
   }
-  await Message.create({ wa_number: waNumber, direction, message_type: type || 'text', content, raw_data: raw });
+  await Message.create({ client_id: clientId, wa_number: waNumber, direction, message_type: type || 'text', content, raw_data: raw });
 }
 
-async function getMessages(waNumber) {
-  const docs = await Message.find({ wa_number: waNumber }).sort({ created_at: 1 }).lean();
+async function getMessages(waNumber, clientId = 'default') {
+  const docs = await Message.find({ wa_number: waNumber, client_id: clientId }).sort({ created_at: 1 }).lean();
   return docs.map(d => ({
     ...d,
     id:         d._id.toString(),
@@ -253,8 +258,9 @@ async function getMessages(waNumber) {
   }));
 }
 
-async function getRecentConversations(limit = 50) {
+async function getRecentConversations(limit = 50, clientId = 'default') {
   const agg = await Message.aggregate([
+    { $match: { client_id: clientId } },
     { $sort: { created_at: -1 } },
     {
       $group: {
@@ -285,29 +291,29 @@ async function getRecentConversations(limit = 50) {
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
-async function getSetting(key) {
-  const doc = await Setting.findOne({ key }).lean();
+async function getSetting(key, clientId = 'default') {
+  const doc = await Setting.findOne({ key, client_id: clientId }).lean();
   return doc ? doc.value : null;
 }
 
-async function saveSetting(key, value) {
+async function saveSetting(key, value, clientId = 'default') {
   await Setting.findOneAndUpdate(
-    { key },
-    { $set: { value, updated_at: new Date() } },
+    { key, client_id: clientId },
+    { $set: { value, client_id: clientId, updated_at: new Date() } },
     { upsert: true }
   );
 }
 
-async function getAllSettings() {
-  const docs = await Setting.find().lean();
+async function getAllSettings(clientId = 'default') {
+  const docs = await Setting.find({ client_id: clientId }).lean();
   const obj = {};
   docs.forEach(d => { obj[d.key] = d.value; });
   return obj;
 }
 
 // ── Agents ────────────────────────────────────────────────────────────────────
-async function getAgents() {
-  const docs = await AgentModel.find({ status: 'active' }).lean();
+async function getAgents(clientId = 'default') {
+  const docs = await AgentModel.find({ status: 'active', client_id: clientId }).lean();
   return docs.map(d => ({
     ...d,
     id:         d._id.toString(),
@@ -315,8 +321,8 @@ async function getAgents() {
   }));
 }
 
-async function saveAgent(data) {
-  const doc = await AgentModel.create(data);
+async function saveAgent(data, clientId = 'default') {
+  const doc = await AgentModel.create({ ...data, client_id: clientId });
   return normalizeDoc(doc);
 }
 
@@ -329,8 +335,8 @@ async function deleteAgent(id) {
 }
 
 // ── Listings ──────────────────────────────────────────────────────────────────
-async function getListings() {
-  const docs = await Listing.find({ status: 'available' }).lean();
+async function getListings(clientId = 'default') {
+  const docs = await Listing.find({ status: 'available', client_id: clientId }).lean();
   return docs.map(d => ({
     ...d,
     id:         d._id.toString(),
@@ -338,8 +344,8 @@ async function getListings() {
   }));
 }
 
-async function getAllListings() {
-  const docs = await Listing.find().sort({ created_at: -1 }).lean();
+async function getAllListings(clientId = 'default') {
+  const docs = await Listing.find({ client_id: clientId }).sort({ created_at: -1 }).lean();
   return docs.map(d => ({
     ...d,
     id:         d._id.toString(),
@@ -347,8 +353,8 @@ async function getAllListings() {
   }));
 }
 
-async function saveListing(data) {
-  const doc = await Listing.create(data);
+async function saveListing(data, clientId = 'default') {
+  const doc = await Listing.create({ ...data, client_id: clientId });
   return normalizeDoc(doc);
 }
 
@@ -360,9 +366,9 @@ async function deleteListing(id) {
   try { await Listing.findByIdAndDelete(id); } catch (_) {}
 }
 
-async function matchListings(criteria) {
+async function matchListings(criteria, clientId = 'default') {
   const { type, min, max, area } = criteria;
-  const filter = { status: 'available', price: { $gte: min || 0, $lte: max || 99999999 } };
+  const filter = { client_id: clientId, status: 'available', price: { $gte: min || 0, $lte: max || 99999999 } };
   if (type) filter.type = type;
   if (area && area !== 'open') filter.area = area;
   const docs = await Listing.find(filter).limit(3).lean();
@@ -379,8 +385,8 @@ function normalizeAppointment(d) {
   };
 }
 
-async function getAppointments(filters = {}) {
-  const query = {};
+async function getAppointments(filters = {}, clientId = 'default') {
+  const query = { client_id: clientId };
   if (filters.status) query.status = filters.status;
   if (filters.agent)  query.agent_wa = filters.agent;
   if (filters.date_from || filters.date_to) {
@@ -392,15 +398,15 @@ async function getAppointments(filters = {}) {
   return docs.map(normalizeAppointment);
 }
 
-async function getAppointmentsByDate(date) {
+async function getAppointmentsByDate(date, clientId = 'default') {
   const start = new Date(date); start.setHours(0, 0, 0, 0);
   const end   = new Date(date); end.setHours(23, 59, 59, 999);
-  const docs  = await Appointment.find({ appointment_date: { $gte: start, $lte: end } }).sort({ appointment_date: 1 }).lean();
+  const docs  = await Appointment.find({ client_id: clientId, appointment_date: { $gte: start, $lte: end } }).sort({ appointment_date: 1 }).lean();
   return docs.map(normalizeAppointment);
 }
 
-async function saveAppointment(data) {
-  const doc = await Appointment.create(data);
+async function saveAppointment(data, clientId = 'default') {
+  const doc = await Appointment.create({ ...data, client_id: clientId });
   return normalizeDoc(doc);
 }
 
@@ -408,12 +414,13 @@ async function updateAppointmentStatus(id, status) {
   try { await Appointment.findByIdAndUpdate(id, { $set: { status } }); } catch (_) {}
 }
 
-async function getUpcomingAppointments() {
+async function getUpcomingAppointments(clientId = 'default') {
   const now      = new Date();
   const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const docs = await Appointment.find({
+    client_id:        clientId,
     appointment_date: { $gte: now, $lte: nextWeek },
-    status: { $ne: 'cancelled' },
+    status:           { $ne: 'cancelled' },
   }).lean();
   return docs.map(normalizeAppointment);
 }

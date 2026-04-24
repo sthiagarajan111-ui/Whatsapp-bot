@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Axyren Admin</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0F172A;color:#F1F5F9;display:flex;height:100vh;overflow:hidden}
+
+  /* ── Sidebar ── */
+  .sidebar{width:220px;background:#1E293B;border-right:1px solid #334155;display:flex;flex-direction:column;flex-shrink:0}
+  .sidebar-logo{padding:20px 18px;border-bottom:1px solid #334155}
+  .sidebar-logo .brand{font-size:18px;font-weight:800;color:#fff}
+  .sidebar-logo .sub{font-size:11px;color:#64748B;margin-top:2px}
+  .nav{padding:12px 0;flex:1}
+  .nav-link{display:flex;align-items:center;gap:10px;padding:10px 18px;font-size:13px;font-weight:500;color:#94A3B8;cursor:pointer;border-left:3px solid transparent;transition:all .15s;text-decoration:none}
+  .nav-link:hover{color:#F1F5F9;background:rgba(255,255,255,.04)}
+  .nav-link.active{color:#3B82F6;border-left-color:#3B82F6;background:rgba(59,130,246,.08)}
+  .nav-icon{width:16px;height:16px;flex-shrink:0}
+  .sidebar-footer{padding:16px 18px;border-top:1px solid #334155}
+  .logout-btn{font-size:12px;color:#64748B;cursor:pointer;text-decoration:none}
+  .logout-btn:hover{color:#F87171}
+
+  /* ── Main ── */
+  .main{flex:1;overflow-y:auto;padding:28px 32px;background:#0F172A}
+
+  /* ── KPI row ── */
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+  .kpi-card{background:#1E293B;border:1px solid #334155;border-radius:12px;padding:18px 20px}
+  .kpi-val{font-size:30px;font-weight:800;color:#F1F5F9}
+  .kpi-lbl{font-size:12px;color:#64748B;margin-top:4px;font-weight:500}
+  .kpi-card.blue .kpi-val{color:#3B82F6}
+  .kpi-card.green .kpi-val{color:#10B981}
+  .kpi-card.amber .kpi-val{color:#F59E0B}
+  .kpi-card.purple .kpi-val{color:#7C3AED}
+
+  /* ── Section header ── */
+  .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .sec-title{font-size:16px;font-weight:700;color:#F1F5F9}
+  .add-btn{padding:8px 16px;background:#3B82F6;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+  .add-btn:hover{background:#2563EB}
+
+  /* ── Table ── */
+  .tbl-wrap{background:#1E293B;border:1px solid #334155;border-radius:12px;overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  thead th{padding:11px 14px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;background:#0F172A;border-bottom:1px solid #334155;white-space:nowrap}
+  tbody tr:hover{background:rgba(255,255,255,.02)}
+  td{padding:12px 14px;border-bottom:1px solid #1E293B;font-size:13px;color:#CBD5E1;vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+
+  /* ── Badges ── */
+  .plan-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;text-transform:uppercase}
+  .plan-starter{background:#1E3A5F;color:#60A5FA}
+  .plan-professional{background:#1B3A2A;color:#34D399}
+  .plan-agency{background:#3B1F5C;color:#A78BFA}
+  .plan-enterprise{background:#44231A;color:#F97316}
+  .status-pill{font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600}
+  .status-active{background:#14532D;color:#4ADE80}
+  .status-suspended{background:#451A03;color:#FCD34D}
+  .status-cancelled{background:#1E293B;color:#64748B}
+  .industry-badge{font-size:11px;padding:2px 8px;border-radius:8px;font-weight:600;background:#1E3A5F;color:#93C5FD}
+
+  /* ── Action buttons ── */
+  .ab{padding:4px 8px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+  .ab-view{background:#1E3A5F;color:#60A5FA}
+  .ab-view:hover{background:#3B82F6;color:#fff}
+  .ab-settings{background:#1B3A2A;color:#34D399}
+  .ab-settings:hover{background:#10B981;color:#fff}
+  .ab-suspend{background:#451A03;color:#FCD34D}
+  .ab-suspend:hover{background:#F59E0B;color:#000}
+  .ab-activate{background:#14532D;color:#4ADE80}
+  .ab-activate:hover{background:#10B981;color:#fff}
+  .ab-delete{background:#350E0E;color:#F87171}
+  .ab-delete:hover{background:#EF4444;color:#fff}
+  .ab-key{background:#1E293B;color:#94A3B8;border:1px solid #334155}
+  .ab-key:hover{background:#334155;color:#F1F5F9}
+
+  /* ── Modal ── */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
+  .modal-bg.open{display:flex}
+  .modal{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:28px;width:520px;max-height:85vh;overflow-y:auto}
+  .modal-title{font-size:16px;font-weight:700;color:#F1F5F9;margin-bottom:20px}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .form-grid .full{grid-column:1/-1}
+  label{font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px}
+  input,select,textarea{width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid #334155;background:#0F172A;color:#F1F5F9;font-size:13px;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:#3B82F6}
+  select option{background:#1E293B}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+  .btn-cancel{padding:9px 18px;background:#334155;color:#94A3B8;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+  .btn-submit{padding:9px 18px;background:#3B82F6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+  .btn-submit:hover{background:#2563EB}
+
+  /* ── Success box ── */
+  .success-box{background:#14532D;border:1px solid #166534;border-radius:10px;padding:16px;margin-bottom:16px;display:none}
+  .success-box .sb-title{font-size:13px;font-weight:700;color:#4ADE80;margin-bottom:8px}
+  .success-box .sb-row{font-size:12px;color:#86EFAC;margin-bottom:4px}
+  .success-box .sb-row span{font-family:monospace;background:#0F172A;padding:2px 6px;border-radius:4px;font-size:11px}
+
+  /* ── Settings panel ── */
+  .settings-modal{width:580px}
+  .form-section{margin-bottom:18px}
+  .form-section-title{font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #334155;padding-bottom:6px;margin-bottom:12px}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0}
+  .toggle-label{font-size:13px;color:#CBD5E1}
+  .toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+  .toggle input{opacity:0;width:0;height:0}
+  .slider{position:absolute;cursor:pointer;inset:0;background:#334155;border-radius:11px;transition:.3s}
+  .slider:before{content:'';position:absolute;height:16px;width:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.3s}
+  input:checked+.slider{background:#3B82F6}
+  input:checked+.slider:before{transform:translateX(18px)}
+
+  /* ── Loading / empty ── */
+  .loading{text-align:center;padding:40px;color:#475569;font-size:14px}
+  .page-section{display:none}
+  .page-section.active{display:block}
+
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spinner{width:18px;height:18px;border:2px solid #334155;border-top-color:#3B82F6;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand">Axyren Admin</div>
+    <div class="sub">Platform Management</div>
+  </div>
+  <nav class="nav">
+    <a class="nav-link active" data-page="clients" onclick="showPage('clients',this)">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-5 6a5 5 0 0110 0H3z"/></svg>
+      All Clients
+    </a>
+    <a class="nav-link" data-page="add" onclick="showPage('add',this)">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 110 12A6 6 0 018 2zm0 4a1 1 0 00-1 1v1H6a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2H9V7a1 1 0 00-1-1z"/></svg>
+      Add Client
+    </a>
+    <a class="nav-link" data-page="stats" onclick="showPage('stats',this)">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M2 11h2v3H2zm3-4h2v7H5zm3-3h2v10H8zm3-2h2v12h-2z"/></svg>
+      Platform Stats
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <a class="logout-btn" href="/admin/logout">Sign out</a>
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="main">
+
+  <!-- ── Clients page ── -->
+  <div class="page-section active" id="page-clients">
+    <div class="kpi-row" id="kpiRow">
+      <div class="kpi-card blue"><div class="kpi-val" id="kTotal">—</div><div class="kpi-lbl">Total Clients</div></div>
+      <div class="kpi-card green"><div class="kpi-val" id="kActive">—</div><div class="kpi-lbl">Active Clients</div></div>
+      <div class="kpi-card"><div class="kpi-val" id="kLeads">—</div><div class="kpi-lbl">Total Leads</div></div>
+      <div class="kpi-card amber"><div class="kpi-val" id="kRevenue">—</div><div class="kpi-lbl">Monthly Revenue (est.)</div></div>
+    </div>
+
+    <div class="sec-hdr">
+      <div class="sec-title">All Clients</div>
+      <button class="add-btn" onclick="showPage('add',document.querySelector('[data-page=add]'))">+ Add Client</button>
+    </div>
+
+    <div class="tbl-wrap">
+      <div class="loading" id="clientsLoading"><span class="spinner"></span>Loading clients...</div>
+      <table id="clientsTable" style="display:none">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Industry</th>
+            <th>Plan</th>
+            <th>Leads</th>
+            <th>This Month</th>
+            <th>Status</th>
+            <th>WhatsApp</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="clientsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Add Client page ── -->
+  <div class="page-section" id="page-add">
+    <div class="sec-title" style="margin-bottom:20px">Add New Client</div>
+
+    <div class="success-box" id="addSuccess">
+      <div class="sb-title">✅ Client created successfully!</div>
+      <div class="sb-row">Client ID: <span id="sb-client-id"></span></div>
+      <div class="sb-row">API Key: <span id="sb-api-key"></span></div>
+      <div class="sb-row">Dashboard URL: <span id="sb-dash-url"></span></div>
+      <div class="sb-row">Webhook URL: <span id="sb-webhook"></span></div>
+    </div>
+
+    <div class="tbl-wrap" style="padding:24px;max-width:600px">
+      <form id="addForm">
+        <div class="form-grid">
+          <div class="full">
+            <label>Company Name *</label>
+            <input type="text" name="company_name" required placeholder="Dubai Prime Realty">
+          </div>
+          <div>
+            <label>Industry *</label>
+            <select name="industry">
+              <option value="realEstate">Real Estate</option>
+              <option value="restaurant">Restaurant</option>
+              <option value="clinic">Clinic</option>
+              <option value="retail">Retail</option>
+              <option value="salon">Salon</option>
+              <option value="carDealer">Car Dealer</option>
+            </select>
+          </div>
+          <div>
+            <label>Plan *</label>
+            <select name="plan">
+              <option value="starter">Starter — $299/mo</option>
+              <option value="professional" selected>Professional — $699/mo</option>
+              <option value="agency">Agency — $1,499/mo</option>
+              <option value="enterprise">Enterprise — $2,999/mo</option>
+            </select>
+          </div>
+          <div>
+            <label>Owner Name</label>
+            <input type="text" name="owner_name" placeholder="Ahmed Al Rashid">
+          </div>
+          <div>
+            <label>Owner Email *</label>
+            <input type="email" name="owner_email" required placeholder="ahmed@company.com">
+          </div>
+          <div>
+            <label>Owner WhatsApp *</label>
+            <input type="text" name="owner_whatsapp" required placeholder="971501234567">
+          </div>
+          <div>
+            <label>WhatsApp Bot Number *</label>
+            <input type="text" name="whatsapp_number" required placeholder="+14155238886">
+          </div>
+          <div>
+            <label>Twilio Account SID</label>
+            <input type="text" name="twilio_account_sid" placeholder="ACxxxxxxxx">
+          </div>
+          <div class="full">
+            <label>Twilio Auth Token</label>
+            <input type="password" name="twilio_auth_token" placeholder="••••••••">
+          </div>
+          <div class="full">
+            <label>Notes</label>
+            <textarea name="notes" rows="2" placeholder="Any notes about this client..."></textarea>
+          </div>
+        </div>
+        <div style="margin-top:20px;display:flex;gap:10px">
+          <button type="submit" class="btn-submit" id="addSubmitBtn">Create Client</button>
+          <button type="button" class="btn-cancel" onclick="showPage('clients',document.querySelector('[data-page=clients]'))">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Platform Stats page ── -->
+  <div class="page-section" id="page-stats">
+    <div class="sec-title" style="margin-bottom:20px">Platform Stats</div>
+    <div class="kpi-row" id="statsKpiRow">
+      <div class="kpi-card blue"><div class="kpi-val" id="sTotalClients">—</div><div class="kpi-lbl">Total Clients</div></div>
+      <div class="kpi-card green"><div class="kpi-val" id="sActiveClients">—</div><div class="kpi-lbl">Active Clients</div></div>
+      <div class="kpi-card"><div class="kpi-val" id="sTotalLeads">—</div><div class="kpi-lbl">All-Time Leads</div></div>
+      <div class="kpi-card amber"><div class="kpi-val" id="sRevenue">—</div><div class="kpi-lbl">Est. MRR (USD)</div></div>
+    </div>
+    <div class="tbl-wrap" style="padding:24px">
+      <div id="statsBody" class="loading"><span class="spinner"></span>Loading stats...</div>
+    </div>
+  </div>
+
+</div><!-- .main -->
+
+<!-- Settings Modal -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal settings-modal">
+    <div class="modal-title">Client Settings — <span id="settingsClientName"></span></div>
+    <form id="settingsForm">
+      <input type="hidden" name="_clientId" id="settingsClientId">
+      <div class="form-section">
+        <div class="form-section-title">Identity</div>
+        <div class="form-grid">
+          <div><label>Company Name</label><input type="text" name="company_name" id="sf_company_name"></div>
+          <div>
+            <label>Industry</label>
+            <select name="industry" id="sf_industry">
+              <option value="realEstate">Real Estate</option>
+              <option value="restaurant">Restaurant</option>
+              <option value="clinic">Clinic</option>
+              <option value="retail">Retail</option>
+              <option value="salon">Salon</option>
+              <option value="carDealer">Car Dealer</option>
+            </select>
+          </div>
+          <div><label>Owner Name</label><input type="text" name="owner_name" id="sf_owner_name"></div>
+          <div><label>Owner Email</label><input type="email" name="owner_email" id="sf_owner_email"></div>
+          <div><label>Owner WhatsApp</label><input type="text" name="owner_whatsapp" id="sf_owner_whatsapp"></div>
+          <div><label>WhatsApp Number</label><input type="text" name="whatsapp_number" id="sf_whatsapp_number"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Subscription</div>
+        <div class="form-grid">
+          <div>
+            <label>Plan</label>
+            <select name="plan" id="sf_plan">
+              <option value="starter">Starter</option>
+              <option value="professional">Professional</option>
+              <option value="agency">Agency</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </div>
+          <div>
+            <label>Status</label>
+            <select name="status" id="sf_status">
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Features</div>
+        <div class="toggle-row"><span class="toggle-label">Arabic / RTL support</span><label class="toggle"><input type="checkbox" name="arabic_enabled" id="sf_arabic"><span class="slider"></span></label></div>
+        <div class="toggle-row"><span class="toggle-label">Voice message processing</span><label class="toggle"><input type="checkbox" name="voice_enabled" id="sf_voice"><span class="slider"></span></label></div>
+        <div class="toggle-row"><span class="toggle-label">AI free-text mode</span><label class="toggle"><input type="checkbox" name="ai_mode_enabled" id="sf_ai"><span class="slider"></span></label></div>
+        <div class="toggle-row"><span class="toggle-label">Re-engagement campaigns</span><label class="toggle"><input type="checkbox" name="reengagement_enabled" id="sf_reeng"><span class="slider"></span></label></div>
+        <div class="toggle-row"><span class="toggle-label">Appointment booking</span><label class="toggle"><input type="checkbox" name="appointment_booking" id="sf_appt"><span class="slider"></span></label></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" onclick="closeSettings()">Cancel</button>
+        <button type="submit" class="btn-submit">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const ADMIN_KEY = new URLSearchParams(location.search).get('admin_key') || '';
+const headers   = ADMIN_KEY ? { 'x-api-key': ADMIN_KEY } : {};
+
+let allClients = [];
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showPage(page, linkEl) {
+  document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (linkEl) linkEl.classList.add('active');
+
+  if (page === 'clients') loadClients();
+  if (page === 'stats')   loadStats();
+}
+
+// ── Load KPIs + client list ───────────────────────────────────────────────────
+async function loadClients() {
+  try {
+    const [clients, stats] = await Promise.all([
+      fetch('/admin/clients', { headers }).then(r => r.json()),
+      fetch('/admin/stats',   { headers }).then(r => r.json()),
+    ]);
+    allClients = Array.isArray(clients) ? clients : [];
+
+    // KPIs
+    document.getElementById('kTotal').textContent   = stats.total_clients   ?? allClients.length;
+    document.getElementById('kActive').textContent  = stats.active_clients  ?? allClients.filter(c => c.status === 'active').length;
+    document.getElementById('kLeads').textContent   = stats.total_leads_all_time ?? '—';
+    document.getElementById('kRevenue').textContent = stats.revenue_estimate ? '$' + stats.revenue_estimate.toLocaleString() : '—';
+
+    // Table
+    document.getElementById('clientsLoading').style.display = 'none';
+    const table = document.getElementById('clientsTable');
+    table.style.display = 'table';
+    document.getElementById('clientsBody').innerHTML = allClients.map(clientRow).join('');
+  } catch(e) {
+    document.getElementById('clientsLoading').textContent = 'Failed to load clients: ' + e.message;
+  }
+}
+
+function clientRow(c) {
+  const created = c.created_at ? new Date(c.created_at).toLocaleDateString() : '—';
+  const industry = { realEstate:'Real Estate', restaurant:'Restaurant', clinic:'Clinic', retail:'Retail', salon:'Salon', carDealer:'Car Dealer' }[c.industry] || c.industry;
+  const planClass = { starter:'plan-starter', professional:'plan-professional', agency:'plan-agency', enterprise:'plan-enterprise' }[c.plan] || 'plan-professional';
+  const statusClass = { active:'status-active', suspended:'status-suspended', cancelled:'status-cancelled' }[c.status] || 'status-active';
+  const platformUrl = window.location.origin;
+
+  const actionBtns = c.status === 'active'
+    ? `<button class="ab ab-suspend" onclick="suspendClient('${c.client_id}')">Suspend</button>`
+    : `<button class="ab ab-activate" onclick="activateClient('${c.client_id}')">Activate</button>`;
+
+  return `<tr id="row-${c.client_id}">
+    <td>
+      <div style="font-weight:600;color:#F1F5F9">${c.company_name}</div>
+      <div style="font-size:11px;color:#475569">${c.client_id}</div>
+    </td>
+    <td><span class="industry-badge">${industry}</span></td>
+    <td><span class="plan-badge ${planClass}">${c.plan}</span></td>
+    <td style="font-weight:600">${c.total_leads ?? 0}</td>
+    <td>${c.leads_this_month ?? 0}</td>
+    <td><span class="status-pill ${statusClass}">${c.status}</span></td>
+    <td style="font-size:12px">${c.whatsapp_number || '—'}</td>
+    <td style="font-size:12px">${created}</td>
+    <td>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="ab ab-view" onclick="window.open('${platformUrl}/client-dashboard/${c.client_id}','_blank')">Dashboard</button>
+        <button class="ab ab-settings" onclick="openSettings('${c.client_id}')">Settings</button>
+        ${actionBtns}
+        <button class="ab ab-delete" onclick="deleteClient('${c.client_id}')">Delete</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+// ── Load platform stats ───────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const stats = await fetch('/admin/stats', { headers }).then(r => r.json());
+    document.getElementById('sTotalClients').textContent  = stats.total_clients  ?? '—';
+    document.getElementById('sActiveClients').textContent = stats.active_clients ?? '—';
+    document.getElementById('sTotalLeads').textContent    = stats.total_leads_all_time ?? '—';
+    document.getElementById('sRevenue').textContent       = stats.revenue_estimate ? '$' + stats.revenue_estimate.toLocaleString() : '—';
+
+    document.getElementById('statsBody').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Clients by Plan</div>
+          ${planBreakdown(stats)}
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Quick Numbers</div>
+          <div style="font-size:13px;color:#CBD5E1;line-height:2">
+            <div>Total Appointments: <strong style="color:#F1F5F9">${stats.total_appointments ?? 0}</strong></div>
+            <div>Leads This Month: <strong style="color:#F1F5F9">${stats.leads_this_month ?? 0}</strong></div>
+            <div>Revenue (est.): <strong style="color:#10B981">$${(stats.revenue_estimate || 0).toLocaleString()}/mo</strong></div>
+          </div>
+        </div>
+      </div>`;
+  } catch(e) {
+    document.getElementById('statsBody').textContent = 'Failed: ' + e.message;
+  }
+}
+
+function planBreakdown(stats) {
+  const plans = { starter:0, professional:0, agency:0, enterprise:0 };
+  allClients.forEach(c => { if (c.status === 'active' && plans[c.plan] !== undefined) plans[c.plan]++; });
+  return Object.entries(plans).map(([plan, count]) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span class="plan-badge plan-${plan}" style="width:90px;text-align:center">${plan}</span>
+      <div style="flex:1;background:#334155;border-radius:4px;height:8px;overflow:hidden">
+        <div style="background:#3B82F6;height:100%;width:${allClients.length?count/allClients.length*100:0}%"></div>
+      </div>
+      <span style="font-size:12px;color:#94A3B8;width:16px;text-align:right">${count}</span>
+    </div>`
+  ).join('');
+}
+
+// ── Add client form ───────────────────────────────────────────────────────────
+document.getElementById('addForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('addSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+
+  const data = Object.fromEntries(new FormData(this));
+  try {
+    const res = await fetch('/admin/clients', {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Failed');
+
+    document.getElementById('sb-client-id').textContent  = json.client_id;
+    document.getElementById('sb-api-key').textContent    = json.api_key;
+    document.getElementById('sb-dash-url').textContent   = json.dashboard_url;
+    document.getElementById('sb-webhook').textContent    = json.webhook_url;
+    document.getElementById('addSuccess').style.display  = 'block';
+    this.reset();
+    loadClients();
+  } catch(err) {
+    alert('Error: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Create Client';
+  }
+});
+
+// ── Client actions ────────────────────────────────────────────────────────────
+async function suspendClient(clientId) {
+  if (!confirm('Suspend this client? The bot will stop responding for them.')) return;
+  await fetch(`/admin/clients/${clientId}/suspend`, { method: 'POST', headers });
+  loadClients();
+}
+
+async function activateClient(clientId) {
+  await fetch(`/admin/clients/${clientId}/activate`, { method: 'POST', headers });
+  loadClients();
+}
+
+async function deleteClient(clientId) {
+  if (!confirm('Delete this client? This is a soft delete — data is preserved but bot stops responding.')) return;
+  await fetch(`/admin/clients/${clientId}`, { method: 'DELETE', headers });
+  loadClients();
+}
+
+// ── Settings modal ────────────────────────────────────────────────────────────
+async function openSettings(clientId) {
+  const client = allClients.find(c => c.client_id === clientId);
+  if (!client) return;
+
+  document.getElementById('settingsClientName').textContent = client.company_name;
+  document.getElementById('settingsClientId').value         = clientId;
+
+  // Populate fields
+  ['company_name','industry','owner_name','owner_email','owner_whatsapp','whatsapp_number','plan','status'].forEach(f => {
+    const el = document.getElementById('sf_' + f);
+    if (el) el.value = client[f] || '';
+  });
+
+  // Toggles
+  document.getElementById('sf_arabic').checked = !!client.arabic_enabled;
+  document.getElementById('sf_voice').checked  = !!client.voice_enabled;
+  document.getElementById('sf_ai').checked     = !!client.ai_mode_enabled;
+  document.getElementById('sf_reeng').checked  = !!client.reengagement_enabled;
+  document.getElementById('sf_appt').checked   = !!client.appointment_booking;
+
+  document.getElementById('settingsModal').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('open');
+}
+
+document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const clientId = document.getElementById('settingsClientId').value;
+  const fd = new FormData(this);
+  const data = {};
+  ['company_name','industry','owner_name','owner_email','owner_whatsapp','whatsapp_number','plan','status'].forEach(f => {
+    data[f] = fd.get(f) || '';
+  });
+  ['arabic_enabled','voice_enabled','ai_mode_enabled','reengagement_enabled','appointment_booking'].forEach(f => {
+    data[f] = document.querySelector(`[name="${f}"]`)?.checked || false;
+  });
+
+  const res  = await fetch(`/admin/clients/${clientId}`, {
+    method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (res.ok) { closeSettings(); loadClients(); }
+  else { alert('Failed to save'); }
+});
+
+// Close modal on backdrop click
+document.getElementById('settingsModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadClients();
+</script>
+</body>
+</html>

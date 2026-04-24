@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const sessionSchema = new mongoose.Schema({
-  wa_number:    { type: String, required: true, unique: true },
+  client_id:    { type: String, index: true, default: 'default' },
+  wa_number:    { type: String, required: true },
   flow:         { type: String },
   step:         { type: String },
   data:         { type: mongoose.Schema.Types.Mixed, default: {} },
@@ -12,5 +13,8 @@ const sessionSchema = new mongoose.Schema({
   agent_number: { type: String },
   updated_at:   { type: Date, default: Date.now },
 });
+
+// Compound unique index: one session per wa_number per client
+sessionSchema.index({ wa_number: 1, client_id: 1 }, { unique: true });
 
 module.exports = mongoose.model('Session', sessionSchema);

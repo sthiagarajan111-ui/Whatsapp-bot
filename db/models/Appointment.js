@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const appointmentSchema = new mongoose.Schema({
+  client_id:                { type: String, index: true, default: 'default' },
   lead_id:                  { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
   wa_number:                { type: String },
   lead_name:                { type: String },

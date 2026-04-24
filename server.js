@@ -1,21 +1,55 @@
 require('dotenv').config();
 
-const express  = require('express');
-const path     = require('path');
-const fs       = require('fs');
-const mongoose = require('mongoose');
+const express      = require('express');
+const path         = require('path');
+const fs           = require('fs');
+const crypto       = require('crypto');
+const cookieParser = require('cookie-parser');
+const mongoose     = require('mongoose');
 const { handleMessage } = require('./flows/flowEngine');
 const { markAsRead, sendText, sendImage, sendPropertyCard } = require('./whatsapp/api');
 const db = require('./db/database');
 const { startScheduler, sendDailyReport } = require('./utils/scheduler');
 const { processVoiceMessage } = require('./utils/voiceHandler');
 const { generateReport, listReports, REPORTS_DIR } = require('./utils/reportGenerator');
+const { getClientByWhatsAppNumber, getClientById, clearClientCache } = require('./middleware/clientResolver');
+const Client = require('./db/models/Client');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// ── Admin API key validation ──────────────────────────────────────────────────
+if (process.env.ADMIN_API_KEY && process.env.ADMIN_API_KEY.length < 32) {
+  console.warn('[Admin] WARNING: ADMIN_API_KEY should be at least 32 characters long');
+}
+
+// ── Helper: generate client_id slug ──────────────────────────────────────────
+function generateClientId(companyName) {
+  return companyName.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 50) + '-' + Date.now().toString(36);
+}
+
+// ── Helper: generate API key ──────────────────────────────────────────────────
+function generateApiKey() {
+  return 'ax_' + crypto.randomBytes(24).toString('hex');
+}
+
+// ── Admin auth middleware ─────────────────────────────────────────────────────
+function requireAdmin(req, res, next) {
+  const apiKey     = req.headers['x-api-key'] || req.query.admin_key;
+  const sessionKey = req.cookies?.admin_session;
+  if ((apiKey && apiKey === process.env.ADMIN_API_KEY) ||
+      (sessionKey && sessionKey === process.env.ADMIN_API_KEY)) {
+    return next();
+  }
+  res.redirect('/admin/login');
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false })); // Twilio sends form-encoded webhooks
+app.use(cookieParser());
 
 // ── Deduplication: keep last 100 message IDs ──────────────────────────────────
 const seenIds = new Set();
@@ -53,6 +87,23 @@ async function processWebhook(req) {
 
   markAsRead(msgSid); // no-op for Twilio
 
+  // ── Resolve client (multi-tenant) ────────────────────────────────────────
+  // The To field is the Twilio WhatsApp number that received the message
+  let clientId = 'default';
+  let clientConfig = null;
+
+  if (process.env.MULTI_TENANT_MODE === 'true') {
+    const toNumber = (req.body.To || '').replace('whatsapp:', '');
+    if (toNumber) {
+      clientConfig = await getClientByWhatsAppNumber(toNumber);
+      if (clientConfig) {
+        clientId = clientConfig.client_id;
+        // If client is suspended, silently drop
+        if (clientConfig.status !== 'active') return;
+      }
+    }
+  }
+
   const isAudio = numMedia > 0 && (req.body.MediaContentType0 || '').startsWith('audio');
 
   if (isAudio) {
@@ -62,9 +113,9 @@ async function processWebhook(req) {
       return;
     }
 
-    const voiceSession = await db.getSession(from);
+    const voiceSession = await db.getSession(from, clientId);
     if (voiceSession && voiceSession.human_mode) {
-      const agentNum = voiceSession.agent_number || process.env.OWNER_WHATSAPP;
+      const agentNum = voiceSession.agent_number || (clientConfig?.owner_whatsapp || process.env.OWNER_WHATSAPP);
       if (agentNum) {
         const vName = (voiceSession.data || {}).name || from;
         sendText(agentNum, `[${vName}]: [sent a voice note]`).catch(() => {});
@@ -87,7 +138,7 @@ async function processWebhook(req) {
       }
 
       console.log(`[Voice] ${from} said: "${transcript}" (${language})`);
-      try { await db.saveMessage(from, 'inbound', 'audio', transcript, { MessageSid: msgSid, MediaUrl: req.body.MediaUrl0 }); } catch (_) {}
+      try { await db.saveMessage(from, 'inbound', 'audio', transcript, { MessageSid: msgSid, MediaUrl: req.body.MediaUrl0 }, clientId); } catch (_) {}
 
       const syntheticParsed = {
         from,
@@ -96,6 +147,7 @@ async function processWebhook(req) {
         text:              transcript,
         buttonId:          null,
         listId:            null,
+        clientId,
         _fromVoice:        true,
         _detectedLanguage: language,
       };
@@ -115,12 +167,13 @@ async function processWebhook(req) {
     text:     bodyText,
     buttonId: null,
     listId:   null,
+    clientId,
   };
 
-  try { await db.saveMessage(from, 'inbound', 'text', bodyText, req.body); } catch (_) {}
+  try { await db.saveMessage(from, 'inbound', 'text', bodyText, req.body, clientId); } catch (_) {}
 
   // ── Human handoff logic ──────────────────────────────────────────────────────
-  const owner       = process.env.OWNER_WHATSAPP;
+  const owner       = clientConfig?.owner_whatsapp || process.env.OWNER_WHATSAPP;
   const rawText     = bodyText.trim();
   const isFromOwner = owner && from === owner;
 
@@ -128,11 +181,11 @@ async function processWebhook(req) {
     // TAKE <number>
     if (rawText.toUpperCase().startsWith('TAKE ')) {
       const targetNum = rawText.slice(5).trim();
-      const session   = await db.getSession(targetNum);
+      const session   = await db.getSession(targetNum, clientId);
       if (!session) {
         sendText(owner, `❌ No active session found for ${targetNum}.`).catch(() => {});
       } else {
-        await db.setHumanMode(targetNum, true, owner);
+        await db.setHumanMode(targetNum, true, owner, clientId);
         const leadName = (session.data || {}).name || targetNum;
         sendText(owner,
           `✅ You are now live with *${leadName}* (${targetNum}).\n` +
@@ -145,8 +198,8 @@ async function processWebhook(req) {
     // DONE <number>
     if (rawText.toUpperCase().startsWith('DONE ')) {
       const targetNum = rawText.slice(5).trim();
-      await db.setHumanMode(targetNum, false, null);
-      const leads = await db.getAllLeads();
+      await db.setHumanMode(targetNum, false, null, clientId);
+      const leads = await db.getAllLeads(clientId);
       const lead  = leads.find((l) => l.wa_number === targetNum);
       if (lead) await db.updateLeadStatus(lead.id, 'contacted');
       sendText(targetNum, 'Thank you for chatting with us! Have a great day. 😊').catch(() => {});
@@ -155,7 +208,7 @@ async function processWebhook(req) {
     }
 
     // Owner typing normally — forward if they have an active human-mode session
-    const humanSession = await db.getSessionByAgent(owner);
+    const humanSession = await db.getSessionByAgent(owner, clientId);
     if (humanSession) {
       sendText(humanSession.wa_number, rawText).catch(() => {});
       return;
@@ -164,7 +217,7 @@ async function processWebhook(req) {
 
   // ── Customer in human mode → forward to owner ────────────────────────────
   if (!isFromOwner) {
-    const session = await db.getSession(from);
+    const session = await db.getSession(from, clientId);
     if (session && session.human_mode) {
       const name = (session.data || {}).name || from;
       const agentNum = session.agent_number || owner;
@@ -1153,9 +1206,289 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// ── Admin: login page ─────────────────────────────────────────────────────────
+app.get('/admin/login', (_req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Axyren Admin — Login</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0F172A;display:flex;align-items:center;justify-content:center;min-height:100vh}
+  .card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:40px;width:360px}
+  .logo{font-size:24px;font-weight:800;color:#fff;margin-bottom:8px}
+  .sub{font-size:13px;color:#94A3B8;margin-bottom:28px}
+  label{font-size:12px;font-weight:600;color:#94A3B8;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+  input{width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #334155;background:#0F172A;color:#F1F5F9;font-size:14px;outline:none;margin-bottom:20px}
+  input:focus{border-color:#3B82F6}
+  button{width:100%;padding:11px;border-radius:8px;background:#3B82F6;color:#fff;font-weight:700;font-size:14px;border:none;cursor:pointer}
+  button:hover{background:#2563EB}
+  .err{color:#F87171;font-size:13px;margin-bottom:16px;display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Axyren Admin</div>
+  <div class="sub">Internal platform management</div>
+  <div class="err" id="err">Invalid password. Please try again.</div>
+  <form method="POST" action="/admin/login">
+    <label>Admin Password</label>
+    <input type="password" name="password" placeholder="Enter admin password" required autofocus>
+    <button type="submit">Sign In</button>
+  </form>
+</div>
+<script>
+  const params = new URLSearchParams(location.search);
+  if (params.get('error')) document.getElementById('err').style.display = 'block';
+</script>
+</body>
+</html>`);
+});
+
+app.post('/admin/login', express.urlencoded({ extended: false }), (req, res) => {
+  const { password } = req.body;
+  if (password && password === process.env.ADMIN_API_KEY) {
+    res.cookie('admin_session', process.env.ADMIN_API_KEY, {
+      httpOnly: true,
+      maxAge:   24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax',
+    });
+    return res.redirect('/admin/dashboard');
+  }
+  res.redirect('/admin/login?error=1');
+});
+
+app.get('/admin/logout', (req, res) => {
+  res.clearCookie('admin_session');
+  res.redirect('/admin/login');
+});
+
+// ── Admin: dashboard (HTML) ───────────────────────────────────────────────────
+app.get('/admin/dashboard', requireAdmin, (_req, res) => {
+  res.sendFile(path.join(__dirname, 'dashboard', 'admin', 'index.html'));
+});
+
+// ── Admin: static assets ──────────────────────────────────────────────────────
+app.use('/admin/assets', requireAdmin, express.static(path.join(__dirname, 'dashboard', 'admin')));
+
+// ── Admin API: list all clients ───────────────────────────────────────────────
+app.get('/admin/clients', requireAdmin, async (_req, res) => {
+  try {
+    const clients = await Client.find().sort({ created_at: -1 }).lean();
+    const safeClients = clients.map(c => ({
+      ...c,
+      id:               c._id.toString(),
+      twilio_auth_token: c.twilio_auth_token ? '••••••••' + c.twilio_auth_token.slice(-4) : null,
+    }));
+    res.json(safeClients);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin API: create client ──────────────────────────────────────────────────
+app.post('/admin/clients', requireAdmin, async (req, res) => {
+  try {
+    const { company_name, industry, owner_name, owner_email, owner_whatsapp,
+            whatsapp_number, twilio_account_sid, twilio_auth_token, plan, notes,
+            notification_emails, brand_name } = req.body;
+
+    if (!company_name) return res.status(400).json({ error: 'company_name is required' });
+
+    const client_id = generateClientId(company_name);
+    const api_key   = generateApiKey();
+
+    const client = await Client.create({
+      client_id, api_key, company_name,
+      industry:           industry           || 'realEstate',
+      owner_name:         owner_name         || '',
+      owner_email:        owner_email        || '',
+      owner_whatsapp:     owner_whatsapp     || '',
+      whatsapp_number:    whatsapp_number    || '',
+      twilio_account_sid: twilio_account_sid || '',
+      twilio_auth_token:  twilio_auth_token  || '',
+      plan:               plan               || 'professional',
+      brand_name:         brand_name         || company_name,
+      notification_emails:notification_emails|| owner_email || '',
+      notes:              notes              || '',
+      status: 'active',
+    });
+
+    const platformUrl = process.env.PLATFORM_URL || `http://localhost:${PORT}`;
+    res.json({
+      ok:           true,
+      client_id:    client.client_id,
+      api_key:      client.api_key,
+      dashboard_url:`${platformUrl}/client-dashboard/${client.client_id}`,
+      webhook_url:  `${platformUrl}/webhook`,
+    });
+  } catch (e) {
+    if (e.code === 11000) return res.status(409).json({ error: 'Client ID or API key already exists' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin API: get single client ──────────────────────────────────────────────
+app.get('/admin/clients/:clientId', requireAdmin, async (req, res) => {
+  try {
+    const client = await Client.findOne({ client_id: req.params.clientId }).lean();
+    if (!client) return res.status(404).json({ error: 'Not found' });
+    res.json({
+      ...client,
+      id:               client._id.toString(),
+      twilio_auth_token: client.twilio_auth_token ? '••••••••' + client.twilio_auth_token.slice(-4) : null,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin API: update client ──────────────────────────────────────────────────
+app.put('/admin/clients/:clientId', requireAdmin, async (req, res) => {
+  try {
+    const updates = { ...req.body, updated_at: new Date() };
+    // Never let callers overwrite client_id or api_key via this route
+    delete updates.client_id;
+    delete updates.api_key;
+    delete updates._id;
+    await Client.findOneAndUpdate({ client_id: req.params.clientId }, { $set: updates });
+    clearClientCache(req.params.clientId);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin API: soft-delete client ─────────────────────────────────────────────
+app.delete('/admin/clients/:clientId', requireAdmin, async (req, res) => {
+  try {
+    await Client.findOneAndUpdate({ client_id: req.params.clientId }, { $set: { status: 'cancelled', updated_at: new Date() } });
+    clearClientCache(req.params.clientId);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin API: suspend client ─────────────────────────────────────────────────
+app.post('/admin/clients/:clientId/suspend', requireAdmin, async (req, res) => {
+  try {
+    await Client.findOneAndUpdate({ client_id: req.params.clientId }, { $set: { status: 'suspended', updated_at: new Date() } });
+    clearClientCache(req.params.clientId);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin API: activate client ────────────────────────────────────────────────
+app.post('/admin/clients/:clientId/activate', requireAdmin, async (req, res) => {
+  try {
+    await Client.findOneAndUpdate({ client_id: req.params.clientId }, { $set: { status: 'active', updated_at: new Date() } });
+    clearClientCache(req.params.clientId);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin API: reset API key ──────────────────────────────────────────────────
+app.post('/admin/clients/:clientId/reset-api-key', requireAdmin, async (req, res) => {
+  try {
+    const newKey = generateApiKey();
+    await Client.findOneAndUpdate({ client_id: req.params.clientId }, { $set: { api_key: newKey, updated_at: new Date() } });
+    clearClientCache(req.params.clientId);
+    res.json({ ok: true, api_key: newKey });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin API: platform stats ─────────────────────────────────────────────────
+app.get('/admin/stats', requireAdmin, async (_req, res) => {
+  try {
+    const planPrices = { starter: 299, professional: 699, agency: 1499, enterprise: 2999 };
+    const [clients, totalLeads, totalAppointments] = await Promise.all([
+      Client.find().lean(),
+      db.mongoose.model ? db.mongoose.connection.db?.collection('leads').countDocuments() : 0,
+      db.mongoose.connection.db?.collection('appointments').countDocuments(),
+    ]);
+
+    const total_clients  = clients.length;
+    const active_clients = clients.filter(c => c.status === 'active').length;
+    const revenue_estimate = clients
+      .filter(c => c.status === 'active')
+      .reduce((sum, c) => sum + (planPrices[c.plan] || 699), 0);
+
+    // Leads added this month across all clients
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    const leads_this_month = await db.mongoose.connection.db
+      ?.collection('leads').countDocuments({ created_at: { $gte: monthStart } }) || 0;
+
+    res.json({
+      total_clients,
+      active_clients,
+      total_leads_all_time: totalLeads || 0,
+      total_appointments:   totalAppointments || 0,
+      leads_this_month,
+      revenue_estimate,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin API: onboard new client (one-shot) ──────────────────────────────────
+app.post('/admin/onboard', requireAdmin, async (req, res) => {
+  try {
+    const {
+      company_name, industry, owner_name, owner_email, owner_whatsapp,
+      whatsapp_number, twilio_account_sid, twilio_auth_token, plan,
+      notification_emails, brand_name,
+    } = req.body;
+
+    if (!company_name) return res.status(400).json({ error: 'company_name is required' });
+
+    const client_id = generateClientId(company_name);
+    const api_key   = generateApiKey();
+
+    await Client.create({
+      client_id, api_key, company_name,
+      industry:           industry           || 'realEstate',
+      owner_name:         owner_name         || '',
+      owner_email:        owner_email        || '',
+      owner_whatsapp:     owner_whatsapp     || '',
+      whatsapp_number:    whatsapp_number    || '',
+      twilio_account_sid: twilio_account_sid || '',
+      twilio_auth_token:  twilio_auth_token  || '',
+      plan:               plan               || 'professional',
+      brand_name:         brand_name         || company_name,
+      notification_emails:notification_emails|| owner_email || '',
+      status: 'active',
+    });
+
+    const platformUrl = process.env.PLATFORM_URL || `http://localhost:${PORT}`;
+    res.json({
+      success:      true,
+      client_id,
+      api_key,
+      dashboard_url:`${platformUrl}/client-dashboard/${client_id}`,
+      webhook_url:  `${platformUrl}/webhook`,
+      setup_instructions: {
+        step1: `Set Twilio webhook to: ${platformUrl}/webhook`,
+        step2: 'Share your WhatsApp number with customers',
+        step3: `Access your dashboard at: ${platformUrl}/client-dashboard/${client_id}`,
+        step4: `Your API key for integrations: ${api_key}`,
+      },
+    });
+  } catch (e) {
+    if (e.code === 11000) return res.status(409).json({ error: 'Client already exists' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Client dashboard route ────────────────────────────────────────────────────
+app.get('/client-dashboard/:clientId', async (req, res) => {
+  try {
+    const client = await getClientById(req.params.clientId);
+    if (!client) return res.status(404).send('Client not found');
+    res.sendFile(path.join(__dirname, 'dashboard', 'index.html'));
+  } catch (e) { res.status(500).send('Error loading dashboard'); }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`[Server] ${process.env.CLIENT_NAME || 'WhatsApp Bot'} running on port ${PORT}`);
   console.log(`[Server] Dashboard → http://localhost:${PORT}/dashboard`);
+  if (process.env.MULTI_TENANT_MODE === 'true') {
+    console.log(`[Server] Multi-tenant mode ENABLED — Admin → http://localhost:${PORT}/admin/dashboard`);
+  }
   startScheduler();
 });

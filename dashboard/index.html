@@ -717,6 +717,25 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 </div>
 
 <script>
+// ── Multi-tenant: detect clientId from URL ─────────────────
+(function() {
+  const urlParts = window.location.pathname.split('/');
+  // URL pattern: /client-dashboard/<clientId>
+  const clientIdFromUrl = urlParts[1] === 'client-dashboard' ? urlParts[2] : null;
+  if (clientIdFromUrl) {
+    window.__clientId = clientIdFromUrl;
+    // Patch fetch to automatically inject x-client-id header for relative API calls
+    const _origFetch = window.fetch.bind(window);
+    window.fetch = function(url, opts) {
+      if (typeof url === 'string' && (url.startsWith('/api/') || url.startsWith('/dashboard/'))) {
+        opts = opts || {};
+        opts.headers = Object.assign({}, opts.headers, { 'x-client-id': clientIdFromUrl });
+      }
+      return _origFetch(url, opts);
+    };
+  }
+})();
+
 // ── DATA ───────────────────────────────────────────────────
 let allLeads = [];
 let dateFilter = 30;

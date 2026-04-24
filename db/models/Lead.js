@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const leadSchema = new mongoose.Schema({
-  wa_number:      { type: String, required: true, unique: true },
+  client_id:      { type: String, required: true, index: true, default: 'default' },
+  wa_number:      { type: String, required: true },
   name:           { type: String, default: '' },
   status:         { type: String, default: 'new' },
   score:          { type: Number, default: 0 },
@@ -15,5 +16,8 @@ const leadSchema = new mongoose.Schema({
   created_at:     { type: Date, default: Date.now },
   updated_at:     { type: Date, default: Date.now },
 });
+
+// Compound unique index: one lead per wa_number per client
+leadSchema.index({ wa_number: 1, client_id: 1 }, { unique: true });
 
 module.exports = mongoose.model('Lead', leadSchema);
