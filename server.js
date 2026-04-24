@@ -541,7 +541,7 @@ app.post('/api/settings/save', async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    console.error('[Settings/save] Error:', e.message);
+    console.error('[Settings/save] Error:', e.message, e.stack);
     res.status(500).json({ error: e.message });
   }
 });

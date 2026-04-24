@@ -24,7 +24,23 @@ function connectWithRetry(attempt = 1) {
   }
   console.log('[DB] Connecting to MongoDB Atlas...');
   mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 })
-    .then(() => console.log('[DB] Connected to MongoDB Atlas'))
+    .then(async () => {
+      console.log('[DB] Connected to MongoDB Atlas');
+      // Drop stale single-key unique index on settings.key (left from old schema).
+      // Current schema uses compound index { key, client_id } — the old key_1
+      // unique index blocks multi-tenant rows with the same key for different clients.
+      try {
+        const col = mongoose.connection.db.collection('settings');
+        const indexes = await col.indexes();
+        const stale = indexes.find(i => i.name === 'key_1');
+        if (stale) {
+          await col.dropIndex('key_1');
+          console.log('[DB] Dropped stale settings index: key_1');
+        }
+      } catch (migrErr) {
+        console.warn('[DB] Index migration warning (non-fatal):', migrErr.message);
+      }
+    })
     .catch((err) => {
       console.error(`[DB] Connection attempt ${attempt} failed:`, err.message);
       const delay = Math.min(attempt * 2000, 30000);
@@ -302,7 +318,7 @@ async function getSetting(key, clientId = 'default') {
 async function saveSetting(key, value, clientId = 'default') {
   return await Setting.findOneAndUpdate(
     { key, client_id: clientId },
-    { key, value, client_id: clientId, updated_at: new Date() },
+    { $set: { value, updated_at: new Date() } },
     { upsert: true, new: true }
   );
 }
