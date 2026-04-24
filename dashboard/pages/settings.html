@@ -289,7 +289,20 @@
       brand_color_secondary: getVal('s-color-secondary'),
     };
     await saveSettings(obj);
-    document.documentElement.style.setProperty('--blue', obj.brand_color_primary);
+    if (obj.brand_color_primary) document.documentElement.style.setProperty('--blue', obj.brand_color_primary);
+    const newName = obj.brand_name;
+    if (newName) {
+      // Update parent dashboard immediately via postMessage
+      window.parent.postMessage({ type: 'brandUpdate', brandName: newName }, '*');
+      // Also update directly if same page context
+      if (window.parent === window) {
+        const sc = document.getElementById('sbClientName');
+        const tb = document.getElementById('tbTitle');
+        if (sc) sc.textContent = newName;
+        if (tb) tb.textContent = newName + ' — Dashboard';
+        document.title = newName + ' — LeadPulse CRM';
+      }
+    }
   };
 
   window.checkToken = async function() {

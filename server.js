@@ -202,7 +202,15 @@ app.get('/api/leads', async (_req, res) => {
 // ── API: stats ────────────────────────────────────────────────────────────────
 app.get('/api/stats', async (_req, res) => {
   try {
-    res.json(await db.getLeadStats());
+    const stats = await db.getLeadStats();
+    const brandSetting = await db.getSetting('brand_name');
+    const clientName = (brandSetting && brandSetting.value) || process.env.CLIENT_NAME || 'My Real Estate Agency';
+    res.json({ ...stats, clientName,
+      totalLeads: stats.total || 0,
+      newLeads: stats.new || 0,
+      contactedLeads: stats.contacted || 0,
+      convertedLeads: stats.converted || 0,
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -418,6 +426,7 @@ app.post('/api/settings', async (req, res) => {
   if (typeof data !== 'object') return res.status(400).json({ error: 'Expected JSON object' });
   for (const [key, value] of Object.entries(data)) {
     await db.saveSetting(key, String(value));
+    if (key === 'brand_name') console.log(`[Settings] brand_name saved: "${value}"`);
   }
   res.json({ ok: true });
 });

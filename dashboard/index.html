@@ -1147,6 +1147,17 @@ loadTopAgents();
 checkToken();
 setInterval(loadAll,30000);
 setInterval(checkToken,60000);
+
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'brandUpdate') {
+    const name = e.data.brandName;
+    const sc = document.getElementById('sbClientName');
+    const tb = document.getElementById('tbTitle');
+    if (sc) sc.textContent = name;
+    if (tb) tb.textContent = name + ' — Dashboard';
+    document.title = name + ' — LeadPulse CRM';
+  }
+});
 </script>
 <script src="/dashboard/js/shared.js"></script>
 <script src="/dashboard/js/router.js"></script>
