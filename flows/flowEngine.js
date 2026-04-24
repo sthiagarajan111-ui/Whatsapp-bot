@@ -29,6 +29,7 @@ const { sendLeadEmail }   = require('../utils/integrations/emailNotifier');
 const { triggerZapier }      = require('../utils/integrations/zapierWebhook');
 const { triggerHotLeadAlert } = require('../utils/hotLeadAlert');
 const { handleOptOut } = require('../utils/reengagementEngine');
+const { notifyAgentNewAppointment } = require('../utils/appointmentNotifier');
 
 // ── Load all flow files from this directory ───────────────────────────────────
 const flows = {};
@@ -254,9 +255,87 @@ async function handleMessage(message) {
   const collected = stepDef.collect({ id: resolvedId, text: rawText });
   const newData   = { ...collectedData, ...collected };
 
-  const nextStep = stepDef.next;
+  // Support conditional routing via _nextStep (set by collect functions)
+  const nextStep = newData._nextStep || stepDef.next;
+  delete newData._nextStep;
 
   // ── Advance ─────────────────────────────────────────────────────────────────
+
+  // Special handling: CONFIRM_APPOINTMENT — create appointment then go to COMPLETE
+  if (nextStep === 'CONFIRM_APPOINTMENT') {
+    function getNextWeekend() {
+      const d = new Date();
+      const daysUntilSat = (6 - d.getDay() + 7) % 7 || 7;
+      return new Date(d.getTime() + daysUntilSat * 86400000);
+    }
+    const dateMap = {
+      today:        new Date(),
+      tomorrow:     new Date(Date.now() + 86400000),
+      day_after:    new Date(Date.now() + 172800000),
+      this_weekend: getNextWeekend(),
+      next_week:    new Date(Date.now() + 7 * 86400000),
+    };
+    const appointmentDate = dateMap[newData.appointment_date_pref] || new Date(Date.now() + 86400000);
+    const dateDisplay     = appointmentDate.toLocaleDateString('en-AE', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Dubai',
+    });
+    const timeMap = {
+      morning:     'Morning (9am – 12pm)',
+      afternoon:   'Afternoon (12pm – 3pm)',
+      evening:     'Evening (3pm – 6pm)',
+      late_evening: 'Late Evening (6pm – 8pm)',
+    };
+    const timeSlot = timeMap[newData.appointment_time_pref] || 'Morning (9am – 12pm)';
+
+    // Send confirmation to lead FIRST (graceful — don't block on DB)
+    const confirmMsg = language === 'ar'
+      ? `✅ *تم تأكيد الموعد!*\n\n📅 التاريخ: ${dateDisplay}\n⏰ الوقت: ${timeSlot}\n👤 سيتصل بك خبيرنا على: +${from}\n\nسنرسل لك تذكيراً قبل ساعة من الموعد.`
+      : `✅ *Appointment Confirmed!*\n\n📅 Date: ${dateDisplay}\n⏰ Time: ${timeSlot}\n👤 Our expert will call you at: +${from}\n\nWe'll send you a reminder 1 hour before.\n\nIs there anything specific you'd like to discuss?\nReply with your message or type 'menu' anytime.`;
+    await sendText(from, confirmMsg);
+    await saveOutbound(from, 'text', 'Appointment confirmed');
+
+    // Save appointment and notify agent (non-blocking on failures)
+    let savedAppt = null;
+    try {
+      const db = require('../db/database');
+      savedAppt = await db.saveAppointment({
+        wa_number:                from,
+        lead_name:                newData.name || 'Unknown',
+        appointment_date:         appointmentDate,
+        appointment_date_display: dateDisplay,
+        time_slot:                timeSlot,
+        status:                   'confirmed',
+        industry:                 flow.FLOW_NAME || 'realEstate',
+        agent_wa:                 process.env.OWNER_WHATSAPP || '',
+      });
+      // Update lead score — appointments signal high intent
+      const score = calculateScore(newData);
+      await db.updateLeadScore(from, Math.max(score, 8));
+      // Notify agent
+      notifyAgentNewAppointment(savedAppt, newData).catch(e =>
+        console.error('[Appointment] Agent notify failed:', e.message)
+      );
+      console.log(`[Appointment] Booked for ${from} — ${dateDisplay} ${timeSlot}`);
+    } catch (e) {
+      console.error('[Appointment] Save failed (confirmation already sent):', e.message);
+    }
+
+    // Proceed to COMPLETE flow
+    const score = calculateScore(newData);
+    await flow.onComplete(from, newData, API, { language, score });
+    const leadSnap = { ...newData, wa_number: from, score };
+    createZohoLead(leadSnap).catch(() => {});
+    sendLeadEmail({ wa_number: from, score, language }, newData).catch(() => {});
+    triggerZapier(leadSnap).catch(() => {});
+    if (process.env.AI_MODE_ENABLED !== 'false' && process.env.ANTHROPIC_API_KEY) {
+      newData._score = score;
+      await persistSession(from, 'AI_MODE', newData, language, true, []);
+    } else {
+      await clearSession(from);
+    }
+    return;
+  }
+
   if (nextStep === 'COMPLETE' || flow.STEPS[nextStep]?.terminal) {
     if (message._fromVoice) {
       newData.source             = 'voice';

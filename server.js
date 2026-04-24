@@ -204,7 +204,7 @@ app.get('/api/stats', async (_req, res) => {
   try {
     const stats = await db.getLeadStats();
     const brandSetting = await db.getSetting('brand_name');
-    const clientName = (brandSetting && brandSetting.value) || process.env.CLIENT_NAME || 'My Real Estate Agency';
+    const clientName = (brandSetting && brandSetting.value) || process.env.CLIENT_NAME || 'Axyren Dashboard';
     res.json({ ...stats, clientName,
       totalLeads: stats.total || 0,
       newLeads: stats.new || 0,
@@ -317,6 +317,7 @@ app.get('/dashboard/js/:file', (req, res) => {
 app.get('/dashboard/css/:file', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard', 'css', req.params.file));
 });
+app.use('/dashboard', express.static(path.join(__dirname, 'dashboard')));
 
 // ── API: conversations ────────────────────────────────────────────────────────
 app.get('/api/conversations', async (_req, res) => {
@@ -1035,6 +1036,93 @@ app.get('/api/agents/performance', async (_req, res) => {
     perf.forEach((p,i) => p.rank = i + 1);
     res.json(perf);
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Appointments ─────────────────────────────────────────────────────────
+app.get('/api/appointments', async (req, res) => {
+  try {
+    const { status, agent, date_from, date_to } = req.query;
+    const appointments = await db.getAppointments({ status, agent, date_from, date_to });
+    // Enrich with lead score from leads table
+    const leads = await db.getAllLeads();
+    const leadMap = {};
+    leads.forEach(l => { leadMap[l.wa_number] = l; });
+    const enriched = appointments.map(a => ({
+      ...a,
+      lead_score: leadMap[a.wa_number]?.score || 0,
+      lead_status: leadMap[a.wa_number]?.status || 'new',
+    }));
+    res.json(enriched);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/appointments/stats', async (_req, res) => {
+  try {
+    const all = await db.getAppointments();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const todayCount   = all.filter(a => new Date(a.appointment_date) >= today && new Date(a.appointment_date) <= todayEnd).length;
+    const weekCount    = all.filter(a => new Date(a.appointment_date) >= today && new Date(a.appointment_date) <= nextWeek).length;
+    const completed    = all.filter(a => a.status === 'completed').length;
+    const notCancelled = all.filter(a => a.status !== 'cancelled').length;
+    const completionRate = notCancelled ? Math.round(completed / notCancelled * 100) : 0;
+    res.json({ today: todayCount, this_week: weekCount, total: all.length, completion_rate: completionRate });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/appointments/today', async (_req, res) => {
+  try {
+    const today = new Date();
+    res.json(await db.getAppointmentsByDate(today));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/appointments/upcoming', async (_req, res) => {
+  try {
+    res.json(await db.getUpcomingAppointments());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/appointments/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['confirmed', 'completed', 'cancelled', 'rescheduled'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    await db.updateAppointmentStatus(req.params.id, status);
+    // If completed, send thank-you to lead
+    if (status === 'completed') {
+      const Appointment = require('./db/models/Appointment');
+      const appt = await Appointment.findById(req.params.id).lean();
+      if (appt && appt.wa_number) {
+        sendText(appt.wa_number,
+          `✅ Thank you for your time, ${appt.lead_name || 'there'}! We hope our consultation was helpful.\n\nFeel free to reach out anytime. Type 'menu' to start a new enquiry.`
+        ).catch(() => {});
+      }
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/appointments/:id/reschedule', async (req, res) => {
+  try {
+    const { new_date, new_time_slot } = req.body;
+    const Appointment = require('./db/models/Appointment');
+    const appt = await Appointment.findByIdAndUpdate(
+      req.params.id,
+      { $set: { appointment_date: new Date(new_date), appointment_date_display: new_date, time_slot: new_time_slot, status: 'rescheduled' } },
+      { new: true }
+    ).lean();
+    if (appt && appt.wa_number) {
+      const msg = `📅 *Appointment Rescheduled*\n\nYour appointment has been updated:\n📅 New Date: ${new_date}\n⏰ Time: ${new_time_slot}\n\nWe'll confirm this with you shortly.`;
+      sendText(appt.wa_number, msg).catch(() => {});
+      if (process.env.OWNER_WHATSAPP) {
+        sendText(process.env.OWNER_WHATSAPP, `📅 Appointment rescheduled:\nClient: ${appt.lead_name}\n📅 ${new_date} ${new_time_slot}`).catch(() => {});
+      }
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── API: Re-engagement ────────────────────────────────────────────────────────

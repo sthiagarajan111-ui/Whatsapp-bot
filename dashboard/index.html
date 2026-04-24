@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LeadPulse CRM — Premium Dashboard</title>
+<title>Axyren — AI-powered Lead Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
@@ -64,7 +64,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 /* ── Topbar ───────────────────── */
 .tb{background:var(--white);border-bottom:1px solid var(--border);padding:0 28px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
 .tb-l{display:flex;align-items:center;gap:12px}
-.tb-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;color:var(--text)}
+.tb-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:15px;color:var(--text);text-transform:uppercase;letter-spacing:.5px}
 .dr-btn{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:5px 11px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .15s}
 .dr-btn:hover{border-color:var(--blue);color:var(--blue)}
 .tb-r{display:flex;align-items:center;gap:9px}
@@ -298,11 +298,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 <!-- ═══ SIDEBAR ══════════════════════════════════════════ -->
 <aside class="sb">
-  <div class="sb-logo">
-    <div class="lw">
-      <div class="lb"><svg viewBox="0 0 18 18"><path d="M9 1.5C5 1.5 1.5 5 1.5 9S5 16.5 9 16.5 16.5 13 16.5 9 13 1.5 9 1.5zm0 2.5a5 5 0 110 10A5 5 0 019 4zm0 1.5v3.5l2.5 1.5-.75 1.25L8 10V5.5H9z"/></svg></div>
-      <div><div class="ln">Axyren</div><div class="lt">AI-powered Lead Management</div></div>
+  <div class="sidebar-logo" style="padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.05)">
+    <div style="display:flex;align-items:center;gap:10px">
+      <img src="/dashboard/axyren-logo.jpg" alt="Axyren" style="height:28px;width:auto;filter:invert(1) brightness(2);border-radius:2px">
     </div>
+    <div style="font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.5px;margin-top:5px;padding-left:2px">AI-powered Lead Management</div>
   </div>
   <div class="sb-client">
     <div class="sc-lbl">Active Client</div>
@@ -314,6 +314,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <a class="ni nav-link" href="#conversations" data-page="conversations"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v1L8 10 2 5V4zm0 3l6 4 6-4v5H2V7z"/></svg>Conversations<span class="nb nb-blue" id="nbNew">0</span></a>
     <a class="ni nav-link" href="#opportunities" data-page="opportunities"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4a1 1 0 011-1zm5 2L4 9h2v2h4V9h2L8 5z"/></svg>Pipeline</a>
     <a class="ni nav-link" href="#analytics" data-page="analytics"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><path d="M9 11.5h5M11.5 9v5"/></svg>Analytics</a>
+    <a class="ni nav-link" href="#appointments" data-page="appointments"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 1v4M11 1v4M2 7h12" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>Appointments<span class="nb nb-blue" id="nbAppts">0</span></a>
     <a class="ni nav-link" href="#settings" data-page="settings"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 5a3 3 0 100 6A3 3 0 008 5zm-6 3a6 6 0 1112 0A6 6 0 012 8z"/></svg>Settings</a>
   </div>
   <div class="sb-sec">
@@ -323,7 +324,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <a class="ni" href="/health"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1z"/><path d="M5 8h2l1-2 2 4 1-2h1" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>System Health</a>
   </div>
   <div class="sb-foot">
-    <div class="sf-row"><span class="sf-dot"></span><span id="liveStatus">Bot online · auto-sync 30s</span></div>
+    <div class="sf-row"><span class="sf-dot"></span><span id="liveStatus">Axyren · auto-sync 30s</span></div>
   </div>
 </aside>
 

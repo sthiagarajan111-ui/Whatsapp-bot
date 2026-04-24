@@ -9,6 +9,7 @@ const { getLeadsForFollowup, markFollowupSent } = require('../db/database');
 const db = require('../db/database');
 const { sendText } = require('../whatsapp/api');
 const { runReengagement } = require('./reengagementEngine');
+const { sendReminder } = require('./appointmentNotifier');
 
 function startScheduler() {
   const intervalMs = 5 * 60 * 1000; // 5 minutes
@@ -59,6 +60,26 @@ async function runFollowups() {
   }
 }
 
+// ── Appointment reminders — every 30 minutes ─────────────────────────────────
+cron.schedule('*/30 * * * *', async () => {
+  try {
+    const upcoming = await db.getUpcomingAppointments();
+    const now = Date.now();
+    const Appointment = require('../db/models/Appointment');
+    for (const appt of upcoming) {
+      if (appt.reminder_sent) continue;
+      const apptTime = new Date(appt.appointment_date).getTime();
+      const minutesAway = (apptTime - now) / 60000;
+      if (minutesAway > 60 && minutesAway <= 90) {
+        await sendReminder(appt);
+        await Appointment.findByIdAndUpdate(appt._id, { reminder_sent: true });
+      }
+    }
+  } catch (e) {
+    console.error('[Scheduler] Reminder check failed:', e.message);
+  }
+});
+
 // ── Daily 10AM re-engagement ────────────────────────────────────────────────
 cron.schedule('0 10 * * *', async () => { await runReengagement(); }, { timezone: 'Asia/Dubai' });
 
@@ -73,6 +94,7 @@ cron.schedule('0 8 * * *', async () => {
     console.log('[Report] Generating daily reports...');
     const leads = await db.getAllLeads();
     const stats = await db.getLeadStats();
+    const todayAppointments = await db.getAppointmentsByDate(new Date()).catch(() => []);
 
     // Send to all configured agents
     const agents = await db.getAgents();
@@ -80,7 +102,7 @@ cron.schedule('0 8 * * *', async () => {
 
     for (const agent of agents) {
       if (agent.email) {
-        await sendDailyReport(agent.email, agent.name, leads, stats);
+        await sendDailyReport(agent.email, agent.name, leads, stats, todayAppointments);
         sentCount++;
       }
     }
@@ -92,7 +114,7 @@ cron.schedule('0 8 * * *', async () => {
       .filter(e => e.length > 0);
 
     for (const email of notificationEmails) {
-      await sendDailyReport(email, 'Team', leads, stats);
+      await sendDailyReport(email, 'Team', leads, stats, todayAppointments);
       sentCount++;
     }
 
@@ -102,7 +124,7 @@ cron.schedule('0 8 * * *', async () => {
   }
 }, { timezone: 'Asia/Dubai' });
 
-async function sendDailyReport(email, name, leads, stats) {
+async function sendDailyReport(email, name, leads, stats, todayAppointments = []) {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.log('[Report] SMTP not configured — skipping report for', email);
     return;
@@ -118,7 +140,7 @@ async function sendDailyReport(email, name, leads, stats) {
     },
   });
 
-  const html = generateDailyEmailReport(email, name, leads, stats);
+  const html = generateDailyEmailReport(email, name, leads, stats, todayAppointments);
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
   const newYesterday = leads.filter(l => {
     const d = new Date(l.created_at);

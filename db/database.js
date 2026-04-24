@@ -370,14 +370,33 @@ async function matchListings(criteria) {
 }
 
 // ── Appointments ──────────────────────────────────────────────────────────────
-async function getAppointments() {
-  const docs = await Appointment.find().sort({ slot_date: 1, slot_time: 1 }).lean();
-  return docs.map(d => ({
+function normalizeAppointment(d) {
+  return {
     ...d,
     id:         d._id.toString(),
     lead_id:    d.lead_id?.toString(),
     created_at: d.created_at instanceof Date ? d.created_at.toISOString() : (d.created_at || ''),
-  }));
+  };
+}
+
+async function getAppointments(filters = {}) {
+  const query = {};
+  if (filters.status) query.status = filters.status;
+  if (filters.agent)  query.agent_wa = filters.agent;
+  if (filters.date_from || filters.date_to) {
+    query.appointment_date = {};
+    if (filters.date_from) query.appointment_date.$gte = new Date(filters.date_from);
+    if (filters.date_to)   query.appointment_date.$lte = new Date(filters.date_to);
+  }
+  const docs = await Appointment.find(query).sort({ appointment_date: -1 }).lean();
+  return docs.map(normalizeAppointment);
+}
+
+async function getAppointmentsByDate(date) {
+  const start = new Date(date); start.setHours(0, 0, 0, 0);
+  const end   = new Date(date); end.setHours(23, 59, 59, 999);
+  const docs  = await Appointment.find({ appointment_date: { $gte: start, $lte: end } }).sort({ appointment_date: 1 }).lean();
+  return docs.map(normalizeAppointment);
 }
 
 async function saveAppointment(data) {
@@ -387,6 +406,16 @@ async function saveAppointment(data) {
 
 async function updateAppointmentStatus(id, status) {
   try { await Appointment.findByIdAndUpdate(id, { $set: { status } }); } catch (_) {}
+}
+
+async function getUpcomingAppointments() {
+  const now      = new Date();
+  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const docs = await Appointment.find({
+    appointment_date: { $gte: now, $lte: nextWeek },
+    status: { $ne: 'cancelled' },
+  }).lean();
+  return docs.map(normalizeAppointment);
 }
 
 // ── Notes ─────────────────────────────────────────────────────────────────────
@@ -433,7 +462,7 @@ module.exports = {
   // Listings
   getListings, getAllListings, saveListing, updateListing, deleteListing, matchListings,
   // Appointments
-  getAppointments, saveAppointment, updateAppointmentStatus,
+  getAppointments, getAppointmentsByDate, saveAppointment, updateAppointmentStatus, getUpcomingAppointments,
   // Notes
   getNotes, saveNote, deleteNote,
   // Availability

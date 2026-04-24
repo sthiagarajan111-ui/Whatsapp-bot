@@ -3,7 +3,7 @@
  * Produces a fully inline-styled HTML email compatible with Gmail, Outlook, Apple Mail.
  */
 
-function generateDailyEmailReport(agentEmail, agentName, leads, stats) {
+function generateDailyEmailReport(agentEmail, agentName, leads, stats, todayAppointments = []) {
   const now       = new Date();
   const clientName = process.env.CLIENT_NAME || 'LeadPulse';
   const renderUrl  = process.env.RENDER_EXTERNAL_URL || 'https://whatsapp-bot-41x7.onrender.com';
@@ -229,6 +229,28 @@ function generateDailyEmailReport(agentEmail, agentName, leads, stats) {
           : `<table width="100%" cellpadding="0" cellspacing="0" style="border-radius:0 0 8px 8px;overflow:hidden">
               <thead><tr>${tableHeaders(['Name','Number','Source','Interest','Budget','Area','Score','Lang'])}</tr></thead>
               <tbody>${newYesterday.map(l => newLeadRow(l)).join('')}</tbody>
+             </table>`
+        }
+      </td></tr>
+
+      <!-- TODAY'S APPOINTMENTS -->
+      <tr><td style="padding:24px 32px 0">
+        <div style="background:#7C3AED;padding:12px 16px;border-radius:8px 8px 0 0">
+          <span style="font-size:14px;font-weight:700;color:#FFFFFF">📅 Today's Appointments</span>
+        </div>
+        ${todayAppointments.length === 0
+          ? `<div style="background:#F5F3FF;padding:16px;border-radius:0 0 8px 8px;font-size:13px;color:#9CA3AF;text-align:center">No appointments scheduled for today</div>`
+          : `<table width="100%" cellpadding="0" cellspacing="0" style="border-radius:0 0 8px 8px;overflow:hidden">
+              <thead><tr>${tableHeaders(['Client', 'Time Slot', 'Interest', 'Score', 'Status'])}</tr></thead>
+              <tbody>${todayAppointments.map(a => `
+                <tr style="background:#F5F3FF">
+                  <td style="padding:8px 10px;border-bottom:1px solid #EDE9FE;font-size:13px;font-weight:600">${a.lead_name || '—'}</td>
+                  <td style="padding:8px 10px;border-bottom:1px solid #EDE9FE;font-size:12px;color:#7C3AED">${a.time_slot || '—'}</td>
+                  <td style="padding:8px 10px;border-bottom:1px solid #EDE9FE;font-size:12px">${a.industry || '—'}</td>
+                  <td style="padding:8px 10px;border-bottom:1px solid #EDE9FE;font-size:12px;text-align:center;font-weight:700">${a.lead_score || 0}/10</td>
+                  <td style="padding:8px 10px;border-bottom:1px solid #EDE9FE;font-size:12px;text-align:center">${a.status || 'confirmed'}</td>
+                </tr>`).join('')}
+              </tbody>
              </table>`
         }
       </td></tr>
