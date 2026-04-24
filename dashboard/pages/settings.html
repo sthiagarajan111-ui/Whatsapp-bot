@@ -1,4 +1,9 @@
 <style>
+.btn-primary { background: var(--blue, #3D7FFA); color: #fff; border: none; border-radius: 7px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; }
+.btn-primary:hover { background: var(--blue2, #2563EB); }
+.btn-secondary { background: var(--white, #fff); color: var(--text2, #5A6A8A); border: 1px solid var(--border2, #CDD5E5); border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.btn-danger { background: var(--red-l, #FEF2F2); color: var(--red, #EF4444); border: 1px solid var(--red, #EF4444); border-radius: 7px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
 .settings-layout { display: grid; grid-template-columns: 200px 1fr; gap: 24px; }
 .settings-nav { background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 12px; align-self: start; position: sticky; top: 20px; }
 .settings-nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .12s; }
@@ -259,73 +264,61 @@
     if (tab === 'agents') loadAgents();
   };
 
-  async function saveSettings(obj) {
-    const hdrs = { 'Content-Type': 'application/json' };
-    if (clientId) hdrs['x-client-id'] = clientId;
-    await shared.apiFetch('/api/settings', { method: 'POST', headers: hdrs, body: JSON.stringify(obj) });
-    settings = { ...settings, ...obj };
-    shared.showToast('Settings saved');
-  }
-
-  window.saveBotConfig = async function() {
-    const days = [...document.querySelectorAll('.bd-check:checked')].map(c=>c.value).join(',');
-    const savedName = getVal('s-client-name');
-    await saveSettings({
-      client_name: savedName,
-      active_flow: getVal('s-active-flow'),
-      hours_start: getVal('s-hours-start'),
-      hours_end: getVal('s-hours-end'),
-      business_days: days,
+  // ── Unified save: collects ALL fields from all tabs, POSTs to /api/settings/save ──
+  window.saveSettings = async function() {
+    const days = [...document.querySelectorAll('.bd-check:checked')].map(c => c.value).join(',');
+    const obj = {
+      // Bot Config
+      client_name:    getVal('s-client-name'),
+      active_flow:    getVal('s-active-flow'),
+      hours_start:    getVal('s-hours-start'),
+      hours_end:      getVal('s-hours-end'),
+      business_days:  days,
       followup_delay: getVal('s-followup'),
-      ooh_message: getVal('s-ooh'),
-    });
-    if (savedName && window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'settingsUpdated', brandName: savedName }, '*');
-    }
-  };
-
-  window.saveWAConfig = async function() {
+      ooh_message:    getVal('s-ooh'),
+      // WhatsApp
+      owner_whatsapp:    getVal('s-owner-wa'),
+      whatsapp_phone_id: getVal('s-phone-id'),
+      // Flow
+      completion_message: getVal('s-complete-msg'),
+      knowledge_base:     getVal('s-knowledge'),
+      // Notifications
+      email_notifications: String(getCheck('s-email-notif')),
+      notification_email:  getVal('s-email'),
+      wa_notifications:    String(getCheck('s-wa-notif')),
+      daily_report:        String(getCheck('s-daily-report')),
+      report_time:         getVal('s-report-time'),
+      // Branding
+      brand_name:            getVal('s-brand-name'),
+      brand_logo:            getVal('s-logo-url'),
+      brand_color_primary:   getVal('s-color-primary'),
+      brand_color_secondary: getVal('s-color-secondary'),
+    };
+    const hdrs = { 'Content-Type': 'application/json' };
+    const cid = window.__clientId || clientId || '';
+    if (cid) hdrs['x-client-id'] = cid;
     try {
-      await saveSettings({
-        owner_whatsapp:     getVal('s-owner-wa'),
-        whatsapp_phone_id:  getVal('s-phone-id'),
-        whatsapp_provider:  getVal('s-wa-provider') || 'twilio',
-      });
-      shared.showToast('WhatsApp settings saved');
+      await shared.apiFetch('/api/settings/save', { method: 'POST', headers: hdrs, body: JSON.stringify(obj) });
+      settings = { ...settings, ...obj };
+      shared.showToast('Settings saved');
+      // Apply branding live
+      if (obj.brand_color_primary) document.documentElement.style.setProperty('--blue', obj.brand_color_primary);
+      const newName = obj.brand_name || obj.client_name;
+      if (newName && window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'settingsUpdated', brandName: newName }, '*');
+        window.parent.postMessage({ type: 'brandUpdate',     brandName: newName }, '*');
+      }
     } catch(e) {
       shared.showToast('Save failed: ' + e.message, 'error');
     }
   };
 
-  window.saveFlowConfig = async function() {
-    await saveSettings({ completion_message: getVal('s-complete-msg'), knowledge_base: getVal('s-knowledge') });
-  };
-
-  window.saveNotifConfig = async function() {
-    await saveSettings({
-      email_notifications: String(getCheck('s-email-notif')),
-      notification_email: getVal('s-email'),
-      wa_notifications: String(getCheck('s-wa-notif')),
-      daily_report: String(getCheck('s-daily-report')),
-      report_time: getVal('s-report-time'),
-    });
-  };
-
-  window.saveBranding = async function() {
-    const obj = {
-      brand_name: getVal('s-brand-name'),
-      brand_logo: getVal('s-logo-url'),
-      brand_color_primary: getVal('s-color-primary'),
-      brand_color_secondary: getVal('s-color-secondary'),
-    };
-    await saveSettings(obj);
-    if (obj.brand_color_primary) document.documentElement.style.setProperty('--blue', obj.brand_color_primary);
-    const newName = obj.brand_name;
-    if (newName && window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'settingsUpdated', brandName: newName }, '*');
-      window.parent.postMessage({ type: 'brandUpdate',      brandName: newName }, '*');
-    }
-  };
+  // Keep per-section aliases for backward compatibility
+  window.saveBotConfig    = window.saveSettings;
+  window.saveWAConfig     = window.saveSettings;
+  window.saveFlowConfig   = window.saveSettings;
+  window.saveNotifConfig  = window.saveSettings;
+  window.saveBranding     = window.saveSettings;
 
   window.checkToken = async function() {
     const el = document.getElementById('tokStatus');

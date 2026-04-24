@@ -520,6 +520,32 @@ app.post('/api/settings', async (req, res) => {
   }
 });
 
+// ── API: settings/save (dedicated endpoint called by dashboard Save Changes) ──
+app.post('/api/settings/save', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+    const data = req.body;
+    if (!data || typeof data !== 'object') return res.status(400).json({ error: 'Expected JSON object' });
+    for (const [key, value] of Object.entries(data)) {
+      if (value === '' || value === null || value === undefined) continue; // skip blanks
+      await db.saveSetting(key, String(value), clientId);
+      if (key === 'brand_name') {
+        console.log(`[Settings/save] brand_name: "${value}" client: ${clientId}`);
+        if (clientId !== 'default') {
+          await Client.findOneAndUpdate(
+            { client_id: clientId },
+            { $set: { brand_name: value, updated_at: new Date() } }
+          );
+        }
+      }
+    }
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[Settings/save] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── API: lead detail ──────────────────────────────────────────────────────────
 app.get('/api/leads/:id/detail', async (req, res) => {
   const { id } = req.params;
