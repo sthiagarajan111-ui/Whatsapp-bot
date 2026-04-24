@@ -582,9 +582,14 @@ app.get('/api/reports/send-daily', async (_req, res) => {
         recipients.push(agent.email);
       }
     }
-    if (process.env.NOTIFICATION_EMAIL) {
-      await sendDailyReport(process.env.NOTIFICATION_EMAIL, 'Team', leads, stats);
-      recipients.push(process.env.NOTIFICATION_EMAIL);
+    const notificationEmails = (process.env.NOTIFICATION_EMAIL || '')
+      .split(',')
+      .map(e => e.trim())
+      .filter(e => e.length > 0);
+
+    for (const email of notificationEmails) {
+      await sendDailyReport(email, 'Team', leads, stats);
+      recipients.push(email);
     }
 
     res.json({ success: true, sent: recipients.length, recipients });
@@ -610,6 +615,148 @@ app.get('/api/reports/:filename', (req, res) => {
   const file = path.join(REPORTS_DIR, req.params.filename);
   if (!fs.existsSync(file)) return res.status(404).json({ error: 'Not found' });
   res.sendFile(file);
+});
+
+// ── Facebook Lead Ads — shared processor ──────────────────────────────────────
+async function processFacebookLead(payload) {
+  try {
+    const fields = payload.field_data || [];
+    const phoneField = fields.find(f =>
+      f.name === 'phone_number' ||
+      f.name === 'whatsapp_number' ||
+      f.name === 'phone'
+    );
+    const nameField  = fields.find(f => f.name === 'full_name' || f.name === 'first_name');
+    const emailField = fields.find(f => f.name === 'email');
+
+    if (!phoneField) {
+      console.log('[FB Lead] No phone number in lead form — skipping WhatsApp');
+    }
+
+    let waNumber = phoneField ? phoneField.values[0].replace(/[^0-9]/g, '') : null;
+    if (waNumber && waNumber.startsWith('0')) {
+      waNumber = '971' + waNumber.slice(1);
+    }
+
+    const name     = nameField  ? nameField.values[0]  : 'Facebook Lead';
+    const email    = emailField ? emailField.values[0] : null;
+    const source   = payload.ad_name ? `Facebook Ad: ${payload.ad_name}` : 'Facebook Lead Ad';
+    const campaign = payload.campaign_name || 'Unknown Campaign';
+
+    console.log(`[FB Lead] New lead: ${name} (${waNumber}) from campaign: ${campaign}`);
+
+    await db.saveLead(waNumber || `fb_${Date.now()}`, name, 'new', 0, {
+      source, campaign, email,
+      ad_id:    payload.ad_id,
+      form_id:  payload.form_id,
+      interest: 'buy',
+      channel:  'facebook',
+    }, 'en');
+
+    if (waNumber) {
+      const clientName = process.env.CLIENT_NAME || 'Our Agency';
+      const greeting = `Hello ${name}! 👋\n\nThank you for your interest in ${clientName}. We received your enquiry from our Facebook ad.\n\nI'm your AI property assistant and I'm here to help you find your perfect property in Dubai.\n\nTo get started, what are you looking for?\n\n1. Buy a Property\n2. Rent a Property\n3. Sell My Property\n\nReply with a number to choose`;
+
+      await sendText(waNumber, greeting);
+      console.log(`[FB Lead] WhatsApp sent to ${waNumber}`);
+
+      await db.saveSession(waNumber, {
+        flow:       process.env.ACTIVE_FLOW || 'realEstate',
+        step:       'ASK_PROPERTY_TYPE',
+        data:       { name, source, campaign, email },
+        language:   'en',
+        human_mode: false,
+      });
+    }
+
+    const baseScore = 6;
+    await db.updateLeadScore(waNumber || `fb_${Date.now()}`, baseScore);
+    console.log(`[FB Lead] Processed successfully — ${name}`);
+  } catch (e) {
+    console.error('[FB Lead] Processing error:', e.message);
+  }
+}
+
+// ── GET /webhook/facebook — Meta webhook verification ─────────────────────────
+app.get('/webhook/facebook', (req, res) => {
+  const mode      = req.query['hub.mode'];
+  const token     = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode === 'subscribe' && token === process.env.FB_VERIFY_TOKEN) {
+    console.log('[FB Webhook] Verified successfully');
+    return res.status(200).send(challenge);
+  }
+  res.sendStatus(403);
+});
+
+// ── POST /webhook/facebook — receive Meta Lead Ads ────────────────────────────
+app.post('/webhook/facebook', (req, res) => {
+  res.sendStatus(200); // respond immediately — Meta requires fast response
+  try {
+    const entry  = req.body.entry?.[0];
+    const change = entry?.changes?.[0];
+    if (!change) return;
+
+    const value = change.value || {};
+    if (!value.leadgen_id) return;
+
+    const payload = {
+      field_data:    value.field_data    || [],
+      ad_id:         value.ad_id         || null,
+      form_id:       value.form_id       || null,
+      page_id:       value.page_id       || null,
+      campaign_name: value.campaign_name || null,
+      ad_name:       value.ad_name       || null,
+    };
+
+    processFacebookLead(payload).catch(e => console.error('[FB Webhook] Error:', e.message));
+  } catch (e) {
+    console.error('[FB Webhook] Parse error:', e.message);
+  }
+});
+
+// ── POST /webhook/google-lead — Google Ads Lead Form webhook ──────────────────
+app.post('/webhook/google-lead', (req, res) => {
+  res.sendStatus(200); // respond immediately
+  try {
+    const body    = req.body;
+    const payload = {
+      field_data: [
+        { name: 'full_name',    values: [body.name  || 'Google Lead'] },
+        { name: 'phone_number', values: [body.phone || ''] },
+        { name: 'email',        values: [body.email || ''] },
+      ].filter(f => f.values[0]),
+      ad_name:       `Google Ad: ${body.campaign_name || body.campaign || 'Google Ad'}`,
+      campaign_name: body.campaign_name || body.campaign || 'Google Ad',
+      ad_id:         body.ad_id   || null,
+      form_id:       body.form_id || null,
+    };
+
+    processFacebookLead(payload).catch(e => console.error('[Google Lead] Error:', e.message));
+  } catch (e) {
+    console.error('[Google Lead] Parse error:', e.message);
+  }
+});
+
+// ── POST /api/test/facebook-lead — simulate a Facebook lead for testing ───────
+app.post('/api/test/facebook-lead', async (req, res) => {
+  const { name = 'Test User', phone = '971501234567', campaign = 'Test Campaign' } = req.body;
+  const waNumber = phone.replace(/[^0-9]/g, '');
+
+  const payload = {
+    field_data: [
+      { name: 'full_name',    values: [name] },
+      { name: 'phone_number', values: [phone] },
+    ],
+    ad_name:       'Test Ad',
+    campaign_name: campaign,
+    ad_id:         'test_ad_id',
+    form_id:       'test_form_id',
+  };
+
+  await processFacebookLead(payload);
+  res.json({ success: true, waNumber, name });
 });
 
 // ── API: DB status ────────────────────────────────────────────────────────────

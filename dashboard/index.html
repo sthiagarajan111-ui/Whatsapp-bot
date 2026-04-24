@@ -589,6 +589,92 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           </div>
         </div>
 
+
+      </div>
+    </div>
+
+    <!-- ROI CALCULATOR - Full Width -->
+    <div class="w mb16">
+      <div class="w-hd">
+        <div class="w-title"><span class="wtd wd-gr"></span>ROI Calculator — Show Your Clients the Value</div>
+        <span class="w-tag wt-gr">Live calculation</span>
+      </div>
+      <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
+
+        <!-- Left: Inputs -->
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px">Your Numbers</div>
+          <div style="margin-bottom:12px">
+            <label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Monthly Ad Spend (AED)</label>
+            <input type="number" id="roi-adspend" value="5000" min="0" oninput="calcROI()" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:'Inter',sans-serif">
+          </div>
+          <div style="margin-bottom:12px">
+            <label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Avg Commission per Deal (AED)</label>
+            <input type="number" id="roi-commission" value="50000" min="0" oninput="calcROI()" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:'Inter',sans-serif">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Without Bot (%)</label>
+              <input type="number" id="roi-old-rate" value="5" min="0" max="100" oninput="calcROI()" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:'Inter',sans-serif">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">With Bot (%)</label>
+              <input type="number" id="roi-new-rate" value="12" min="0" max="100" oninput="calcROI()" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:'Inter',sans-serif">
+            </div>
+          </div>
+          <div style="margin-bottom:14px">
+            <label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">LeadPulse Monthly Cost (AED)</label>
+            <input type="number" id="roi-cost" value="1500" min="0" oninput="calcROI()" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:'Inter',sans-serif">
+          </div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.6">
+            Adjust the numbers to match your agency's actual figures. The calculation uses your real lead count from the dashboard.
+          </div>
+        </div>
+
+        <!-- Right: Results -->
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px">Your Results</div>
+
+          <!-- Big ROI number -->
+          <div style="background:var(--bg);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px;border:1px solid var(--border)">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">ROI with LeadPulse</div>
+            <div id="roi-pct" style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:42px;color:var(--green);letter-spacing:-2px;line-height:1">1,240%</div>
+            <div id="roi-multiplier" style="font-size:12px;color:var(--text3);margin-top:8px">For every AED 1 spent, you earn AED 13.3 back</div>
+          </div>
+
+          <!-- Comparison bars -->
+          <div style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:5px">
+              <span>Without bot</span>
+              <span id="roi-deals-old" style="font-weight:600">1 deal · AED 50K</span>
+            </div>
+            <div style="height:10px;background:var(--bg);border-radius:5px;overflow:hidden;margin-bottom:10px;border:1px solid var(--border)">
+              <div id="roi-bar-old" style="height:100%;background:#E4E9F2;border-radius:5px;transition:width .5s ease;width:40%"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:5px">
+              <span>With LeadPulse</span>
+              <span id="roi-deals-new" style="font-weight:600;color:var(--green)">2 deals · AED 100K</span>
+            </div>
+            <div style="height:10px;background:var(--bg);border-radius:5px;overflow:hidden;border:1px solid var(--border)">
+              <div id="roi-bar-new" style="height:100%;background:var(--green);border-radius:5px;transition:width .5s ease;width:100%"></div>
+            </div>
+          </div>
+
+          <!-- Revenue comparison -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="background:var(--red-l);border-radius:8px;padding:12px;text-align:center">
+              <div style="font-size:10px;color:var(--red);font-weight:600;margin-bottom:4px;text-transform:uppercase">Without Bot</div>
+              <div id="roi-rev-old" style="font-size:16px;font-weight:700;color:var(--red)">AED 50,000</div>
+              <div id="roi-net-old" style="font-size:10px;color:var(--red);margin-top:2px">commission</div>
+            </div>
+            <div style="background:var(--green-l);border-radius:8px;padding:12px;text-align:center">
+              <div style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:4px;text-transform:uppercase">With LeadPulse</div>
+              <div id="roi-rev-new" style="font-size:16px;font-weight:700;color:var(--green)">AED 100,000</div>
+              <div id="roi-net-new" style="font-size:10px;color:var(--green);margin-top:2px">after AED 1,500 cost</div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
 
@@ -855,6 +941,42 @@ async function sendBroadcast(){
   try{const r=await fetch('/api/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,filter:{status:filter==='all'?undefined:filter}})});const d=await r.json();document.getElementById('broadcastPreview').innerHTML=`<span style="color:var(--green)">Sent to ${d.sent||0} leads</span>`;document.getElementById('broadcastMsg').value='';}catch(e){document.getElementById('broadcastPreview').innerHTML='<span style="color:var(--red)">Send failed</span>';}
 }
 
+function calcROI() {
+  const leads = allLeads.length || 10;
+  const adSpend    = parseFloat(document.getElementById('roi-adspend').value)    || 0;
+  const commission = parseFloat(document.getElementById('roi-commission').value) || 0;
+  const oldRate    = parseFloat(document.getElementById('roi-old-rate').value)   || 0;
+  const newRate    = parseFloat(document.getElementById('roi-new-rate').value)   || 0;
+  const cost       = parseFloat(document.getElementById('roi-cost').value)       || 1500;
+
+  const dealsOld   = Math.floor(leads * (oldRate / 100));
+  const dealsNew   = Math.floor(leads * (newRate / 100));
+  const extraDeals = dealsNew - dealsOld;
+  const revOld     = dealsOld * commission;
+  const revNew     = dealsNew * commission;
+  const extraRev   = revNew - revOld;
+  const netROI     = extraRev - cost;
+  const roiPct     = cost > 0 ? Math.round((netROI / cost) * 100) : 0;
+  const multiplier = cost > 0 ? (extraRev / cost).toFixed(1) : 0;
+
+  document.getElementById('roi-pct').textContent = roiPct.toLocaleString() + '%';
+  document.getElementById('roi-pct').style.color = roiPct > 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('roi-multiplier').textContent = multiplier > 0
+    ? `For every AED 1 spent, you earn AED ${multiplier} back`
+    : 'Adjust your numbers to see ROI';
+
+  document.getElementById('roi-deals-old').textContent = dealsOld + ' deals · AED ' + (revOld / 1000).toFixed(0) + 'K';
+  document.getElementById('roi-deals-new').textContent = dealsNew + ' deals · AED ' + (revNew / 1000).toFixed(0) + 'K';
+
+  const maxDeals = Math.max(dealsOld, dealsNew, 1);
+  document.getElementById('roi-bar-old').style.width = (dealsOld / maxDeals * 100) + '%';
+  document.getElementById('roi-bar-new').style.width = (dealsNew / maxDeals * 100) + '%';
+
+  document.getElementById('roi-rev-old').textContent = 'AED ' + revOld.toLocaleString();
+  document.getElementById('roi-rev-new').textContent = 'AED ' + revNew.toLocaleString();
+  document.getElementById('roi-net-new').textContent = 'after AED ' + cost.toLocaleString() + ' cost';
+}
+
 async function checkToken(){
   try{const r=await fetch('/api/token-check');const d=await r.json();const p=document.getElementById('tokPill');const t=document.getElementById('tokTxt');if(d.valid){p.className='tok-pill tok-ok';t.textContent='WhatsApp Connected';}else{p.className='tok-pill tok-err';t.textContent='Token Pending';}}catch(e){}
 }
@@ -869,6 +991,7 @@ async function loadAll(){
     renderTable();
     document.getElementById('lastRefreshed').textContent='Updated '+new Date().toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }catch(e){document.getElementById('lastRefreshed').textContent='Connection error';}
+  calcROI();
 }
 
 async function takeOver(waNumber, currentMode) {

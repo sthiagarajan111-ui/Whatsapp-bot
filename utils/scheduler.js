@@ -81,9 +81,14 @@ cron.schedule('0 8 * * *', async () => {
       }
     }
 
-    // Always send to owner/notification email
-    if (process.env.NOTIFICATION_EMAIL) {
-      await sendDailyReport(process.env.NOTIFICATION_EMAIL, 'Team', leads, stats);
+    // Always send to owner/notification emails (comma-separated)
+    const notificationEmails = (process.env.NOTIFICATION_EMAIL || '')
+      .split(',')
+      .map(e => e.trim())
+      .filter(e => e.length > 0);
+
+    for (const email of notificationEmails) {
+      await sendDailyReport(email, 'Team', leads, stats);
       sentCount++;
     }
 
