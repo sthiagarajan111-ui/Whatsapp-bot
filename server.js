@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const { handleMessage } = require('./flows/flowEngine');
 const { markAsRead, sendText }    = require('./whatsapp/api');
 const db = require('./db/database');
-const { startScheduler }     = require('./utils/scheduler');
+const { startScheduler, sendDailyReport } = require('./utils/scheduler');
 const { processVoiceMessage } = require('./utils/voiceHandler');
 const { generateReport, listReports, REPORTS_DIR } = require('./utils/reportGenerator');
 
@@ -327,6 +327,8 @@ app.get('/api/conversations/:waNumber/lead', async (req, res) => {
   const wa   = decodeURIComponent(req.params.waNumber);
   const lead = await db.getLead(wa);
   if (!lead) return res.status(404).json({ error: 'Not found' });
+  const sessions = await db.getSessionsHumanMode();
+  lead.human_mode = sessions[wa] || 0;
   res.json(lead);
 });
 
@@ -526,7 +528,71 @@ app.post('/api/leads/:id/assign', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── API: human takeover / release ─────────────────────────────────────────────
+app.post('/api/leads/:waNumber/takeover', async (req, res) => {
+  const waNumber = req.params.waNumber;
+  try {
+    const session = await db.getSession(waNumber);
+    if (!session) return res.status(404).json({ success: false, message: 'No active session found for this number' });
+    await db.setHumanMode(waNumber, true, process.env.OWNER_WHATSAPP);
+    const leads = await db.getAllLeads();
+    const lead  = leads.find(l => l.wa_number === waNumber);
+    if (lead) await db.updateLeadStatus(lead.id, 'contacted');
+    const leadName = (session.data || {}).name || waNumber;
+    const owner    = process.env.OWNER_WHATSAPP;
+    await sendText(waNumber, 'You are now connected with our agent who will assist you directly.').catch(() => {});
+    if (owner) {
+      await sendText(owner, `You have taken over chat with ${leadName} (${waNumber}). Reply DONE ${waNumber} when finished.`).catch(() => {});
+    }
+    res.json({ success: true, message: 'Takeover successful' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.post('/api/leads/:waNumber/release', async (req, res) => {
+  const waNumber = req.params.waNumber;
+  try {
+    await db.setHumanMode(waNumber, false, null);
+    const owner = process.env.OWNER_WHATSAPP;
+    await sendText(waNumber, "Thank you for chatting with us! Our assistant is back to help you. Type 'menu' to see options.").catch(() => {});
+    if (owner) {
+      await sendText(owner, `Chat with ${waNumber} returned to bot.`).catch(() => {});
+    }
+    res.json({ success: true, message: 'Released to bot' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 // ── API: reports ──────────────────────────────────────────────────────────────
+app.get('/api/reports/send-daily', async (_req, res) => {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return res.status(400).json({ success: false, message: 'SMTP not configured — set SMTP_USER and SMTP_PASS in .env' });
+  }
+  try {
+    const leads = await db.getAllLeads();
+    const stats = await db.getLeadStats();
+    const agents = await db.getAgents();
+    const recipients = [];
+
+    for (const agent of agents) {
+      if (agent.email) {
+        await sendDailyReport(agent.email, agent.name, leads, stats);
+        recipients.push(agent.email);
+      }
+    }
+    if (process.env.NOTIFICATION_EMAIL) {
+      await sendDailyReport(process.env.NOTIFICATION_EMAIL, 'Team', leads, stats);
+      recipients.push(process.env.NOTIFICATION_EMAIL);
+    }
+
+    res.json({ success: true, sent: recipients.length, recipients });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 app.get('/api/reports', (_req, res) => {
   res.json(listReports());
 });

@@ -2,8 +2,11 @@
  * Follow-up reminder scheduler.
  * Runs every 5 minutes; sends WhatsApp follow-up to leads that are
  * still 'new' after FOLLOWUP_DELAY_HOURS (default 2).
+ * Also schedules daily 8AM email reports for agents.
  */
+const cron = require('node-cron');
 const { getLeadsForFollowup, markFollowupSent } = require('../db/database');
+const db = require('../db/database');
 const { sendText } = require('../whatsapp/api');
 
 function startScheduler() {
@@ -55,4 +58,71 @@ async function runFollowups() {
   }
 }
 
-module.exports = { startScheduler };
+// ── Daily 8AM email report ──────────────────────────────────────────────────
+cron.schedule('0 8 * * *', async () => {
+  if (process.env.REPORT_ENABLED !== 'true') return;
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.log('[Report] SMTP not configured — skipping daily report');
+    return;
+  }
+  try {
+    console.log('[Report] Generating daily reports...');
+    const leads = await db.getAllLeads();
+    const stats = await db.getLeadStats();
+
+    // Send to all configured agents
+    const agents = await db.getAgents();
+    let sentCount = 0;
+
+    for (const agent of agents) {
+      if (agent.email) {
+        await sendDailyReport(agent.email, agent.name, leads, stats);
+        sentCount++;
+      }
+    }
+
+    // Always send to owner/notification email
+    if (process.env.NOTIFICATION_EMAIL) {
+      await sendDailyReport(process.env.NOTIFICATION_EMAIL, 'Team', leads, stats);
+      sentCount++;
+    }
+
+    console.log(`[Report] Daily reports sent to ${sentCount} recipients`);
+  } catch (e) {
+    console.error('[Report] Failed to send daily reports:', e.message);
+  }
+}, { timezone: 'Asia/Dubai' });
+
+async function sendDailyReport(email, name, leads, stats) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.log('[Report] SMTP not configured — skipping report for', email);
+    return;
+  }
+  const nodemailer = require('nodemailer');
+  const { generateDailyEmailReport } = require('./emailReportGenerator');
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  const html = generateDailyEmailReport(email, name, leads, stats);
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const newYesterday = leads.filter(l => {
+    const d = new Date(l.created_at);
+    return d >= yesterday;
+  }).length;
+
+  await transporter.sendMail({
+    from: `LeadPulse CRM <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: `🔥 Daily Lead Report — ${newYesterday} new leads | ${new Date().toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long' })}`,
+    html,
+  });
+  console.log(`[Report] Sent to ${email}`);
+}
+
+module.exports = { startScheduler, sendDailyReport };

@@ -104,6 +104,7 @@
       const lead = leadResp;
       let d = {};
       try { d = JSON.parse(lead?.data || '{}'); } catch(_) {}
+      const hm = lead?.human_mode || 0;
 
       panel.innerHTML = `
         <div class="conv-lead-bar">
@@ -115,7 +116,9 @@
           ${lead ? shared.scoreBadge(lead.score) : ''}
           ${lead ? shared.statusBadge(lead.status) : ''}
           <div class="conv-lead-bar-actions">
-            <button class="btn btn-secondary btn-sm" onclick="takeOver('${waNumber}')">🎧 Take Over</button>
+            <button class="btn btn-sm" onclick="takeOver('${waNumber}', ${hm})" style="font-weight:600;background:${hm?'var(--red-l)':'var(--blue-l)'};color:${hm?'var(--red)':'var(--blue)'};border:1px solid ${hm?'var(--red)':'var(--blue)'}">
+              ${hm ? 'Release' : '🎧 Take Over'}
+            </button>
           </div>
         </div>
         <div class="chat-thread" id="chatThread">${renderMessages(messages)}</div>
@@ -148,9 +151,20 @@
     return html;
   }
 
-  window.takeOver = function(waNumber) {
-    const owner = prompt('Owner WhatsApp number (to send TAKE command):');
-    if (owner) shared.showToast('Send "TAKE ' + waNumber + '" from ' + owner + ' on WhatsApp to take over.');
+  window.takeOver = async function(waNumber, currentMode) {
+    const endpoint = currentMode ? 'release' : 'takeover';
+    try {
+      const r = await fetch(`/api/leads/${waNumber}/${endpoint}`, {method:'POST'});
+      const d = await r.json();
+      if (d.success) {
+        shared.showToast(currentMode ? 'Released to bot' : 'Takeover active — messages forwarded to owner');
+        selectConv(waNumber);
+      } else {
+        alert('Error: ' + (d.message || 'Unknown error'));
+      }
+    } catch(e) {
+      alert('Connection error');
+    }
   };
 
   await loadConversations();
