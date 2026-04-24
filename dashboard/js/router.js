@@ -28,6 +28,7 @@
       conversations: '/dashboard/pages/conversations.html',
       opportunities: '/dashboard/pages/opportunities.html',
       analytics:     '/dashboard/pages/analytics.html',
+      appointments:  '/dashboard/pages/appointments.html',
       settings:      '/dashboard/pages/settings.html',
     };
 
