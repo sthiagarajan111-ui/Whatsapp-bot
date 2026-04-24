@@ -143,7 +143,7 @@
     </a>
   </nav>
   <div class="sidebar-footer">
-    <a class="logout-btn" id="logoutLink" href="/admin/logout">Sign out</a>
+    <a class="logout-btn" onclick="logout()">Sign out</a>
   </div>
 </div>
 
@@ -343,12 +343,42 @@
 </div>
 
 <script>
-const ADMIN_KEY = new URLSearchParams(location.search).get('admin_key') || '';
-const headers   = ADMIN_KEY ? { 'x-api-key': ADMIN_KEY } : {};
+// Get admin key from URL param OR sessionStorage (survives page reloads)
+const ADMIN_KEY = new URLSearchParams(location.search).get('admin_key')
+  || sessionStorage.getItem('axyren_admin_key')
+  || '';
+if (ADMIN_KEY) sessionStorage.setItem('axyren_admin_key', ADMIN_KEY);
 
-// Keep admin_key in the logout URL so the login page loads cleanly
-if (ADMIN_KEY) {
-  document.getElementById('logoutLink').href = `/admin/logout?admin_key=${encodeURIComponent(ADMIN_KEY)}`;
+const headers = { 'x-api-key': ADMIN_KEY };
+
+// ── apiFetch: injects auth header + handles 401 redirects ────────────────────
+async function apiFetch(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers || {}, headers);
+  const r = await fetch(url, opts);
+  if (r.status === 401) {
+    sessionStorage.removeItem('axyren_admin_key');
+    window.location.href = '/admin/login';
+    return null;
+  }
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// ── Logout: clear session key + prevent back-button re-auth ──────────────────
+async function logout() {
+  sessionStorage.removeItem('axyren_admin_key');
+  await fetch('/admin/logout');
+  window.location.replace('/admin/login');
+}
+
+// ── showToast ─────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const colors = { success: '#10B981', error: '#EF4444', warning: '#F59E0B' };
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:20px;right:20px;background:${colors[type]||colors.success};color:white;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.3)`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
 }
 
 let allClients = [];
@@ -368,8 +398,8 @@ function showPage(page, linkEl) {
 async function loadClients() {
   try {
     const [clients, stats] = await Promise.all([
-      fetch('/admin/clients', { headers }).then(r => r.json()),
-      fetch('/admin/stats',   { headers }).then(r => r.json()),
+      apiFetch('/admin/clients'),
+      apiFetch('/admin/stats'),
     ]);
     allClients = Array.isArray(clients) ? clients : [];
 
@@ -415,6 +445,7 @@ function clientRow(c) {
       <div style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="ab ab-view" onclick="window.open('/client-dashboard/${c.client_id}','_blank')">Dashboard</button>
         <button class="ab ab-settings" onclick="openSettings('${c.client_id}')">Settings</button>
+        <button class="ab ab-key" onclick="resetApiKey('${c.client_id}')">Reset Key</button>
         ${actionBtns}
         <button class="ab ab-delete" onclick="deleteClient('${c.client_id}')">Delete</button>
       </div>
@@ -425,7 +456,9 @@ function clientRow(c) {
 // ── Load platform stats ───────────────────────────────────────────────────────
 async function loadStats() {
   try {
-    const stats = await fetch('/admin/stats', { headers }).then(r => r.json());
+    // Bug 4: ensure allClients is populated before planBreakdown uses it
+    if (!allClients || allClients.length === 0) await loadClients();
+    const stats = await apiFetch('/admin/stats');
     document.getElementById('sTotalClients').textContent  = stats.total_clients  ?? '—';
     document.getElementById('sActiveClients').textContent = stats.active_clients ?? '—';
     document.getElementById('sTotalLeads').textContent    = stats.total_leads_all_time ?? '—';
@@ -473,13 +506,12 @@ document.getElementById('addForm').addEventListener('submit', async function(e) 
 
   const data = Object.fromEntries(new FormData(this));
   try {
-    const res = await fetch('/admin/clients', {
+    const json = await apiFetch('/admin/clients', {
       method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Failed');
+    if (!json) return; // 401 redirect
 
     document.getElementById('sb-client-id').textContent  = json.client_id;
     document.getElementById('sb-api-key').textContent    = json.api_key;
@@ -497,20 +529,39 @@ document.getElementById('addForm').addEventListener('submit', async function(e) 
 
 // ── Client actions ────────────────────────────────────────────────────────────
 async function suspendClient(clientId) {
-  if (!confirm('Suspend this client? The bot will stop responding for them.')) return;
-  await fetch(`/admin/clients/${clientId}/suspend`, { method: 'POST', headers });
-  loadClients();
+  if (!confirm('Suspend this client? Their bot will stop responding.')) return;
+  try {
+    const result = await apiFetch(`/admin/clients/${clientId}/suspend`, { method: 'POST' });
+    if (result) { showToast('Client suspended', 'warning'); await loadClients(); }
+  } catch(e) { showToast('Failed to suspend: ' + e.message, 'error'); }
 }
 
 async function activateClient(clientId) {
-  await fetch(`/admin/clients/${clientId}/activate`, { method: 'POST', headers });
-  loadClients();
+  if (!confirm('Activate this client?')) return;
+  try {
+    const result = await apiFetch(`/admin/clients/${clientId}/activate`, { method: 'POST' });
+    if (result) { showToast('Client activated', 'success'); await loadClients(); }
+  } catch(e) { showToast('Failed to activate: ' + e.message, 'error'); }
 }
 
 async function deleteClient(clientId) {
-  if (!confirm('Delete this client? This is a soft delete — data is preserved but bot stops responding.')) return;
-  await fetch(`/admin/clients/${clientId}`, { method: 'DELETE', headers });
-  loadClients();
+  if (!confirm('Delete this client? This cannot be undone.')) return;
+  if (!confirm('Are you sure? All their data will be marked as deleted.')) return;
+  try {
+    const result = await apiFetch(`/admin/clients/${clientId}`, { method: 'DELETE' });
+    if (result) { showToast('Client deleted', 'success'); await loadClients(); }
+  } catch(e) { showToast('Failed to delete: ' + e.message, 'error'); }
+}
+
+async function resetApiKey(clientId) {
+  if (!confirm('Generate a new API key for this client? The old key will stop working immediately.')) return;
+  try {
+    const result = await apiFetch(`/admin/clients/${clientId}/reset-api-key`, { method: 'POST' });
+    if (result?.api_key) {
+      alert(`New API key generated:\n\n${result.api_key}\n\nCopy this now — it will not be shown again.`);
+      await loadClients();
+    }
+  } catch(e) { showToast('Failed to reset key: ' + e.message, 'error'); }
 }
 
 // ── Settings modal ────────────────────────────────────────────────────────────
@@ -553,13 +604,14 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
     data[f] = document.querySelector(`[name="${f}"]`)?.checked || false;
   });
 
-  const res  = await fetch(`/admin/clients/${clientId}`, {
-    method: 'PUT',
-    headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (res.ok) { closeSettings(); loadClients(); }
-  else { alert('Failed to save'); }
+  try {
+    await apiFetch(`/admin/clients/${clientId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    closeSettings(); loadClients();
+  } catch(e) { alert('Failed to save: ' + e.message); }
 });
 
 // Close modal on backdrop click

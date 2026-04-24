@@ -38,17 +38,15 @@ function generateApiKey() {
 
 // ── Admin auth middleware ─────────────────────────────────────────────────────
 function requireAdmin(req, res, next) {
-  const adminPass  = process.env.ADMIN_PASSWORD || process.env.ADMIN_API_KEY;
-  const queryKey   = req.query.admin_key;
-  const headerKey  = req.headers['x-api-key'];
-  const cookieKey  = req.cookies?.admin_session;
+  const validKey = process.env.ADMIN_PASSWORD || process.env.ADMIN_API_KEY;
+  const apiKey   = req.headers['x-api-key'] || req.query.admin_key;
+  const sessionKey = req.cookies?.admin_session;
 
-  if (adminPass && (
-    (queryKey  && queryKey  === adminPass) ||
-    (headerKey && headerKey === adminPass) ||
-    (cookieKey && cookieKey === adminPass)
-  )) {
-    return next();
+  if (apiKey === validKey || sessionKey === validKey) return next();
+
+  // Return JSON for API calls, redirect for page requests
+  if (req.path.startsWith('/admin/clients') || req.path.startsWith('/admin/stats') || req.path.startsWith('/admin/onboard')) {
+    return res.status(401).json({ error: 'Unauthorized — invalid admin key' });
   }
   res.redirect('/admin/login');
 }
@@ -1318,13 +1316,23 @@ app.use('/admin/assets', requireAdmin, express.static(path.join(__dirname, 'dash
 // ── Admin API: list all clients ───────────────────────────────────────────────
 app.get('/admin/clients', requireAdmin, async (_req, res) => {
   try {
+    const Lead = require('./db/models/Lead');
     const clients = await Client.find().sort({ created_at: -1 }).lean();
-    const safeClients = clients.map(c => ({
-      ...c,
-      id:               c._id.toString(),
-      twilio_auth_token: c.twilio_auth_token ? '••••••••' + c.twilio_auth_token.slice(-4) : null,
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const enriched = await Promise.all(clients.map(async (c) => {
+      const total_leads = await Lead.countDocuments({ client_id: c.client_id });
+      const leads_this_month = await Lead.countDocuments({ client_id: c.client_id, created_at: { $gte: monthStart } });
+      return {
+        ...c,
+        id:                c._id.toString(),
+        total_leads,
+        leads_this_month,
+        twilio_auth_token: c.twilio_auth_token ? '••••••••' : '',
+        smtp_pass:         c.smtp_pass         ? '••••••••' : '',
+      };
     }));
-    res.json(safeClients);
+    res.json(enriched);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1440,7 +1448,7 @@ app.get('/admin/stats', requireAdmin, async (_req, res) => {
     const planPrices = { starter: 299, professional: 699, agency: 1499, enterprise: 2999 };
     const [clients, totalLeads, totalAppointments] = await Promise.all([
       Client.find().lean(),
-      db.mongoose.model ? db.mongoose.connection.db?.collection('leads').countDocuments() : 0,
+      db.mongoose.connection.readyState === 1 ? db.mongoose.connection.db?.collection('leads').countDocuments() : 0,
       db.mongoose.connection.db?.collection('appointments').countDocuments(),
     ]);
 
@@ -1518,8 +1526,40 @@ app.post('/admin/onboard', requireAdmin, async (req, res) => {
 // ── Client dashboard route ────────────────────────────────────────────────────
 app.get('/client-dashboard/:clientId', async (req, res) => {
   try {
-    const client = await getClientById(req.params.clientId);
-    if (!client) return res.status(404).send('Client not found');
+    const { clientId } = req.params;
+    const ClientModel = require('./db/models/Client');
+    const client = await ClientModel.findOne({ client_id: clientId });
+
+    if (!client) {
+      return res.status(404).send(`
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#060912;color:white">
+          <h2>Dashboard Not Found</h2>
+          <p style="color:#6b7a99">This client account does not exist. Please contact Axyren support.</p>
+        </body></html>
+      `);
+    }
+
+    if (client.status === 'suspended') {
+      return res.status(403).send(`
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#060912;color:white">
+          <h2 style="color:#F59E0B">Account Suspended</h2>
+          <p style="color:#6b7a99">Your Axyren account has been temporarily suspended.</p>
+          <p style="color:#6b7a99">Please contact <a href="mailto:hello@axyren.ai" style="color:#3B82F6">hello@axyren.ai</a> to resolve this.</p>
+        </body></html>
+      `);
+    }
+
+    if (client.status === 'cancelled') {
+      return res.status(403).send(`
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#060912;color:white">
+          <h2 style="color:#EF4444">Account Cancelled</h2>
+          <p style="color:#6b7a99">This Axyren account has been cancelled.</p>
+          <p style="color:#6b7a99">Contact <a href="mailto:hello@axyren.ai" style="color:#3B82F6">hello@axyren.ai</a> to reactivate.</p>
+        </body></html>
+      `);
+    }
+
+    // Active client — serve dashboard
     res.sendFile(path.join(__dirname, 'dashboard', 'index.html'));
   } catch (e) { res.status(500).send('Error loading dashboard'); }
 });

@@ -60,12 +60,16 @@
             <div class="form-group"><label>Business Hours Start</label><input id="s-hours-start" type="time"></div>
             <div class="form-group"><label>Business Hours End</label><input id="s-hours-end" type="time"></div>
           </div>
-          <div class="form-group"><label>Business Days</label>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
-              ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>`
-                <label style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:400;">
-                  <input type="checkbox" class="bd-check" value="${i+1}" style="width:auto;"> ${d}
-                </label>`).join('')}
+          <div style="margin-bottom:14px">
+            <label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Business Days</label>
+            <div style="display:flex;flex-wrap:wrap;gap:10px">
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="1" id="bd-mon" style="cursor:pointer"> Mon</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="2" id="bd-tue" style="cursor:pointer"> Tue</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="3" id="bd-wed" style="cursor:pointer"> Wed</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="4" id="bd-thu" style="cursor:pointer"> Thu</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="5" id="bd-fri" style="cursor:pointer"> Fri</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="6" id="bd-sat" style="cursor:pointer"> Sat</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="0" id="bd-sun" style="cursor:pointer"> Sun</label>
             </div>
           </div>
           <div class="form-group"><label>Follow-up Delay (hours)</label><input id="s-followup" type="number" min="1" max="48" placeholder="2"></div>
@@ -128,7 +132,7 @@
           <button class="btn btn-primary" onclick="showAddListing()">+ Add Listing</button>
         </div>
         <div class="section-card" id="addListingForm" style="display:none">
-          <div class="section-title">Add / Edit Listing</div>
+          <div class="section-title" id="listing-form-title">Add / Edit Listing</div>
           <input type="hidden" id="listing-id">
           <div class="form-row">
             <div class="form-group"><label>Title</label><input id="l-title" placeholder="2BR Apartment Downtown"></div>
@@ -203,7 +207,17 @@
   let agents = [];
 
   async function loadSettings() {
-    try { settings = await shared.apiFetch('/api/settings'); } catch(_) { settings = {}; }
+    try {
+      settings = await shared.apiFetch('/api/settings');
+    } catch(e) {
+      settings = {};
+      console.error('[Settings] Failed to load settings:', e.message);
+      const warningEl = document.createElement('div');
+      warningEl.style.cssText = 'background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:10px 14px;border-radius:7px;font-size:13px;margin-bottom:16px';
+      warningEl.textContent = '⚠️ Could not load saved settings. Showing defaults — changes will be saved correctly.';
+      const settingsContainer = document.querySelector('.settings-content') || document.querySelector('.settings-layout') || document.body;
+      settingsContainer.prepend(warningEl);
+    }
     populateSettings();
   }
 
@@ -271,7 +285,16 @@
   };
 
   window.saveWAConfig = async function() {
-    await saveSettings({ owner_whatsapp: getVal('s-owner-wa') });
+    try {
+      await saveSettings({
+        owner_whatsapp:     getVal('s-owner-wa'),
+        whatsapp_phone_id:  getVal('s-phone-id'),
+        whatsapp_provider:  getVal('s-wa-provider') || 'twilio',
+      });
+      shared.showToast('WhatsApp settings saved');
+    } catch(e) {
+      shared.showToast('Save failed: ' + e.message, 'error');
+    }
   };
 
   window.saveFlowConfig = async function() {
@@ -335,17 +358,33 @@
   }
 
   window.showAddListing = function() {
-    document.getElementById('listing-id').value = '';
-    ['l-title','l-area','l-price','l-beds','l-baths','l-size','l-url','l-desc'].forEach(id=>setVal(id,''));
+    setVal('listing-id', '');
+    ['l-title','l-area','l-price','l-beds','l-baths','l-size','l-url','l-desc'].forEach(id => setVal(id, ''));
+    // FIX: reset type select too
+    const typeEl = document.getElementById('l-type');
+    if (typeEl) typeEl.value = 'apartment';
+    const titleEl = document.getElementById('listing-form-title');
+    if (titleEl) titleEl.textContent = 'Add New Listing';
     document.getElementById('addListingForm').style.display = 'block';
   };
 
   window.editListing = function(id) {
-    const l = listings.find(x=>x.id===id); if(!l) return;
-    document.getElementById('listing-id').value = l.id;
-    setVal('l-title', l.title||''); setVal('l-area', l.area||''); setVal('l-price', l.price||'');
-    setVal('l-beds', l.beds||''); setVal('l-baths', l.baths||''); setVal('l-size', l.size_sqft||'');
-    setVal('l-url', l.listing_url||''); setVal('l-desc', l.description||'');
+    const l = listings.find(x => x.id === id || x._id === id);
+    if (!l) return;
+    setVal('listing-id', l._id || l.id || '');
+    setVal('l-title', l.title || '');
+    setVal('l-area',  l.area  || '');
+    setVal('l-price', l.price || '');
+    setVal('l-beds',  l.beds  || '');
+    setVal('l-baths', l.baths || '');
+    setVal('l-size',  l.size_sqft   || '');
+    setVal('l-url',   l.listing_url || '');
+    setVal('l-desc',  l.description || '');
+    // FIX: also restore type select
+    const typeEl = document.getElementById('l-type');
+    if (typeEl) typeEl.value = l.type || 'apartment';
+    const titleEl = document.getElementById('listing-form-title');
+    if (titleEl) titleEl.textContent = 'Edit Listing';
     document.getElementById('addListingForm').style.display = 'block';
   };
 
@@ -420,6 +459,10 @@
       await shared.apiFetch('/api/agents', { method:'POST', body: JSON.stringify(body) });
       shared.showToast('Agent added');
       await loadAgents();
+      // FIX: clear form after successful add
+      setVal('ag-name', '');
+      setVal('ag-wa', '');
+      setVal('ag-email', '');
     } catch(e) { shared.showToast('Failed','error'); }
   };
 

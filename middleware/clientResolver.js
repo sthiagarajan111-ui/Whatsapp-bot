@@ -76,8 +76,8 @@ async function requireClient(req, res, next) {
     return next();
   }
 
-  // Fallback: single-tenant mode via env vars
-  if (process.env.CLIENT_NAME || !process.env.MULTI_TENANT_MODE) {
+  // Fallback: single-tenant mode via env vars (only when MULTI_TENANT_MODE is not 'true')
+  if (process.env.MULTI_TENANT_MODE !== 'true') {
     req.client = {
       client_id:          'default',
       company_name:       process.env.CLIENT_NAME || 'Axyren',

@@ -252,12 +252,18 @@ async function handleMessage(message) {
   }
 
   // ── Collect data ────────────────────────────────────────────────────────────
+  console.log('[Flow] Input:', rawText, 'Step:', currentStep, 'Resolved ID:', resolvedId);
+
   const collected = stepDef.collect({ id: resolvedId, text: rawText });
   const newData   = { ...collectedData, ...collected };
 
-  // Support conditional routing via _nextStep (set by collect functions)
-  const nextStep = newData._nextStep || stepDef.next;
-  delete newData._nextStep;
+  // Support conditional routing via _nextStep (set by collect functions).
+  // Use collected._nextStep (current step only) — NOT newData._nextStep, which
+  // could carry a stale _nextStep value persisted from an older session in MongoDB.
+  const nextStep = collected._nextStep || stepDef.next;
+  delete newData._nextStep; // ensure _nextStep is never persisted to MongoDB
+
+  console.log('[Flow] Next step:', nextStep);
 
   // ── Advance ─────────────────────────────────────────────────────────────────
 
@@ -387,9 +393,19 @@ async function handleMessage(message) {
 
   // Send the next step prompt
   const nextDef = flow.STEPS[nextStep];
+  if (!nextDef || !nextDef.send) {
+    console.error(`[Flow] ERROR: step "${nextStep}" not found. Resetting to START.`);
+    await flow.STEPS.START.send(from, {}, API, language);
+    await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, language, false, []);
+    return;
+  }
   await nextDef.send(from, newData, API, language);
   await saveOutbound(from, 'text', `Step: ${nextStep}`);
-  await persistSession(from, nextStep, newData, language, false, []);
+  try {
+    await persistSession(from, nextStep, newData, language, false, []);
+  } catch (err) {
+    console.error('[Flow] persistSession failed — session may not advance:', err.message);
+  }
 }
 
 module.exports = { handleMessage };
