@@ -1,15 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Appointments</title>
-<link rel="stylesheet" href="/dashboard/css/shared.css">
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F3F4F6;color:#111827}
   .pg-hdr{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
-  .pg-title{font-size:22px;font-weight:800;color:#111827;flex:1}
+  .pg-title{font-size:22px;font-weight:800;color:var(--text1,#111827);flex:1}
   .filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .dr-btn{padding:6px 14px;border-radius:20px;border:1.5px solid #E5E7EB;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:#6B7280;transition:all .15s}
   .dr-btn.active{background:#111827;color:#fff;border-color:#111827}
@@ -26,12 +17,12 @@
   .vt-btn{padding:6px 14px;border-radius:8px;border:1.5px solid #E5E7EB;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:#6B7280}
   .vt-btn.active{background:#111827;color:#fff;border-color:#111827}
   .tbl-wrap{background:#fff;border-radius:12px;border:1px solid #E5E7EB;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04)}
-  table{width:100%;border-collapse:collapse}
-  thead th{padding:11px 14px;text-align:left;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;background:#F9FAFB;border-bottom:1px solid #E5E7EB;white-space:nowrap}
-  tbody tr{transition:background .1s}
-  tbody tr:hover{background:#F9FAFB}
-  td{padding:12px 14px;border-bottom:1px solid #F3F4F6;font-size:13px;color:#374151;vertical-align:middle}
-  .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#7C3AED);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
+  .tbl-wrap table{width:100%;border-collapse:collapse}
+  .tbl-wrap thead th{padding:11px 14px;text-align:left;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;background:#F9FAFB;border-bottom:1px solid #E5E7EB;white-space:nowrap}
+  .tbl-wrap tbody tr{transition:background .1s}
+  .tbl-wrap tbody tr:hover{background:#F9FAFB}
+  .tbl-wrap td{padding:12px 14px;border-bottom:1px solid #F3F4F6;font-size:13px;color:#374151;vertical-align:middle}
+  .appt-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#7C3AED);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
   .lead-cell{display:flex;align-items:center;gap:10px}
   .lead-name{font-weight:600;color:#111827;font-size:13px}
   .lead-wa{font-size:11px;color:#9CA3AF}
@@ -51,9 +42,9 @@
   .status-completed{background:#D1FAE5;color:#065F46}
   .status-cancelled{background:#F3F4F6;color:#6B7280}
   .status-rescheduled{background:#FEF3C7;color:#92400E}
-  .score-hot{background:#FEE2E2;color:#991B1B;font-size:11px;padding:2px 7px;border-radius:8px;font-weight:700}
-  .score-warm{background:#FEF3C7;color:#92400E;font-size:11px;padding:2px 7px;border-radius:8px;font-weight:700}
-  .score-cold{background:#DBEAFE;color:#1E40AF;font-size:11px;padding:2px 7px;border-radius:8px;font-weight:700}
+  .appt-score-hot{background:#FEE2E2;color:#991B1B;font-size:11px;padding:2px 7px;border-radius:8px;font-weight:700}
+  .appt-score-warm{background:#FEF3C7;color:#92400E;font-size:11px;padding:2px 7px;border-radius:8px;font-weight:700}
+  .appt-score-cold{background:#DBEAFE;color:#1E40AF;font-size:11px;padding:2px 7px;border-radius:8px;font-weight:700}
   .action-btns{display:flex;gap:4px;flex-wrap:wrap}
   .ab{padding:4px 8px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
   .ab-complete{background:#D1FAE5;color:#065F46}
@@ -62,8 +53,8 @@
   .ab-cancel:hover{background:#EF4444;color:#fff}
   .ab-wa{background:#D1FAE5;color:#25D366}
   .ab-wa:hover{background:#25D366;color:#fff}
-  .empty-state{text-align:center;padding:48px 24px;color:#9CA3AF}
-  .empty-icon{font-size:40px;margin-bottom:12px}
+  .appt-empty{text-align:center;padding:48px 24px;color:#9CA3AF}
+  .appt-empty-icon{font-size:40px;margin-bottom:12px}
   .calendar-view{display:none}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
   .cal-day{background:#fff;border-radius:10px;border:1px solid #E5E7EB;padding:10px;min-height:100px}
@@ -74,27 +65,25 @@
   .cal-appt{background:#3B82F6;color:#fff;border-radius:5px;padding:3px 6px;font-size:10px;font-weight:600;margin-bottom:3px;cursor:pointer}
   .cal-appt.completed{background:#10B981}
   .cal-appt.cancelled{background:#9CA3AF}
-  .loading{text-align:center;padding:40px;color:#9CA3AF;font-size:14px}
+  .appt-loading{text-align:center;padding:40px;color:#9CA3AF;font-size:14px}
   @media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr)}.cal-grid{grid-template-columns:repeat(3,1fr)}}
 </style>
-</head>
-<body>
 
 <div class="pg-hdr">
   <div class="pg-title">📅 Appointments</div>
   <div class="filter-row">
-    <button class="dr-btn active" onclick="setRange('today',this)">Today</button>
-    <button class="dr-btn" onclick="setRange('week',this)">This Week</button>
-    <button class="dr-btn" onclick="setRange('month',this)">This Month</button>
-    <button class="dr-btn" onclick="setRange('all',this)">All</button>
-    <select class="status-filter" id="statusFilter" onchange="render()">
+    <button class="dr-btn active" onclick="apptSetRange('today',this)">Today</button>
+    <button class="dr-btn" onclick="apptSetRange('week',this)">This Week</button>
+    <button class="dr-btn" onclick="apptSetRange('month',this)">This Month</button>
+    <button class="dr-btn" onclick="apptSetRange('all',this)">All</button>
+    <select class="status-filter" id="apptStatusFilter" onchange="apptRender()">
       <option value="">All Statuses</option>
       <option value="confirmed">Confirmed</option>
       <option value="completed">Completed</option>
       <option value="cancelled">Cancelled</option>
       <option value="rescheduled">Rescheduled</option>
     </select>
-    <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+    <button class="export-btn" onclick="apptExportCSV()">Export CSV</button>
   </div>
 </div>
 
@@ -106,12 +95,12 @@
 </div>
 
 <div class="view-toggle">
-  <button class="vt-btn active" onclick="setView('table',this)">Table View</button>
-  <button class="vt-btn" onclick="setView('calendar',this)">Calendar View</button>
+  <button class="vt-btn active" onclick="apptSetView('table',this)">Table View</button>
+  <button class="vt-btn" onclick="apptSetView('calendar',this)">Calendar View</button>
 </div>
 
-<div class="tbl-wrap" id="tableView">
-  <div class="loading" id="loadingMsg">Loading appointments...</div>
+<div class="tbl-wrap" id="apptTableView">
+  <div class="appt-loading" id="apptLoadingMsg">Loading appointments...</div>
   <table id="apptTable" style="display:none">
     <thead>
       <tr>
@@ -127,200 +116,199 @@
     </thead>
     <tbody id="apptBody"></tbody>
   </table>
-  <div class="empty-state" id="emptyState" style="display:none">
-    <div class="empty-icon">📅</div>
+  <div class="appt-empty" id="apptEmptyState" style="display:none">
+    <div class="appt-empty-icon">📅</div>
     <div style="font-weight:600;font-size:15px;color:#374151;margin-bottom:6px">No appointments found</div>
     <div style="font-size:13px">Appointments will appear here once leads book via the bot</div>
   </div>
 </div>
 
-<div class="calendar-view" id="calendarView">
+<div class="calendar-view" id="apptCalendarView">
   <div class="cal-grid" id="calGrid"></div>
 </div>
 
 <script>
-let allAppointments = [];
-let currentRange = 'today';
+(function() {
+  let allAppointments = [];
+  let currentRange = 'today';
 
-async function init() {
-  const [appts, stats] = await Promise.all([
-    fetch('/api/appointments').then(r => r.json()).catch(() => []),
-    fetch('/api/appointments/stats').then(r => r.json()).catch(() => ({})),
-  ]);
-  allAppointments = Array.isArray(appts) ? appts : [];
+  async function init() {
+    const [appts, stats] = await Promise.all([
+      fetch('/api/appointments').then(r => r.json()).catch(() => []),
+      fetch('/api/appointments/stats').then(r => r.json()).catch(() => ({})),
+    ]);
+    allAppointments = Array.isArray(appts) ? appts : [];
 
-  document.getElementById('kToday').textContent = stats.today ?? '0';
-  document.getElementById('kWeek').textContent  = stats.this_week ?? '0';
-  document.getElementById('kRate').textContent  = (stats.completion_rate ?? 0) + '%';
-  document.getElementById('kTotal').textContent = stats.total ?? allAppointments.length;
+    document.getElementById('kToday').textContent = stats.today ?? '0';
+    document.getElementById('kWeek').textContent  = stats.this_week ?? '0';
+    document.getElementById('kRate').textContent  = (stats.completion_rate ?? 0) + '%';
+    document.getElementById('kTotal').textContent = stats.total ?? allAppointments.length;
 
-  // Update sidebar badge
-  try { window.parent.document.getElementById('nbAppts').textContent = stats.today ?? '0'; } catch(_) {}
+    const nb = document.getElementById('nbAppts');
+    if (nb) nb.textContent = stats.today ?? '0';
 
-  render();
-}
-
-function setRange(range, btn) {
-  currentRange = range;
-  document.querySelectorAll('.dr-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  render();
-}
-
-function filterByRange(appts) {
-  const now = new Date();
-  const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
-  const todayEnd   = new Date(now); todayEnd.setHours(23,59,59,999);
-  const weekEnd    = new Date(now.getTime() + 7*86400000);
-  const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 1);
-  return appts.filter(a => {
-    const d = a.appointment_date ? new Date(a.appointment_date) : null;
-    if (!d) return currentRange === 'all';
-    if (currentRange === 'today')  return d >= todayStart && d <= todayEnd;
-    if (currentRange === 'week')   return d >= todayStart && d <= weekEnd;
-    if (currentRange === 'month')  return d >= todayStart && d <= monthEnd;
-    return true;
-  });
-}
-
-function render() {
-  const statusFilter = document.getElementById('statusFilter').value;
-  let filtered = filterByRange(allAppointments);
-  if (statusFilter) filtered = filtered.filter(a => a.status === statusFilter);
-  filtered.sort((a,b) => new Date(a.appointment_date) - new Date(b.appointment_date));
-
-  const tbody = document.getElementById('apptBody');
-  const table = document.getElementById('apptTable');
-  const empty = document.getElementById('emptyState');
-  const loading = document.getElementById('loadingMsg');
-  loading.style.display = 'none';
-
-  if (!filtered.length) {
-    table.style.display = 'none';
-    empty.style.display = 'block';
-  } else {
-    table.style.display = 'table';
-    empty.style.display = 'none';
-    tbody.innerHTML = filtered.map(row).join('');
+    apptRender();
   }
 
-  renderCalendar(filtered);
-}
+  window.apptSetRange = function(range, btn) {
+    currentRange = range;
+    document.querySelectorAll('.dr-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    apptRender();
+  };
 
-function dateClass(appt) {
-  if (!appt.appointment_date) return '';
-  const d = new Date(appt.appointment_date);
-  const now = new Date();
-  const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
-  const todayEnd   = new Date(now); todayEnd.setHours(23,59,59,999);
-  if (d < todayStart && appt.status !== 'completed' && appt.status !== 'cancelled') return 'date-overdue';
-  if (d >= todayStart && d <= todayEnd) return 'date-today';
-  return 'date-future';
-}
+  function filterByRange(appts) {
+    const now = new Date();
+    const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+    const todayEnd   = new Date(now); todayEnd.setHours(23,59,59,999);
+    const weekEnd    = new Date(now.getTime() + 7*86400000);
+    const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 1);
+    return appts.filter(a => {
+      const d = a.appointment_date ? new Date(a.appointment_date) : null;
+      if (!d) return currentRange === 'all';
+      if (currentRange === 'today')  return d >= todayStart && d <= todayEnd;
+      if (currentRange === 'week')   return d >= todayStart && d <= weekEnd;
+      if (currentRange === 'month')  return d >= todayStart && d <= monthEnd;
+      return true;
+    });
+  }
 
-function scoreBadge(score) {
-  if (score >= 8) return `<span class="score-hot">HOT ${score}/10</span>`;
-  if (score >= 5) return `<span class="score-warm">WARM ${score}/10</span>`;
-  return `<span class="score-cold">COLD ${score}/10</span>`;
-}
+  window.apptRender = function() {
+    const statusFilter = document.getElementById('apptStatusFilter').value;
+    let filtered = filterByRange(allAppointments);
+    if (statusFilter) filtered = filtered.filter(a => a.status === statusFilter);
+    filtered.sort((a,b) => new Date(a.appointment_date) - new Date(b.appointment_date));
 
-function initials(name) {
-  if (!name) return '?';
-  return name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-}
+    const tbody   = document.getElementById('apptBody');
+    const table   = document.getElementById('apptTable');
+    const empty   = document.getElementById('apptEmptyState');
+    const loading = document.getElementById('apptLoadingMsg');
+    loading.style.display = 'none';
 
-function row(a) {
-  const display = a.appointment_date_display || a.slot_date || '—';
-  const dc = dateClass(a);
-  const industry = (a.industry || 'realEstate').replace(/([A-Z])/g,' $1').trim();
-  const industryClass = 'industry-' + (a.industry || 'realEstate');
-  return `<tr>
-    <td>
-      <div class="lead-cell">
-        <div class="av">${initials(a.lead_name)}</div>
-        <div>
-          <div class="lead-name">${a.lead_name || 'Unknown'}</div>
-          <div class="lead-wa">${a.wa_number ? '+'+a.wa_number : '—'}</div>
+    if (!filtered.length) {
+      table.style.display = 'none';
+      empty.style.display = 'block';
+    } else {
+      table.style.display = 'table';
+      empty.style.display = 'none';
+      tbody.innerHTML = filtered.map(apptRow).join('');
+    }
+    renderCalendar(filtered);
+  };
+
+  function dateClass(appt) {
+    if (!appt.appointment_date) return '';
+    const d = new Date(appt.appointment_date);
+    const now = new Date();
+    const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+    const todayEnd   = new Date(now); todayEnd.setHours(23,59,59,999);
+    if (d < todayStart && appt.status !== 'completed' && appt.status !== 'cancelled') return 'date-overdue';
+    if (d >= todayStart && d <= todayEnd) return 'date-today';
+    return 'date-future';
+  }
+
+  function scoreBadge(score) {
+    if (score >= 8) return `<span class="appt-score-hot">HOT ${score}/10</span>`;
+    if (score >= 5) return `<span class="appt-score-warm">WARM ${score}/10</span>`;
+    return `<span class="appt-score-cold">COLD ${score}/10</span>`;
+  }
+
+  function initials(name) {
+    if (!name) return '?';
+    return name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  }
+
+  function apptRow(a) {
+    const display = a.appointment_date_display || a.slot_date || '—';
+    const dc = dateClass(a);
+    const industry = (a.industry || 'realEstate').replace(/([A-Z])/g,' $1').trim();
+    const industryClass = 'industry-' + (a.industry || 'realEstate');
+    return `<tr>
+      <td>
+        <div class="lead-cell">
+          <div class="appt-av">${initials(a.lead_name)}</div>
+          <div>
+            <div class="lead-name">${a.lead_name || 'Unknown'}</div>
+            <div class="lead-wa">${a.wa_number ? '+'+a.wa_number : '—'}</div>
+          </div>
         </div>
-      </div>
-    </td>
-    <td><span class="date-badge ${dc}">${display}</span></td>
-    <td style="font-size:12px;color:#374151">${a.time_slot || a.slot_time || '—'}</td>
-    <td><span class="industry-badge ${industryClass}">${industry}</span></td>
-    <td>${scoreBadge(a.lead_score || 0)}</td>
-    <td><span class="status-pill status-${a.status || 'confirmed'}">${a.status || 'confirmed'}</span></td>
-    <td style="font-size:12px;color:#6B7280">${a.agent_wa || '—'}</td>
-    <td>
-      <div class="action-btns">
-        <button class="ab ab-complete" onclick="updateStatus('${a.id}','completed',this)">✓ Complete</button>
-        <button class="ab ab-cancel" onclick="updateStatus('${a.id}','cancelled',this)">✕ Cancel</button>
-        ${a.wa_number ? `<button class="ab ab-wa" onclick="window.open('https://wa.me/${a.wa_number}','_blank')">💬 WA</button>` : ''}
-      </div>
-    </td>
-  </tr>`;
-}
-
-async function updateStatus(id, status, btn) {
-  btn.disabled = true;
-  try {
-    await fetch(`/api/appointments/${id}/status`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ status }),
-    });
-    await init();
-  } catch(e) {
-    btn.disabled = false;
-    alert('Failed to update: ' + e.message);
+      </td>
+      <td><span class="date-badge ${dc}">${display}</span></td>
+      <td style="font-size:12px;color:#374151">${a.time_slot || a.slot_time || '—'}</td>
+      <td><span class="industry-badge ${industryClass}">${industry}</span></td>
+      <td>${scoreBadge(a.lead_score || 0)}</td>
+      <td><span class="status-pill status-${a.status || 'confirmed'}">${a.status || 'confirmed'}</span></td>
+      <td style="font-size:12px;color:#6B7280">${a.agent_wa || '—'}</td>
+      <td>
+        <div class="action-btns">
+          <button class="ab ab-complete" onclick="apptUpdateStatus('${a.id}','completed',this)">✓ Complete</button>
+          <button class="ab ab-cancel" onclick="apptUpdateStatus('${a.id}','cancelled',this)">✕ Cancel</button>
+          ${a.wa_number ? `<button class="ab ab-wa" onclick="window.open('https://wa.me/${a.wa_number}','_blank')">💬 WA</button>` : ''}
+        </div>
+      </td>
+    </tr>`;
   }
-}
 
-function setView(view, btn) {
-  document.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('tableView').style.display   = view === 'table'    ? '' : 'none';
-  document.getElementById('calendarView').style.display = view === 'calendar' ? '' : 'none';
-}
+  window.apptUpdateStatus = async function(id, status, btn) {
+    btn.disabled = true;
+    try {
+      await fetch(`/api/appointments/${id}/status`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ status }),
+      });
+      await init();
+    } catch(e) {
+      btn.disabled = false;
+      alert('Failed to update: ' + e.message);
+    }
+  };
 
-function renderCalendar(appts) {
-  const grid = document.getElementById('calGrid');
-  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const now = new Date();
-  const cells = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() + i);
-    const dayAppts = appts.filter(a => {
-      if (!a.appointment_date) return false;
-      const ad = new Date(a.appointment_date);
-      return ad.toDateString() === d.toDateString();
-    });
-    const isToday = d.toDateString() === now.toDateString();
-    cells.push(`<div class="cal-day${isToday?' today':''}">
-      <div class="cal-day-header">${days[d.getDay()]}</div>
-      <div class="cal-day-date">${d.getDate()}</div>
-      ${dayAppts.map(a => `<div class="cal-appt ${a.status||''}" title="${a.lead_name}">${a.lead_name?.split(' ')[0]||'?'} · ${(a.time_slot||'').split('(')[0].trim()}</div>`).join('')}
-    </div>`);
+  window.apptSetView = function(view, btn) {
+    document.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('apptTableView').style.display    = view === 'table'    ? '' : 'none';
+    document.getElementById('apptCalendarView').style.display = view === 'calendar' ? '' : 'none';
+  };
+
+  function renderCalendar(appts) {
+    const grid = document.getElementById('calGrid');
+    if (!grid) return;
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const now = new Date();
+    const cells = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + i);
+      const dayAppts = appts.filter(a => {
+        if (!a.appointment_date) return false;
+        return new Date(a.appointment_date).toDateString() === d.toDateString();
+      });
+      const isToday = d.toDateString() === now.toDateString();
+      cells.push(`<div class="cal-day${isToday?' today':''}">
+        <div class="cal-day-header">${days[d.getDay()]}</div>
+        <div class="cal-day-date">${d.getDate()}</div>
+        ${dayAppts.map(a => `<div class="cal-appt ${a.status||''}" title="${a.lead_name||''}">${(a.lead_name||'?').split(' ')[0]} · ${(a.time_slot||'').split('(')[0].trim()}</div>`).join('')}
+      </div>`);
+    }
+    grid.innerHTML = cells.join('');
   }
-  grid.innerHTML = cells.join('');
-}
 
-function exportCSV() {
-  const headers = ['Name','WhatsApp','Date','Time Slot','Industry','Score','Status'];
-  const rows = allAppointments.map(a => [
-    a.lead_name||'', a.wa_number||'',
-    a.appointment_date_display||a.slot_date||'',
-    a.time_slot||'', a.industry||'',
-    a.lead_score||0, a.status||''
-  ].map(v => `"${v}"`).join(','));
-  const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = 'appointments.csv'; a.click();
-  URL.revokeObjectURL(url);
-}
+  window.apptExportCSV = function() {
+    const headers = ['Name','WhatsApp','Date','Time Slot','Industry','Score','Status'];
+    const rows = allAppointments.map(a => [
+      a.lead_name||'', a.wa_number||'',
+      a.appointment_date_display||a.slot_date||'',
+      a.time_slot||'', a.industry||'',
+      a.lead_score||0, a.status||''
+    ].map(v => `"${v}"`).join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'appointments.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
 
-init();
+  init();
+})();
 </script>
-</body>
-</html>
