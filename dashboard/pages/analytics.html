@@ -21,11 +21,11 @@
   <div class="page-header">
     <div><div class="page-title">Analytics</div><div class="page-subtitle">Deep performance insights</div></div>
     <div class="date-filter" id="dateFilter">
-      <button class="date-btn" onclick="setRange('today')">Today</button>
-      <button class="date-btn active" onclick="setRange('7d')">7 Days</button>
-      <button class="date-btn" onclick="setRange('30d')">30 Days</button>
-      <button class="date-btn" onclick="setRange('90d')">90 Days</button>
-      <button class="date-btn" onclick="setRange('all')">All Time</button>
+      <button class="date-btn" onclick="setRange(1, this)">Today</button>
+      <button class="date-btn" onclick="setRange(7, this)">7 Days</button>
+      <button class="date-btn active" onclick="setRange(30, this)">30 Days</button>
+      <button class="date-btn" onclick="setRange(90, this)">90 Days</button>
+      <button class="date-btn" onclick="setRange(9999, this)">All Time</button>
       <input type="date" id="fromDate" style="width:130px"> <span>—</span>
       <input type="date" id="toDate" style="width:130px">
       <button class="btn btn-primary btn-sm" onclick="loadCustomRange()">Apply</button>
@@ -43,41 +43,90 @@
 
 <script>
 (async function() {
-  let currentFrom = null, currentTo = null;
+  let currentRange = 30;
+  let allLeads = [];
   const charts = {};
 
-  window.setRange = function(range) {
+  // Load all leads once
+  try {
+    allLeads = await shared.apiFetch('/api/leads?status=all&limit=10000');
+    if (!Array.isArray(allLeads)) allLeads = allLeads.leads || allLeads.data || [];
+  } catch(e) { allLeads = []; }
+
+  window.setRange = function(days, btn) {
+    currentRange = days;
     document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
-    const now = new Date();
-    if (range === 'today') { currentFrom = toISO(now); currentTo = toISO(now); }
-    else if (range === '7d') { currentFrom = toISO(addDays(now,-7)); currentTo = toISO(now); }
-    else if (range === '30d') { currentFrom = toISO(addDays(now,-30)); currentTo = toISO(now); }
-    else if (range === '90d') { currentFrom = toISO(addDays(now,-90)); currentTo = toISO(now); }
-    else { currentFrom = null; currentTo = null; }
-    loadAnalytics();
+    if (btn) btn.classList.add('active');
+    loadAnalytics(currentRange);
   };
 
   window.loadCustomRange = function() {
-    currentFrom = document.getElementById('fromDate').value || null;
-    currentTo = document.getElementById('toDate').value || null;
-    loadAnalytics();
+    const from = document.getElementById('fromDate').value;
+    const to = document.getElementById('toDate').value;
+    if (!from && !to) return;
+    document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
+    const fromDate = from ? new Date(from) : new Date(0);
+    const toDate = to ? new Date(to + 'T23:59:59.999Z') : new Date();
+    const filtered = allLeads.filter(l => {
+      const d = new Date(l.created_at);
+      return d >= fromDate && d <= toDate;
+    });
+    renderAll(filtered, null);
   };
 
-  function toISO(d) { return d.toISOString().slice(0,10); }
-  function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+  function loadAnalytics(days) {
+    const fromDate = new Date(Date.now() - days * 86400000);
+    const filtered = allLeads.filter(l => new Date(l.created_at) >= fromDate);
+    renderAll(filtered, days);
+  }
 
-  async function loadAnalytics() {
-    const qs = new URLSearchParams();
-    if (currentFrom) qs.set('from', currentFrom);
-    if (currentTo) qs.set('to', currentTo);
-    try {
-      const data = await shared.apiFetch('/api/analytics?' + qs.toString());
-      renderKPIs(data);
-      renderCharts(data);
-    } catch(e) {
-      document.getElementById('analyticsGrid').innerHTML = '<div class="empty-state"><p>Failed to load analytics</p></div>';
+  function computeStats(filtered, days) {
+    const total = filtered.length;
+    const converted = filtered.filter(l => l.status === 'converted').length;
+    const avgScore = total ? Math.round(filtered.reduce((s, l) => s + (l.score || 0), 0) / total * 10) / 10 : 0;
+    const conversionRate = total ? Math.round(converted / total * 100) : 0;
+
+    const byArea = {}, byBudget = {}, byInterest = {}, scoreDistribution = {}, hourly = {};
+    let arabic = 0, english = 0, voice = 0, text = 0;
+
+    for (const l of filtered) {
+      const d = l.data || {};
+      if (d.area)   byArea[d.area]       = (byArea[d.area] || 0) + 1;
+      if (d.budget) byBudget[d.budget]   = (byBudget[d.budget] || 0) + 1;
+      if (d.intent) byInterest[d.intent] = (byInterest[d.intent] || 0) + 1;
+      const sc = l.score || 0;
+      scoreDistribution[sc] = (scoreDistribution[sc] || 0) + 1;
+      if (l.language === 'ar') arabic++; else english++;
+      if (d.source === 'voice') voice++; else text++;
+      const h = parseInt((l.created_at || '').slice(11, 13)) || 0;
+      hourly[h] = (hourly[h] || 0) + 1;
     }
+
+    const bestArea = Object.entries(byArea).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const byDay = {};
+    filtered.forEach(l => { const dw = DAYS[new Date(l.created_at).getDay()]; byDay[dw] = (byDay[dw] || 0) + 1; });
+    const bestDay = Object.entries(byDay).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+
+    // Trend: day-by-day for the period (cap at 90 days for readability)
+    const trendDays = days && days < 9999 ? Math.min(days, 90) : 30;
+    const trendLabels = [], trendCounts = [];
+    for (let i = trendDays - 1; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const ds = d.toISOString().slice(0, 10);
+      trendLabels.push(ds.slice(5));
+      trendCounts.push(filtered.filter(l => l.created_at?.startsWith(ds)).length);
+    }
+
+    return { total, conversionRate, avgScore, bestArea, bestDay, byArea, byBudget, byInterest,
+             arabic, english, voice, text, hourly, scoreDistribution,
+             trend: { labels: trendLabels, counts: trendCounts } };
+  }
+
+  function renderAll(filtered, days) {
+    const d = computeStats(filtered, days);
+    renderKPIs(d);
+    renderCharts(d);
   }
 
   function renderKPIs(d) {
@@ -130,11 +179,7 @@
     charts[id] = new Chart(ctx, { type, data:{labels,datasets}, options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:type==='bar'||type==='line'?{y:{beginAtZero:true}}:undefined,...extra} });
   }
 
-  // Default: last 7 days
-  const now = new Date();
-  currentFrom = new Date(now); currentFrom.setDate(now.getDate()-7);
-  currentFrom = currentFrom.toISOString().slice(0,10);
-  currentTo = now.toISOString().slice(0,10);
-  await loadAnalytics();
+  // Default: last 30 days
+  loadAnalytics(currentRange);
 })();
 </script>

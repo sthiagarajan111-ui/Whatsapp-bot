@@ -26,11 +26,11 @@
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
 
 /* ── Layout ─────────────────── */
-.layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.layout{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
 
 /* ── Sidebar ─────────────────── */
 .sb{background:var(--sidebar);color:var(--sw);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
-.sb-logo{padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.05)}
+.sb-logo{padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.05);background:linear-gradient(180deg,rgba(61,127,250,.08) 0%,transparent 100%)}
 .lw{display:flex;align-items:center;gap:10px}
 .lb{width:34px;height:34px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .lb svg{width:17px;height:17px;fill:white}
@@ -44,7 +44,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .ss-lbl{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.2);padding:0 8px;margin-bottom:5px}
 .ni{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;transition:all .15s;color:var(--sw);font-size:12px;font-weight:400;text-decoration:none;margin-bottom:1px}
 .ni:hover{background:rgba(255,255,255,.06);color:#fff}
-.ni.active{background:rgba(61,127,250,.18);color:#fff;border-left:2px solid var(--blue)}
+.ni.active{background:rgba(61,127,250,.18);color:#fff;border-left:2px solid var(--blue);padding-left:8px}
+.ni.active::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--blue);flex-shrink:0}
 .ni.active .ni-ico{color:var(--blue)}
 .ni-ico{width:15px;height:15px;flex-shrink:0;opacity:.65}
 .ni.active .ni-ico{opacity:1}
@@ -92,6 +93,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .kpi.k-green::after{background:linear-gradient(90deg,var(--green),#34d399)}
 .kpi.k-amber::after{background:linear-gradient(90deg,var(--amber),#fcd34d)}
 .kpi.k-purple::after{background:linear-gradient(90deg,var(--purple),#a78bfa)}
+.kpi.k-blue{background:linear-gradient(135deg,#ffffff 0%,#f0f7ff 100%)}
+.kpi.k-red{background:linear-gradient(135deg,#ffffff 0%,#fff5f5 100%)}
+.kpi.k-green{background:linear-gradient(135deg,#ffffff 0%,#f0fdf9 100%)}
+.kpi.k-amber{background:linear-gradient(135deg,#ffffff 0%,#fffdf0 100%)}
+.kpi.k-purple{background:linear-gradient(135deg,#ffffff 0%,#f8f5ff 100%)}
 .kpi-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .kpi-lbl{font-size:10px;font-weight:600;color:var(--text2);letter-spacing:.3px;text-transform:uppercase}
 .kpi-ib{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center}
@@ -111,7 +117,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .mb16{margin-bottom:16px}
 
 /* ── Widget ───────────────────── */
-.w{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh);overflow:hidden}
+.w{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);overflow:hidden;transition:box-shadow .2s}
+.w:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
 .w-hd{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .w-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;color:var(--text);display:flex;align-items:center;gap:7px}
 .wtd{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -190,8 +197,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 /* ── Leads table ──────────────── */
 .lt-wrap{overflow-x:auto}
 .lt{width:100%;border-collapse:collapse}
-.lt th{padding:8px 13px;background:var(--bg);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap}
+.lt th{padding:8px 13px;background:var(--bg);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:1}
 .lt td{padding:10px 13px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)}
+.lt tr:nth-child(even) td{background:#fafbfc}
 .lt tr:hover td{background:#F8FAFF}
 .lt tr:last-child td{border:none}
 .lt-av{display:flex;align-items:center;gap:9px}
@@ -311,7 +319,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="sb-sec">
     <div class="ss-lbl">Reports</div>
     <a class="ni" href="/api/leads/export?status=all"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v8M5 6l3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>Export Leads</a>
-    <a class="ni" href="#broadcast-w"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M13 8a5 5 0 01-5 5v-2a3 3 0 000-6V3a5 5 0 015 5z"/><circle cx="4" cy="8" r="2"/></svg>Broadcast<span class="nb nb-amber">New</span></a>
+    <a class="ni" href="#" onclick="document.getElementById('broadcast-w') && document.getElementById('broadcast-w').scrollIntoView({behavior:'smooth'});return false;"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M13 8a5 5 0 01-5 5v-2a3 3 0 000-6V3a5 5 0 015 5z"/><circle cx="4" cy="8" r="2"/></svg>Broadcast<span class="nb nb-amber">New</span></a>
     <a class="ni" href="/health"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1z"/><path d="M5 8h2l1-2 2 4 1-2h1" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>System Health</a>
   </div>
   <div class="sb-foot">
@@ -342,6 +350,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
   <div id="page-content" style="display:none"></div>
   <div id="main-dashboard">
+  <div id="welcome-banner" style="display:none;background:var(--blue);color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+    <span style="font-size:13px;font-weight:500">🚀 Your WhatsApp bot is live! Share your WhatsApp number with customers to start capturing leads.</span>
+    <button onclick="document.getElementById('welcome-banner').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;flex-shrink:0">✕ Dismiss</button>
+  </div>
   <div class="content">
 
     <!-- ── KPI SCORECARDS ── -->
@@ -439,10 +451,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           <div class="w-acts"><span class="w-tag wt-am">Lead Pipeline</span></div>
         </div>
         <div class="funnel-wrap funnel-colors">
-          <div class="funnel-hd">
-            <div class="fh-lbl">Stage</div>
-            <div class="fh-lbl right">Cumulative</div>
-            <div class="fh-lbl right">Next Step</div>
+          <div style="display:grid;grid-template-columns:140px 1fr 70px 70px;gap:8px;padding-bottom:8px;border-bottom:2px solid var(--border);margin-bottom:4px">
+            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Stage</div>
+            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Volume</div>
+            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;text-align:center">Cumul.</div>
+            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;text-align:center">Next</div>
           </div>
           <div id="funnelRows"></div>
         </div>
@@ -757,6 +770,9 @@ function updateAll(stats,leads){
 
   // KPIs
   let pipeVal=0;leads.filter(l=>l.status!=='lost').forEach(l=>{const d=parseD(l);pipeVal+=budgetVal[d.budget]||1000000});
+  // Show welcome banner when no leads yet
+  const banner = document.getElementById('welcome-banner');
+  if (banner) banner.style.display = total === 0 ? 'flex' : 'none';
   document.getElementById('kTotal').textContent=total;
   document.getElementById('kHot').textContent=hot;
   document.getElementById('kConverted').textContent=conv;
@@ -805,19 +821,23 @@ function updateAll(stats,leads){
   // Funnel (GHL style)
   const fData=[total,Math.floor(total*.68),hot,warm,Math.floor(contacted*.5),Math.floor(contacted*.3),Math.floor(conv*1.5),conv,lost];
   const maxF=fData[0]||1;
-  document.getElementById('funnelRows').innerHTML=funnelStages.map((s,i)=>{
-    const n=fData[i]||0;
-    const cumPct=pct(n,maxF);
-    const nextPct=i<fData.length-1?pct(fData[i+1]||0,n||1):0;
-    const barW=Math.max(cumPct,5);
-    return `<div class="funnel-row">
-      <div class="fr-bar-wrap">
-        <div class="fr-label">${s}</div>
-        <div class="fr-track"><div class="fr-fill" style="width:${barW}%;background:${funnelColors[i]}">${n}</div></div>
+  document.getElementById('funnelRows').innerHTML = funnelStages.map((s, i) => {
+    const n = fData[i] || 0;
+    const cumPct = pct(n, maxF);
+    const nextPct = i < fData.length - 1 ? pct(fData[i+1] || 0, n || 1) : 0;
+    const barW = Math.max(cumPct, 3);
+    return `<div class="funnel-row" style="display:grid;grid-template-columns:140px 1fr 70px 70px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;border-radius:4px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
+    <div style="font-size:11px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s}</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1;height:22px;background:var(--bg);border-radius:4px;overflow:hidden;position:relative;border:1px solid var(--border)">
+        <div style="height:100%;border-radius:4px;background:${funnelColors[i]};width:${barW}%;display:flex;align-items:center;padding-left:7px;min-width:28px;transition:width .8s cubic-bezier(.4,0,.2,1)">
+          <span style="font-size:10px;font-weight:700;color:white;white-space:nowrap">${n}</span>
+        </div>
       </div>
-      <div class="fr-count">${cumPct}%</div>
-      <div class="fr-pct">${nextPct}%</div>
-    </div>`;
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text);text-align:center">${cumPct}%</div>
+    <div style="font-size:11px;color:var(--text2);text-align:center;font-weight:500">${nextPct}%</div>
+  </div>`;
   }).join('');
 
   // Lead source report
