@@ -197,6 +197,7 @@
 
 <script>
 (async function() {
+  const clientId = window.__clientId || '';
   let settings = {};
   let listings = [];
   let agents = [];
@@ -245,15 +246,18 @@
   };
 
   async function saveSettings(obj) {
-    await shared.apiFetch('/api/settings', { method: 'POST', body: JSON.stringify(obj) });
+    const hdrs = { 'Content-Type': 'application/json' };
+    if (clientId) hdrs['x-client-id'] = clientId;
+    await shared.apiFetch('/api/settings', { method: 'POST', headers: hdrs, body: JSON.stringify(obj) });
     settings = { ...settings, ...obj };
     shared.showToast('Settings saved');
   }
 
   window.saveBotConfig = async function() {
     const days = [...document.querySelectorAll('.bd-check:checked')].map(c=>c.value).join(',');
+    const savedName = getVal('s-client-name');
     await saveSettings({
-      client_name: getVal('s-client-name'),
+      client_name: savedName,
       active_flow: getVal('s-active-flow'),
       hours_start: getVal('s-hours-start'),
       hours_end: getVal('s-hours-end'),
@@ -261,6 +265,9 @@
       followup_delay: getVal('s-followup'),
       ooh_message: getVal('s-ooh'),
     });
+    if (savedName && window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'settingsUpdated', brandName: savedName }, '*');
+    }
   };
 
   window.saveWAConfig = async function() {
@@ -291,17 +298,9 @@
     await saveSettings(obj);
     if (obj.brand_color_primary) document.documentElement.style.setProperty('--blue', obj.brand_color_primary);
     const newName = obj.brand_name;
-    if (newName) {
-      // Update parent dashboard immediately via postMessage
-      window.parent.postMessage({ type: 'brandUpdate', brandName: newName }, '*');
-      // Also update directly if same page context
-      if (window.parent === window) {
-        const sc = document.getElementById('sbClientName');
-        const tb = document.getElementById('tbTitle');
-        if (sc) sc.textContent = newName;
-        if (tb) tb.textContent = newName + ' — Dashboard';
-        document.title = newName + ' — LeadPulse CRM';
-      }
+    if (newName && window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'settingsUpdated', brandName: newName }, '*');
+      window.parent.postMessage({ type: 'brandUpdate',      brandName: newName }, '*');
     }
   };
 

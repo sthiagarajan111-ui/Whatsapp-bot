@@ -259,14 +259,27 @@ app.get('/api/leads', async (_req, res) => {
 });
 
 // ── API: stats ────────────────────────────────────────────────────────────────
-app.get('/api/stats', async (_req, res) => {
+app.get('/api/stats', async (req, res) => {
   try {
-    const stats = await db.getLeadStats();
-    const brandSetting = await db.getSetting('brand_name');
-    const clientName = (brandSetting && brandSetting.value) || process.env.CLIENT_NAME || 'Axyren Dashboard';
-    res.json({ ...stats, clientName,
-      totalLeads: stats.total || 0,
-      newLeads: stats.new || 0,
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+    const stats = await db.getLeadStats(clientId);
+
+    // Resolve brand name: settings → Client model → env var
+    let clientName = process.env.CLIENT_NAME || 'My Real Estate Agency';
+    const brandSetting = await db.getSetting('brand_name', clientId);
+    if (brandSetting?.value) {
+      clientName = brandSetting.value;
+    } else if (clientId !== 'default') {
+      const clientDoc = await Client.findOne({ client_id: clientId });
+      if (clientDoc?.brand_name)   clientName = clientDoc.brand_name;
+      else if (clientDoc?.company_name) clientName = clientDoc.company_name;
+    }
+
+    res.json({
+      ...stats,
+      clientName,
+      totalLeads:     stats.total     || 0,
+      newLeads:       stats.new       || 0,
       contactedLeads: stats.contacted || 0,
       convertedLeads: stats.converted || 0,
     });
@@ -475,20 +488,36 @@ app.get('/api/analytics', async (req, res) => {
 });
 
 // ── API: settings ─────────────────────────────────────────────────────────────
-app.get('/api/settings', async (_req, res) => {
+app.get('/api/settings', async (req, res) => {
   try {
-    res.json(await db.getAllSettings());
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+    res.json(await db.getAllSettings(clientId));
   } catch (e) { res.json({}); }
 });
 
 app.post('/api/settings', async (req, res) => {
-  const data = req.body;
-  if (typeof data !== 'object') return res.status(400).json({ error: 'Expected JSON object' });
-  for (const [key, value] of Object.entries(data)) {
-    await db.saveSetting(key, String(value));
-    if (key === 'brand_name') console.log(`[Settings] brand_name saved: "${value}"`);
+  try {
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+    const data = req.body;
+    if (typeof data !== 'object') return res.status(400).json({ error: 'Expected JSON object' });
+    for (const [key, value] of Object.entries(data)) {
+      await db.saveSetting(key, String(value), clientId);
+      if (key === 'brand_name') {
+        console.log(`[Settings] brand_name saved: "${value}" for client: ${clientId}`);
+        // Also sync to Client document for multi-tenant clients
+        if (clientId !== 'default') {
+          await Client.findOneAndUpdate(
+            { client_id: clientId },
+            { $set: { brand_name: value, updated_at: new Date() } }
+          );
+        }
+      }
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[Settings] Save error:', e.message);
+    res.status(500).json({ error: e.message });
   }
-  res.json({ ok: true });
 });
 
 // ── API: lead detail ──────────────────────────────────────────────────────────

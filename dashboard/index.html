@@ -722,14 +722,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   const urlParts = window.location.pathname.split('/');
   // URL pattern: /client-dashboard/<clientId>
   const clientIdFromUrl = urlParts[1] === 'client-dashboard' ? urlParts[2] : null;
-  if (clientIdFromUrl) {
-    window.__clientId = clientIdFromUrl;
-    // Patch fetch to automatically inject x-client-id header for relative API calls
+  window.__clientId = clientIdFromUrl || '';
+  if (window.__clientId) {
+    // Patch fetch to automatically inject x-client-id header for all /api/ calls
     const _origFetch = window.fetch.bind(window);
     window.fetch = function(url, opts) {
-      if (typeof url === 'string' && (url.startsWith('/api/') || url.startsWith('/dashboard/'))) {
-        opts = opts || {};
-        opts.headers = Object.assign({}, opts.headers, { 'x-client-id': clientIdFromUrl });
+      opts = opts || {};
+      if (typeof url === 'string' && url.startsWith('/api/') && window.__clientId) {
+        opts.headers = Object.assign({}, opts.headers || {}, { 'x-client-id': window.__clientId });
       }
       return _origFetch(url, opts);
     };
@@ -1169,8 +1169,9 @@ setInterval(loadAll,30000);
 setInterval(checkToken,60000);
 
 window.addEventListener('message', function(e) {
-  if (e.data && e.data.type === 'brandUpdate') {
+  if (e.data && (e.data.type === 'brandUpdate' || e.data.type === 'settingsUpdated')) {
     const name = e.data.brandName;
+    if (!name) return;
     const sc = document.getElementById('sbClientName');
     const tb = document.getElementById('tbTitle');
     if (sc) sc.textContent = name;

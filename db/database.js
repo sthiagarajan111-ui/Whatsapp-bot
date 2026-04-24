@@ -292,23 +292,24 @@ async function getRecentConversations(limit = 50, clientId = 'default') {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 async function getSetting(key, clientId = 'default') {
-  const doc = await Setting.findOne({ key, client_id: clientId }).lean();
-  return doc ? doc.value : null;
+  let setting = await Setting.findOne({ key, client_id: clientId });
+  if (!setting && clientId !== 'default') {
+    setting = await Setting.findOne({ key, client_id: 'default' });
+  }
+  return setting;
 }
 
 async function saveSetting(key, value, clientId = 'default') {
-  await Setting.findOneAndUpdate(
+  return await Setting.findOneAndUpdate(
     { key, client_id: clientId },
-    { $set: { value, client_id: clientId, updated_at: new Date() } },
-    { upsert: true }
+    { key, value, client_id: clientId, updated_at: new Date() },
+    { upsert: true, new: true }
   );
 }
 
 async function getAllSettings(clientId = 'default') {
-  const docs = await Setting.find({ client_id: clientId }).lean();
-  const obj = {};
-  docs.forEach(d => { obj[d.key] = d.value; });
-  return obj;
+  const settings = await Setting.find({ client_id: clientId });
+  return settings.reduce((acc, s) => { acc[s.key] = s.value; return acc; }, {});
 }
 
 // ── Agents ────────────────────────────────────────────────────────────────────
