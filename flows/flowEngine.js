@@ -26,7 +26,8 @@ const { getAIResponse }   = require('../utils/aiHandler');
 const { matchListings, formatListingMessage } = require('../utils/listingsMatcher');
 const { createZohoLead }  = require('../utils/integrations/zohoSync');
 const { sendLeadEmail }   = require('../utils/integrations/emailNotifier');
-const { triggerZapier }   = require('../utils/integrations/zapierWebhook');
+const { triggerZapier }      = require('../utils/integrations/zapierWebhook');
+const { triggerHotLeadAlert } = require('../utils/hotLeadAlert');
 
 // ── Load all flow files from this directory ───────────────────────────────────
 const flows = {};
@@ -237,6 +238,21 @@ async function handleMessage(message) {
     createZohoLead(leadSnap).catch(() => {});
     sendLeadEmail({ wa_number: from, score, language }, newData).catch(() => {});
     triggerZapier(leadSnap).catch(() => {});
+
+    // HOT lead alert
+    if (score >= 8) {
+      const alertData = {
+        name: newData.name,
+        interest: newData.interest,
+        budget: newData.budget,
+        area: newData.area,
+        language: language || 'en',
+        source: newData.source || 'WhatsApp'
+      };
+      triggerHotLeadAlert(from, alertData, score).catch(e =>
+        console.error('[HOT ALERT] Alert failed:', e.message)
+      );
+    }
 
     // Property listing matching
     try {
