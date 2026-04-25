@@ -3,53 +3,69 @@
 Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
 Chart.defaults.font.size = 12;
 Chart.defaults.color = '#64748b';
-Chart.defaults.plugins.legend.position = 'bottom';
-Chart.defaults.plugins.legend.labels.padding = 20;
-Chart.defaults.plugins.legend.labels.usePointStyle = true;
 </script>
 <style>
-.analytics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
-.analytics-grid .wide { grid-column: span 2; }
-.chart-card { background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 20px; }
-.chart-title { font-weight: 600; font-size: 14px; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
-.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px; }
-.kpi-card { background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 16px 18px; }
-.kpi-val { font-size: 22px; font-weight: 700; color: var(--text); }
-.kpi-lbl { font-size: 12px; color: var(--text3); margin-top: 4px; }
-.date-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.date-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--white); cursor: pointer; font-size: 12px; font-weight: 500; transition: all .15s; }
-.date-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
-.heatmap { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; }
-.heatmap-cell { width: 28px; height: 24px; border-radius: 2px; background: var(--border); position: relative; }
-.heatmap-label { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; margin-top: 4px; }
-.heatmap-label span { font-size: 9px; color: var(--text3); text-align: center; }
+.a-page { padding: 24px; background: #f8fafc; min-height: 100%; }
+.a-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.a-title { font-size: 18px; font-weight: 700; color: #1e293b; }
+.a-subtitle { font-size: 13px; color: #64748b; margin-top: 2px; }
+
+/* Date filter pills */
+.date-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.date-btn { padding: 6px 14px; border: 1px solid #e2e8f0; background: #f1f5f9; cursor: pointer; font-size: 12px; font-weight: 500; color: #64748b; transition: all .15s; }
+.date-btn:hover { background: #e2e8f0; }
+.date-btn.active { background: #4F86C6; color: #fff; border-color: #4F86C6; }
+
+/* KPI Row */
+.a-kpi-row { display: flex; gap: 16px; margin-bottom: 24px; }
+.a-kpi-card { flex: 1; min-width: 0; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); overflow: hidden; }
+.a-kpi-accent { height: 3px; border-radius: 2px 2px 0 0; }
+.a-kpi-body { padding: 16px 20px; }
+.a-kpi-val { font-size: 24px; font-weight: 700; color: #1e293b; margin: 4px 0; }
+.a-kpi-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; }
+
+/* Chart cards */
+.chart-card { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); padding: 20px; }
+.chart-title { font-size: 13px; font-weight: 600; color: #1e293b; border-left: 3px solid #4F86C6; padding-left: 10px; margin-bottom: 16px; line-height: 1.4; }
+
+/* Heatmap */
+.heatmap { display: flex; gap: 2px; overflow-x: auto; }
+.heatmap-cell { width: 28px; min-width: 28px; height: 24px; background: #e2e8f0; flex-shrink: 0; }
+.heatmap-label { display: flex; gap: 2px; margin-top: 4px; }
+.heatmap-label span { width: 28px; min-width: 28px; font-size: 9px; color: #94a3b8; text-align: center; flex-shrink: 0; }
 </style>
 
-<div style="padding: 20px 24px;">
-  <div class="page-header">
-    <div><div class="page-title">Analytics</div><div class="page-subtitle">Deep performance insights</div></div>
+<div class="a-page">
+  <div class="a-header">
+    <div>
+      <div class="a-title">Analytics</div>
+      <div class="a-subtitle">Deep performance insights</div>
+    </div>
     <div class="date-filter" id="dateFilter">
       <button class="date-btn" onclick="setRange(1, this)">Today</button>
       <button class="date-btn" onclick="setRange(7, this)">7 Days</button>
       <button class="date-btn active" onclick="setRange(30, this)">30 Days</button>
       <button class="date-btn" onclick="setRange(90, this)">90 Days</button>
       <button class="date-btn" onclick="setRange(9999, this)">All Time</button>
-      <input type="date" id="fromDate" style="width:130px"> <span>—</span>
+      <input type="date" id="fromDate" style="width:130px">
+      <span style="color:#94a3b8">—</span>
       <input type="date" id="toDate" style="width:130px">
       <button class="btn btn-primary btn-sm" onclick="loadCustomRange()">Apply</button>
     </div>
   </div>
 
-  <div class="kpi-row" id="kpiRow">
-    <div class="loading" style="grid-column:span 5"><div class="spinner"></div> Loading...</div>
+  <!-- KPI Row -->
+  <div class="a-kpi-row" id="kpiRow">
+    <div style="flex:5;text-align:center;padding:20px"><div class="spinner" style="display:inline-block"></div></div>
   </div>
 
-  <div class="analytics-grid" id="analyticsGrid">
+  <!-- Charts container -->
+  <div id="analyticsGrid">
     <div class="loading"><div class="spinner"></div> Loading charts...</div>
   </div>
 
   <!-- Agent Leaderboard -->
-  <div class="chart-card" style="margin-top:20px">
+  <div class="chart-card" style="margin-top:16px">
     <div class="chart-title">🏆 Agent Performance Leaderboard</div>
     <div id="agentLeaderboard"><div class="loading"><div class="spinner"></div> Loading...</div></div>
   </div>
@@ -61,7 +77,6 @@ Chart.defaults.plugins.legend.labels.usePointStyle = true;
   let allLeads = [];
   const charts = {};
 
-  // Load all leads once
   try {
     allLeads = await shared.apiFetch('/api/leads?status=all&limit=10000');
     if (!Array.isArray(allLeads)) allLeads = allLeads.leads || allLeads.data || [];
@@ -122,7 +137,6 @@ Chart.defaults.plugins.legend.labels.usePointStyle = true;
     filtered.forEach(l => { const dw = DAYS[new Date(l.created_at).getDay()]; byDay[dw] = (byDay[dw] || 0) + 1; });
     const bestDay = Object.entries(byDay).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
 
-    // Trend: day-by-day for the period (cap at 90 days for readability)
     const trendDays = days && days < 9999 ? Math.min(days, 90) : 30;
     const trendLabels = [], trendCounts = [];
     for (let i = trendDays - 1; i >= 0; i--) {
@@ -144,13 +158,22 @@ Chart.defaults.plugins.legend.labels.usePointStyle = true;
   }
 
   function renderKPIs(d) {
-    document.getElementById('kpiRow').innerHTML = `
-      <div class="kpi-card"><div class="kpi-val">${d.total||0}</div><div class="kpi-lbl">Total Leads</div></div>
-      <div class="kpi-card"><div class="kpi-val">${d.conversionRate||0}%</div><div class="kpi-lbl">Conversion Rate</div></div>
-      <div class="kpi-card"><div class="kpi-val">${d.avgScore||0}</div><div class="kpi-lbl">Avg Lead Score</div></div>
-      <div class="kpi-card"><div class="kpi-val">${d.bestArea||'—'}</div><div class="kpi-lbl">Top Area</div></div>
-      <div class="kpi-card"><div class="kpi-val">${d.bestDay||'—'}</div><div class="kpi-lbl">Best Day</div></div>
-    `;
+    const kpis = [
+      { val: d.total||0,                lbl: 'Total Leads',     color: '#4F86C6' },
+      { val: (d.conversionRate||0)+'%', lbl: 'Conversion Rate', color: '#62B58F' },
+      { val: d.avgScore||0,             lbl: 'Avg Lead Score',  color: '#F5A623' },
+      { val: d.bestArea||'—',           lbl: 'Top Area',        color: '#9B7FD4' },
+      { val: d.bestDay||'—',            lbl: 'Best Day',        color: '#5BC0DE' },
+    ];
+    document.getElementById('kpiRow').innerHTML = kpis.map(k => `
+      <div class="a-kpi-card">
+        <div class="a-kpi-accent" style="background:${k.color}"></div>
+        <div class="a-kpi-body">
+          <div class="a-kpi-lbl">${k.lbl}</div>
+          <div class="a-kpi-val">${k.val}</div>
+        </div>
+      </div>
+    `).join('');
   }
 
   const CHART_COLORS = ['#4F86C6','#62B58F','#F5A623','#E8605A','#9B7FD4','#5BC0DE','#F0AD4E','#5CB85C'];
@@ -159,7 +182,7 @@ Chart.defaults.plugins.legend.labels.usePointStyle = true;
     const ctx = document.getElementById(canvasId)?.getContext('2d');
     if (!ctx) return '#4F86C6';
     const g = ctx.createLinearGradient(0, 0, 0, 300);
-    g.addColorStop(0, 'rgba(79,134,198,0.8)');
+    g.addColorStop(0, 'rgba(79,134,198,0.85)');
     g.addColorStop(1, 'rgba(79,134,198,0.2)');
     return g;
   }
@@ -176,55 +199,66 @@ Chart.defaults.plugins.legend.labels.usePointStyle = true;
   function renderCharts(d) {
     const grid = document.getElementById('analyticsGrid');
     grid.innerHTML = `
-      <div class="chart-card wide"><div class="chart-title">📈 Leads Trend</div><canvas id="cTrend" height="120"></canvas></div>
-      <div class="chart-card"><div class="chart-title">🏠 Leads by Area</div><canvas id="cArea" height="180"></canvas></div>
-      <div class="chart-card"><div class="chart-title">💰 Budget Distribution</div><canvas id="cBudget" height="180"></canvas></div>
-      <div class="chart-card"><div class="chart-title">🎯 Interest Type</div><canvas id="cInterest" height="180"></canvas></div>
-      <div class="chart-card"><div class="chart-title">🌐 Language Split</div><canvas id="cLang" height="180"></canvas></div>
-      <div class="chart-card"><div class="chart-title">⭐ Score Distribution</div><canvas id="cScore" height="180"></canvas></div>
-      <div class="chart-card"><div class="chart-title">🎙️ Voice vs Text</div><canvas id="cSource" height="180"></canvas></div>
-      <div class="chart-card wide"><div class="chart-title">🕐 Hourly Activity Heatmap</div>
-        <div class="heatmap" id="heatmap"></div>
-        <div class="heatmap-label">${Array.from({length:24},(_,i)=>`<span>${i}h</span>`).join('')}</div>
+      <!-- Row 1: Leads Trend (2fr) + Leads by Area (1fr) -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+        <div class="chart-card"><div class="chart-title">📈 Leads Trend</div><canvas id="cTrend" height="220"></canvas></div>
+        <div class="chart-card"><div class="chart-title">🏠 Leads by Area</div><canvas id="cArea" height="220"></canvas></div>
+      </div>
+      <!-- Row 2: Budget + Interest + Language (3 equal) -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px">
+        <div class="chart-card"><div class="chart-title">💰 Budget Distribution</div><canvas id="cBudget" style="max-height:160px"></canvas></div>
+        <div class="chart-card"><div class="chart-title">🎯 Interest Type</div><canvas id="cInterest" style="max-height:160px"></canvas></div>
+        <div class="chart-card"><div class="chart-title">🌐 Language Split</div><canvas id="cLang" style="max-height:160px"></canvas></div>
+      </div>
+      <!-- Row 3: Score Distribution + Hourly Heatmap (2 equal) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div class="chart-card"><div class="chart-title">⭐ Score Distribution</div><canvas id="cScore" height="180"></canvas></div>
+        <div class="chart-card"><div class="chart-title">🕐 Hourly Activity</div>
+          <div class="heatmap" id="heatmap"></div>
+          <div class="heatmap-label">${Array.from({length:24},(_,i)=>`<span>${i}h</span>`).join('')}</div>
+        </div>
       </div>
     `;
-    makeChart('cTrend','line', d.trend?.labels||[], [{
-      label:'Leads', data:d.trend?.counts||[],
-      borderColor:'#4F86C6', backgroundColor:mkLineGrad('cTrend'),
-      tension:.4, fill:true, pointBackgroundColor:'#4F86C6', pointRadius:4
+
+    makeChart('cTrend', 'line', d.trend?.labels||[], [{
+      label: 'Leads', data: d.trend?.counts||[],
+      borderColor: '#4F86C6', backgroundColor: mkLineGrad('cTrend'),
+      tension: 0.4, fill: true, pointBackgroundColor: '#4F86C6', pointRadius: 4
     }]);
-    makeChart('cArea','bar', Object.keys(d.byArea||{}), [{
-      label:'Leads', data:Object.values(d.byArea||{}),
-      backgroundColor:mkBarGrad('cArea'), borderRadius:6, borderSkipped:false,
-      barPercentage:.6, categoryPercentage:.8, maxBarThickness:40
-    }], {indexAxis:'y'});
-    makeChart('cBudget','doughnut', Object.keys(d.byBudget||{}), [{
-      data:Object.values(d.byBudget||{}),
-      backgroundColor:CHART_COLORS, borderWidth:2, borderColor:'#ffffff'
+
+    makeChart('cArea', 'bar', Object.keys(d.byArea||{}), [{
+      label: 'Leads', data: Object.values(d.byArea||{}),
+      backgroundColor: mkBarGrad('cArea'), borderRadius: 4, borderSkipped: false,
+      maxBarThickness: 32, barPercentage: 0.6
+    }], { indexAxis: 'y' });
+
+    makeChart('cBudget', 'doughnut', Object.keys(d.byBudget||{}), [{
+      data: Object.values(d.byBudget||{}),
+      backgroundColor: CHART_COLORS, borderWidth: 2, borderColor: '#fff'
     }]);
-    makeChart('cInterest','doughnut', Object.keys(d.byInterest||{}), [{
-      data:Object.values(d.byInterest||{}),
-      backgroundColor:CHART_COLORS.slice(0,3), borderWidth:2, borderColor:'#ffffff'
+
+    makeChart('cInterest', 'doughnut', Object.keys(d.byInterest||{}), [{
+      data: Object.values(d.byInterest||{}),
+      backgroundColor: CHART_COLORS.slice(0,3), borderWidth: 2, borderColor: '#fff'
     }]);
-    makeChart('cLang','doughnut', ['Arabic','English'], [{
-      data:[d.arabic||0,d.english||0],
-      backgroundColor:['#9B7FD4','#4F86C6'], borderWidth:2, borderColor:'#ffffff'
+
+    makeChart('cLang', 'doughnut', ['Arabic','English'], [{
+      data: [d.arabic||0, d.english||0],
+      backgroundColor: ['#9B7FD4','#4F86C6'], borderWidth: 2, borderColor: '#fff'
     }]);
-    makeChart('cScore','bar', Object.keys(d.scoreDistribution||{}), [{
-      label:'Leads', data:Object.values(d.scoreDistribution||{}),
-      backgroundColor:mkBarGrad('cScore'), borderRadius:6, borderSkipped:false,
-      barPercentage:.6, categoryPercentage:.8, maxBarThickness:40
+
+    makeChart('cScore', 'bar', Object.keys(d.scoreDistribution||{}), [{
+      label: 'Leads', data: Object.values(d.scoreDistribution||{}),
+      backgroundColor: mkBarGrad('cScore'), borderRadius: 4, borderSkipped: false,
+      maxBarThickness: 32, barPercentage: 0.6
     }]);
-    makeChart('cSource','doughnut', ['Voice','Text'], [{
-      data:[d.voice||0,d.text||0],
-      backgroundColor:['#5BC0DE','#4F86C6'], borderWidth:2, borderColor:'#ffffff'
-    }]);
+
     // Heatmap
     const hm = document.getElementById('heatmap');
     const hourCounts = d.hourly||{};
-    const maxH = Math.max(...Object.values(hourCounts),1);
-    hm.innerHTML = Array.from({length:24},(_,h)=>{
-      const v=hourCounts[h]||0;
+    const maxH = Math.max(...Object.values(hourCounts), 1);
+    hm.innerHTML = Array.from({length:24}, (_,h) => {
+      const v = hourCounts[h]||0;
       const intensity = Math.round((v/maxH)*100);
       return `<div class="heatmap-cell" style="background:rgba(79,134,198,${intensity/100})" title="${h}:00 — ${v} leads"></div>`;
     }).join('');
@@ -239,16 +273,25 @@ Chart.defaults.plugins.legend.labels.usePointStyle = true;
       type, data: { labels, datasets },
       options: {
         responsive: true,
-        plugins: { legend: { position: 'bottom' } },
-        scales: (type === 'bar' || type === 'line') ? { y: { beginAtZero: true } } : undefined,
-        cutout: isDonut ? '75%' : undefined,
+        plugins: {
+          legend: {
+            position: isDonut ? 'right' : 'bottom',
+            labels: isDonut
+              ? { boxWidth: 10, padding: 10, font: { size: 11 } }
+              : { padding: 16, usePointStyle: true, font: { size: 11 } }
+          }
+        },
+        scales: (type === 'bar' || type === 'line') ? {
+          y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', font: { size: 11 }, stepSize: 1, precision: 0 } },
+          x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } }
+        } : undefined,
+        cutout: isDonut ? '72%' : undefined,
         radius: isDonut ? '85%' : undefined,
         ...extra
       }
     });
   }
 
-  // Default: last 30 days
   loadAnalytics(currentRange);
 
   // Agent Leaderboard
@@ -257,37 +300,37 @@ Chart.defaults.plugins.legend.labels.usePointStyle = true;
     try {
       const agents = await shared.apiFetch('/api/agents/performance');
       if (!agents.length) {
-        el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Add agents in <a href="#settings" style="color:var(--blue)">Settings</a> to track performance</div>';
+        el.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:13px">Add agents in <a href="#settings" style="color:#4F86C6">Settings</a> to track performance</div>';
         return;
       }
       const medals = ['🥇','🥈','🥉'];
       el.innerHTML = `<table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:var(--bg)">
-          ${['Rank','Agent','Leads','HOT','Converted','Win%','Avg Score'].map(h=>`<th style="padding:8px 12px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:2px solid var(--border)">${h}</th>`).join('')}
+        <thead><tr style="background:#f8fafc">
+          ${['Rank','Agent','Leads','HOT','Converted','Win%','Avg Score'].map(h=>`<th style="padding:10px 12px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:2px solid #e2e8f0">${h}</th>`).join('')}
         </tr></thead>
         <tbody>${agents.map(a => {
-          const winColor = a.conversionRate >= 20 ? 'var(--green)' : a.conversionRate >= 10 ? 'var(--amber)' : 'var(--red)';
+          const winColor = a.conversionRate >= 20 ? '#62B58F' : a.conversionRate >= 10 ? '#F5A623' : '#E8605A';
           const medal = medals[a.rank-1] || `#${a.rank}`;
-          return `<tr style="border-bottom:1px solid var(--border)">
-            <td style="padding:10px 12px;font-size:13px">${medal}</td>
-            <td style="padding:10px 12px;font-weight:600;font-size:13px">${a.name}</td>
-            <td style="padding:10px 12px;font-size:13px">${a.totalLeads}</td>
-            <td style="padding:10px 12px;font-size:13px;color:var(--red)">${a.hotLeads}</td>
-            <td style="padding:10px 12px;font-size:13px;color:var(--green)">${a.converted}</td>
-            <td style="padding:10px 12px">
+          return `<tr>
+            <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:13px">${medal}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-weight:600;font-size:13px;color:#1e293b">${a.name}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:13px">${a.totalLeads}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#E8605A">${a.hotLeads}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#62B58F">${a.converted}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9">
               <div style="display:flex;align-items:center;gap:8px">
-                <div style="flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;min-width:60px">
-                  <div style="height:100%;width:${Math.min(a.conversionRate,100)}%;background:${winColor};border-radius:3px"></div>
+                <div style="flex:1;height:5px;background:#f1f5f9;overflow:hidden;min-width:60px">
+                  <div style="height:100%;width:${Math.min(a.conversionRate,100)}%;background:${winColor}"></div>
                 </div>
                 <span style="font-size:12px;font-weight:700;color:${winColor};min-width:32px">${a.conversionRate}%</span>
               </div>
             </td>
-            <td style="padding:10px 12px;font-size:13px;color:var(--purple)">${a.avgScore}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#9B7FD4">${a.avgScore}</td>
           </tr>`;
         }).join('')}</tbody>
       </table>`;
     } catch(e) {
-      el.innerHTML = '<div style="padding:16px;color:var(--text3)">Failed to load agent data</div>';
+      el.innerHTML = '<div style="padding:16px;color:#94a3b8">Failed to load agent data</div>';
     }
   })();
 })();

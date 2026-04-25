@@ -1,31 +1,31 @@
 <style>
   .pg-hdr{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
-  .pg-title{font-size:22px;font-weight:800;color:var(--text1,#111827);flex:1}
+  .pg-title{font-size:18px;font-weight:700;color:#1e293b;flex:1}
   .filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .dr-btn{padding:6px 14px;border-radius:20px;border:1.5px solid #E5E7EB;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:#6B7280;transition:all .15s}
-  .dr-btn.active{background:#111827;color:#fff;border-color:#111827}
-  .status-filter{padding:6px 12px;border-radius:8px;border:1.5px solid #E5E7EB;background:#fff;font-size:12px;cursor:pointer;color:#374151}
-  .export-btn{padding:7px 16px;background:#3B82F6;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+  .dr-btn{padding:6px 14px;border:1px solid #e2e8f0;background:#f1f5f9;font-size:12px;font-weight:500;cursor:pointer;color:#64748b;transition:all .15s}
+  .dr-btn.active{background:#4F86C6;color:#fff;border-color:#4F86C6}
+  .status-filter{padding:6px 12px;border:1px solid #e2e8f0;background:#fff;font-size:12px;cursor:pointer;color:#1e293b}
+  .export-btn{padding:7px 16px;background:#4F86C6;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer}
   .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-  .kpi-card{background:#fff;border-radius:12px;padding:16px 20px;border:1px solid #E5E7EB;box-shadow:0 1px 4px rgba(0,0,0,.04)}
-  .kpi-val{font-size:28px;font-weight:800;color:#111827}
-  .kpi-lbl{font-size:12px;color:#6B7280;margin-top:4px;font-weight:500}
-  .kpi-card.blue .kpi-val{color:#3B82F6}
-  .kpi-card.green .kpi-val{color:#10B981}
-  .kpi-card.purple .kpi-val{color:#7C3AED}
+  .kpi-card{background:#fff;padding:16px 20px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .kpi-val{font-size:24px;font-weight:700;color:#1e293b}
+  .kpi-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-top:4px}
+  .kpi-card.blue .kpi-val{color:#4F86C6}
+  .kpi-card.green .kpi-val{color:#62B58F}
+  .kpi-card.purple .kpi-val{color:#9B7FD4}
   .view-toggle{display:flex;gap:6px;margin-bottom:14px}
-  .vt-btn{padding:6px 14px;border-radius:8px;border:1.5px solid #E5E7EB;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:#6B7280}
-  .vt-btn.active{background:#111827;color:#fff;border-color:#111827}
-  .tbl-wrap{background:#fff;border-radius:12px;border:1px solid #E5E7EB;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+  .vt-btn{padding:6px 14px;border:1px solid #e2e8f0;background:#fff;font-size:12px;font-weight:500;cursor:pointer;color:#64748b}
+  .vt-btn.active{background:#4F86C6;color:#fff;border-color:#4F86C6}
+  .tbl-wrap{background:#fff;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)}
   .tbl-wrap table{width:100%;border-collapse:collapse}
-  .tbl-wrap thead th{padding:11px 14px;text-align:left;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;background:#F9FAFB;border-bottom:1px solid #E5E7EB;white-space:nowrap}
+  .tbl-wrap thead th{padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;background:#f8fafc;border-bottom:2px solid #e2e8f0;white-space:nowrap}
   .tbl-wrap tbody tr{transition:background .1s}
-  .tbl-wrap tbody tr:hover{background:#F9FAFB}
-  .tbl-wrap td{padding:12px 14px;border-bottom:1px solid #F3F4F6;font-size:13px;color:#374151;vertical-align:middle}
+  .tbl-wrap tbody tr:hover td{background:#f8fafc}
+  .tbl-wrap td{padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#1e293b;vertical-align:middle}
   .appt-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#7C3AED);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
   .lead-cell{display:flex;align-items:center;gap:10px}
-  .lead-name{font-weight:600;color:#111827;font-size:13px}
-  .lead-wa{font-size:11px;color:#9CA3AF}
+  .lead-name{font-weight:600;color:#1e293b;font-size:13px}
+  .lead-wa{font-size:11px;color:#94a3b8}
   .date-badge{font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px}
   .date-today{background:#D1FAE5;color:#065F46}
   .date-future{background:#DBEAFE;color:#1E40AF}

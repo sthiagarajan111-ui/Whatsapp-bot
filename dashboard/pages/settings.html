@@ -1,225 +1,398 @@
 <style>
-.btn-primary { background: var(--blue, #3D7FFA); color: #fff; border: none; border-radius: 7px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; }
-.btn-primary:hover { background: var(--blue2, #2563EB); }
-.btn-secondary { background: var(--white, #fff); color: var(--text2, #5A6A8A); border: 1px solid var(--border2, #CDD5E5); border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 500; cursor: pointer; }
-.btn-danger { background: var(--red-l, #FEF2F2); color: var(--red, #EF4444); border: 1px solid var(--red, #EF4444); border-radius: 7px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
-.btn-sm { padding: 4px 10px; font-size: 11px; }
-.settings-layout { display: grid; grid-template-columns: 200px 1fr; gap: 24px; }
-.settings-nav { background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 12px; align-self: start; position: sticky; top: 20px; }
-.settings-nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .12s; }
-.settings-nav-item:hover { background: var(--bg); }
-.settings-nav-item.active { background: var(--blue-l); color: var(--blue); }
+/* ── Settings layout ── */
+.stg-wrap { display: flex; height: 100%; min-height: calc(100vh - 60px); background: #f8fafc; }
+
+/* Left nav */
+.stg-nav { width: 200px; flex-shrink: 0; background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 16px 0; position: sticky; top: 0; align-self: flex-start; min-height: 100%; }
+.stg-nav-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; padding: 0 20px; margin-bottom: 8px; }
+.settings-nav-item { display: flex; align-items: center; gap: 8px; padding: 10px 20px; font-size: 13px; font-weight: 500; color: #64748b; cursor: pointer; border-left: 3px solid transparent; transition: all .12s; }
+.settings-nav-item:hover { background: #eff6ff; color: #4F86C6; }
+.settings-nav-item.active { color: #4F86C6; border-left-color: #4F86C6; background: #eff6ff; }
+
+/* Right content panel */
+.stg-content { flex: 1; padding: 28px 32px; background: #fff; overflow-y: auto; min-height: 100%; }
+
+/* Section visibility */
 .settings-section { display: none; }
 .settings-section.active { display: block; }
-.section-card { background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 24px; margin-bottom: 20px; }
-.section-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
-.section-desc { font-size: 12px; color: var(--text2); margin-bottom: 20px; }
-.save-bar { display: flex; align-items: center; gap: 10px; padding: 14px 0; border-top: 1px solid var(--border); margin-top: 8px; }
-.tok-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-.tok-ok  { background: var(--green-l); color: var(--green); }
-.tok-err { background: var(--red-l);   color: var(--red); }
-.checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.checkbox-row input[type=checkbox] { width: auto; }
-.list-editor { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.list-editor-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
-.list-editor-item:last-child { border-bottom: none; }
-.list-editor-add { display: flex; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--bg); }
-.flow-vert-btn { padding: 6px 14px; border-radius: 4px; border: 1px solid var(--border); background: var(--white); cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text2); transition: all .15s; }
-.flow-vert-btn:hover { background: var(--bg); }
-.flow-vert-btn.active { background: var(--blue-l); color: var(--blue); border-color: var(--blue); }
-.flow-step-item { border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; margin-bottom: 10px; }
+
+/* Section header divider */
+.stg-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin: 24px 0 16px; }
+.stg-divider:first-child { margin-top: 0; }
+
+/* Page title inside panel */
+.stg-page-title { font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+.stg-page-sub { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+
+/* Form fields */
+.form-group { margin-bottom: 20px; }
+.form-group label, .fg-label {
+  display: block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 6px;
+}
+.form-group input, .form-group select, .form-group textarea,
+.stg-input { width: 100%; max-width: 400px; padding: 8px 12px; font-size: 13px; color: #1e293b;
+  border: 1px solid #e2e8f0; background: #fff; font-family: Inter, sans-serif; outline: none;
+  transition: border-color .15s; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus,
+.stg-input:focus { border-color: #4F86C6; box-shadow: 0 0 0 3px rgba(79,134,198,0.1); }
+.form-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.form-row .form-group { flex: 1; min-width: 160px; }
+.form-row .form-group input, .form-row .form-group select { max-width: 100%; }
+
+/* Hours row */
+.hours-row { display: flex; gap: 16px; }
+.hours-row .form-group { flex: 0 0 160px; }
+.hours-row .form-group input { max-width: 100%; }
+
+/* Save button */
+.stg-save-btn {
+  background: #4F86C6; color: #fff; border: none; padding: 9px 24px;
+  font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 8px;
+  transition: background .15s;
+}
+.stg-save-btn:hover { background: #3b6fa8; }
+.stg-save-bar { padding-top: 16px; border-top: 1px solid #f1f5f9; margin-top: 8px; }
+
+/* Checkbox rows */
+.stg-check-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.stg-check-row input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: #4F86C6; flex-shrink: 0; }
+.stg-check-row label { font-size: 13px; color: #1e293b; cursor: pointer; font-weight: 500; margin: 0; letter-spacing: 0; text-transform: none; font-size: 13px; }
+
+/* Business days */
+.bd-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.bd-day { display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; padding: 5px 10px; border: 1px solid #e2e8f0; background: #f8fafc; color: #64748b; user-select: none; }
+.bd-day input[type=checkbox] { accent-color: #4F86C6; width: 14px; height: 14px; cursor: pointer; }
+
+/* Token indicator */
+.tok-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; font-size: 12px; font-weight: 600; }
+.tok-ok  { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+.tok-err { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+/* Password toggle */
+.pw-wrap { display: flex; align-items: center; max-width: 400px; border: 1px solid #e2e8f0; background: #fff; transition: border-color .15s; }
+.pw-wrap:focus-within { border-color: #4F86C6; box-shadow: 0 0 0 3px rgba(79,134,198,0.1); }
+.pw-wrap input { border: none !important; box-shadow: none !important; flex: 1; max-width: 100%; padding: 8px 12px; font-size: 13px; color: #1e293b; outline: none; background: transparent; }
+.pw-wrap button { border: none; background: none; padding: 0 10px; cursor: pointer; color: #94a3b8; font-size: 14px; flex-shrink: 0; }
+
+/* Inline suffix label */
+.with-suffix { display: flex; align-items: center; gap: 8px; }
+.with-suffix input { max-width: 120px; flex-shrink: 0; }
+.with-suffix span { font-size: 13px; color: #64748b; }
+
+/* Connection status dot */
+.conn-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.conn-dot.green { background: #10b981; }
+.conn-dot.red { background: #ef4444; }
+
+/* Flow step cards */
+.flow-vert-btn { padding: 6px 14px; border: 1px solid #e2e8f0; background: #f8fafc; cursor: pointer; font-size: 12px; font-weight: 500; color: #64748b; transition: all .15s; }
+.flow-vert-btn:hover { background: #eff6ff; color: #4F86C6; }
+.flow-vert-btn.active { background: #eff6ff; color: #4F86C6; border-color: #4F86C6; }
+.flow-step-item { border: 1px solid #e2e8f0; padding: 16px; margin-bottom: 12px; background: #fff; }
 .flow-step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.flow-step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--blue-l); color: var(--blue); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.flow-step-name { font-weight: 600; font-size: 13px; flex: 1; }
-.flow-step-msg { font-size: 13px; color: var(--text2); line-height: 1.5; white-space: pre-wrap; }
+.flow-step-num { width: 24px; height: 24px; background: #4F86C6; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 50% !important; }
+.flow-step-name { font-weight: 600; font-size: 13px; color: #1e293b; flex: 1; }
+.flow-step-msg { font-size: 13px; color: #64748b; line-height: 1.5; white-space: pre-wrap; }
+
+/* Color picker row */
+.color-pair { display: flex; align-items: center; gap: 8px; max-width: 400px; }
+.color-pair input[type=color] { width: 40px; height: 34px; padding: 2px; cursor: pointer; border: 1px solid #e2e8f0; background: #fff; flex-shrink: 0; }
+.color-pair input[type=text] { max-width: 100px; flex-shrink: 0; }
+
+/* Brand preview box */
+.brand-preview { margin-top: 16px; padding: 20px 24px; border: 1px solid #e2e8f0; background: #f8fafc; max-width: 320px; }
+.brand-preview-name { font-size: 16px; font-weight: 700; }
+
+/* Listings section-card compat */
+.section-card { background: #fff; border: 1px solid #e2e8f0; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+.section-title { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+.section-desc { font-size: 12px; color: #64748b; margin-bottom: 16px; }
+.save-bar { display: flex; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid #f1f5f9; margin-top: 8px; }
+.btn-primary { background: #4F86C6; color: #fff; border: none; padding: 8px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; }
+.btn-primary:hover { background: #3b6fa8; }
+.btn-secondary { background: #fff; color: #64748b; border: 1px solid #e2e8f0; padding: 7px 14px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.btn-danger { background: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
 </style>
 
-<div style="padding: 20px 24px;">
-  <div class="page-header">
-    <div><div class="page-title">Settings</div><div class="page-subtitle">Configure your bot and dashboard from here</div></div>
+<div class="stg-wrap">
+  <!-- Left nav -->
+  <div class="stg-nav">
+    <div class="stg-nav-title">Settings</div>
+    <div class="settings-nav-item active" onclick="showTab('bot')" data-tab="bot">🤖 Bot Config</div>
+    <div class="settings-nav-item" onclick="showTab('whatsapp')" data-tab="whatsapp">📱 WhatsApp</div>
+    <div class="settings-nav-item" onclick="showTab('flow')" data-tab="flow">⚡ Flow</div>
+    <div class="settings-nav-item" onclick="showTab('notifications')" data-tab="notifications">🔔 Notifications</div>
+    <div class="settings-nav-item" onclick="showTab('listings')" data-tab="listings">🏠 Listings</div>
+    <div class="settings-nav-item" onclick="showTab('agents')" data-tab="agents">👥 Agents</div>
+    <div class="settings-nav-item" onclick="showTab('branding')" data-tab="branding">🎨 Branding</div>
   </div>
 
-  <div class="settings-layout">
-    <div class="settings-nav">
-      <div class="settings-nav-item active" onclick="showTab('bot')" data-tab="bot">🤖 Bot Config</div>
-      <div class="settings-nav-item" onclick="showTab('whatsapp')" data-tab="whatsapp">📱 WhatsApp</div>
-      <div class="settings-nav-item" onclick="showTab('flow')" data-tab="flow">⚡ Flow</div>
-      <div class="settings-nav-item" onclick="showTab('notifications')" data-tab="notifications">🔔 Notifications</div>
-      <div class="settings-nav-item" onclick="showTab('listings')" data-tab="listings">🏠 Listings</div>
-      <div class="settings-nav-item" onclick="showTab('agents')" data-tab="agents">👥 Agents</div>
-      <div class="settings-nav-item" onclick="showTab('branding')" data-tab="branding">🎨 Branding</div>
-    </div>
+  <!-- Right content -->
+  <div class="stg-content">
 
-    <div>
-      <!-- Bot Config -->
-      <div class="settings-section active" id="tab-bot">
-        <div class="section-card">
-          <div class="section-title">Bot Configuration</div>
-          <div class="section-desc">Core settings for how the bot behaves</div>
-          <div class="form-row">
-            <div class="form-group"><label>Client Name</label><input id="s-client-name" placeholder="My Real Estate Agency"></div>
-            <div class="form-group"><label>Active Flow</label>
-              <select id="s-active-flow">
-                <option value="realEstate">Real Estate</option>
-                <option value="restaurant">Restaurant</option>
-                <option value="clinic">Clinic</option>
-                <option value="retail">Retail</option>
-                <option value="salon">Salon</option>
-                <option value="carDealer">Car Dealer</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label>Business Hours Start</label><input id="s-hours-start" type="time"></div>
-            <div class="form-group"><label>Business Hours End</label><input id="s-hours-end" type="time"></div>
-          </div>
-          <div style="margin-bottom:14px">
-            <label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Business Days</label>
-            <div style="display:flex;flex-wrap:wrap;gap:10px">
-              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="1" id="bd-mon" style="cursor:pointer"> Mon</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="2" id="bd-tue" style="cursor:pointer"> Tue</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="3" id="bd-wed" style="cursor:pointer"> Wed</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="4" id="bd-thu" style="cursor:pointer"> Thu</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="5" id="bd-fri" style="cursor:pointer"> Fri</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="6" id="bd-sat" style="cursor:pointer"> Sat</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:var(--text)"><input type="checkbox" class="bd-check" value="0" id="bd-sun" style="cursor:pointer"> Sun</label>
-            </div>
-          </div>
-          <div class="form-group"><label>Follow-up Delay (hours)</label><input id="s-followup" type="number" min="1" max="48" placeholder="2"></div>
-          <div class="form-group"><label>Out-of-Hours Message</label><textarea id="s-ooh" rows="3" placeholder="We'll be back during business hours..."></textarea></div>
-          <div class="save-bar">
-            <button class="btn btn-primary" onclick="saveBotConfig()">Save Changes</button>
-          </div>
+    <!-- ── Bot Config ── -->
+    <div class="settings-section active" id="tab-bot">
+      <div class="stg-page-title">Bot Configuration</div>
+      <div class="stg-page-sub">Core settings for how your bot behaves</div>
+
+      <div class="stg-divider">IDENTITY</div>
+      <div class="form-group">
+        <label>Client Name</label>
+        <input id="s-client-name" placeholder="My Real Estate Agency">
+      </div>
+      <div class="form-group">
+        <label>Active Flow</label>
+        <select id="s-active-flow">
+          <option value="realEstate">Real Estate</option>
+          <option value="restaurant">Restaurant</option>
+          <option value="clinic">Clinic</option>
+          <option value="retail">Retail</option>
+          <option value="salon">Salon</option>
+          <option value="carDealer">Car Dealer</option>
+        </select>
+      </div>
+
+      <div class="stg-divider">BUSINESS HOURS</div>
+      <div class="hours-row">
+        <div class="form-group">
+          <label>Start Time</label>
+          <input id="s-hours-start" type="time">
+        </div>
+        <div class="form-group">
+          <label>End Time</label>
+          <input id="s-hours-end" type="time">
         </div>
       </div>
 
-      <!-- WhatsApp -->
-      <div class="settings-section" id="tab-whatsapp">
-        <div class="section-card">
-          <div class="section-title">WhatsApp Connection</div>
-          <div class="section-desc">Manage your WhatsApp Business API connection</div>
-          <div class="form-group">
-            <label>Token Status</label>
-            <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
-              <span id="tokStatus" class="tok-indicator">Checking...</span>
-              <button class="btn btn-secondary btn-sm" onclick="checkToken()">🔍 Test Connection</button>
-            </div>
-          </div>
-          <div class="form-group"><label>Phone Number ID</label><input id="s-phone-id" placeholder="Your Phone Number ID" type="password"></div>
-          <div class="form-group"><label>Owner WhatsApp Number</label><input id="s-owner-wa" placeholder="971501234567"></div>
-          <div class="save-bar"><button class="btn btn-primary" onclick="saveWAConfig()">Save</button></div>
-        </div>
+      <div class="stg-divider">BUSINESS DAYS</div>
+      <div class="bd-row" style="margin-bottom:20px">
+        <label class="bd-day"><input type="checkbox" class="bd-check" value="1" id="bd-mon"> Mon</label>
+        <label class="bd-day"><input type="checkbox" class="bd-check" value="2" id="bd-tue"> Tue</label>
+        <label class="bd-day"><input type="checkbox" class="bd-check" value="3" id="bd-wed"> Wed</label>
+        <label class="bd-day"><input type="checkbox" class="bd-check" value="4" id="bd-thu"> Thu</label>
+        <label class="bd-day"><input type="checkbox" class="bd-check" value="5" id="bd-fri"> Fri</label>
+        <label class="bd-day"><input type="checkbox" class="bd-check" value="6" id="bd-sat"> Sat</label>
+        <label class="bd-day"><input type="checkbox" class="bd-check" value="0" id="bd-sun"> Sun</label>
       </div>
 
-      <!-- Flow Customization -->
-      <div class="settings-section" id="tab-flow">
-        <div class="section-card">
-          <div class="section-title">Flow Customization</div>
-          <div class="section-desc">Customize the messages your bot sends at each step of the conversation</div>
-
-          <!-- Vertical selector -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:14px">
-            <button class="flow-vert-btn active" onclick="loadFlowSteps('realEstate', this)">🏠 Real Estate</button>
-            <button class="flow-vert-btn" onclick="loadFlowSteps('restaurant', this)">🍽️ Restaurant</button>
-            <button class="flow-vert-btn" onclick="loadFlowSteps('clinic', this)">🏥 Clinic</button>
-            <button class="flow-vert-btn" onclick="loadFlowSteps('retail', this)">🛍️ Retail</button>
-            <button class="flow-vert-btn" onclick="loadFlowSteps('salon', this)">✂️ Salon</button>
-            <button class="flow-vert-btn" onclick="loadFlowSteps('carDealer', this)">🚗 Car Dealer</button>
-          </div>
-
-          <div id="flowStepsList"><div class="loading"><div class="spinner"></div> Loading steps...</div></div>
+      <div class="stg-divider">BEHAVIOUR</div>
+      <div class="form-group">
+        <label>Follow-up Delay</label>
+        <div class="with-suffix">
+          <input id="s-followup" type="number" min="1" max="48" placeholder="2">
+          <span>hours</span>
         </div>
       </div>
-
-      <!-- Notifications -->
-      <div class="settings-section" id="tab-notifications">
-        <div class="section-card">
-          <div class="section-title">Notifications</div>
-          <div class="section-desc">Control where and how you receive lead alerts</div>
-          <div class="checkbox-row"><input type="checkbox" id="s-email-notif"> <label for="s-email-notif" style="margin:0">Email notifications on new lead</label></div>
-          <div class="form-group"><label>Notification Email</label><input id="s-email" type="email" placeholder="agent@agency.com"></div>
-          <div class="checkbox-row"><input type="checkbox" id="s-wa-notif"> <label for="s-wa-notif" style="margin:0">WhatsApp notification on new lead</label></div>
-          <div class="checkbox-row"><input type="checkbox" id="s-daily-report"> <label for="s-daily-report" style="margin:0">Daily summary report</label></div>
-          <div class="form-group"><label>Report Time</label><input id="s-report-time" type="time" placeholder="08:00"></div>
-          <div class="save-bar"><button class="btn btn-primary" onclick="saveNotifConfig()">Save</button></div>
-        </div>
+      <div class="form-group">
+        <label>Out-of-Hours Message</label>
+        <textarea id="s-ooh" rows="3" placeholder="We'll be back during business hours..." style="max-width:400px"></textarea>
       </div>
 
-      <!-- Listings -->
-      <div class="settings-section" id="tab-listings">
-        <div class="section-card">
-          <div class="section-title">Property Listings</div>
-          <div class="section-desc">Manage listings the bot can match with leads</div>
-          <div id="listingsTable" style="margin-bottom:16px"><div class="loading"><div class="spinner"></div></div></div>
-          <button class="btn btn-primary" onclick="showAddListing()">+ Add Listing</button>
-        </div>
-        <div class="section-card" id="addListingForm" style="display:none">
-          <div class="section-title" id="listing-form-title">Add / Edit Listing</div>
-          <input type="hidden" id="listing-id">
-          <div class="form-row">
-            <div class="form-group"><label>Title</label><input id="l-title" placeholder="2BR Apartment Downtown"></div>
-            <div class="form-group"><label>Type</label>
-              <select id="l-type"><option value="apartment">Apartment</option><option value="villa">Villa</option><option value="commercial">Commercial</option></select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label>Area</label><input id="l-area" placeholder="jvc, marina, downtown..."></div>
-            <div class="form-group"><label>Price (AED)</label><input id="l-price" type="number" placeholder="750000"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label>Beds</label><input id="l-beds" type="number" placeholder="2"></div>
-            <div class="form-group"><label>Baths</label><input id="l-baths" type="number" placeholder="2"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label>Size (sqft)</label><input id="l-size" type="number" placeholder="1200"></div>
-            <div class="form-group"><label>Listing URL</label><input id="l-url" placeholder="https://..."></div>
-          </div>
-          <div class="form-group"><label>Description</label><textarea id="l-desc" rows="2"></textarea></div>
-          <div class="save-bar">
-            <button class="btn btn-primary" onclick="saveListing()">Save Listing</button>
-            <button class="btn btn-secondary" onclick="document.getElementById('addListingForm').style.display='none'">Cancel</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Agents -->
-      <div class="settings-section" id="tab-agents">
-        <div class="section-card">
-          <div class="section-title">Team Agents</div>
-          <div class="section-desc">Manage agents who handle leads</div>
-          <div id="agentsTable" style="margin-bottom:16px"><div class="loading"><div class="spinner"></div></div></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-            <input id="ag-name" placeholder="Agent Name" style="flex:1;min-width:140px">
-            <input id="ag-wa" placeholder="WhatsApp Number" style="flex:1;min-width:140px">
-            <input id="ag-email" placeholder="Email" style="flex:1;min-width:140px">
-            <select id="ag-role" style="flex:0 0 120px"><option value="agent">Agent</option><option value="admin">Admin</option></select>
-            <button class="btn btn-primary" onclick="addAgent()">Add Agent</button>
-          </div>
-        </div>
-        <div class="section-card" style="margin-top:16px">
-          <div class="section-title">🔗 Referral Links</div>
-          <div class="section-desc">Each agent gets a unique WhatsApp link. Leads who click it are auto-tagged with the agent's name.</div>
-          <div id="referralLinks" style="margin-top:12px"><div class="loading"><div class="spinner"></div></div></div>
-        </div>
-      </div>
-
-      <!-- Branding -->
-      <div class="settings-section" id="tab-branding">
-        <div class="section-card">
-          <div class="section-title">Branding</div>
-          <div class="section-desc">Customize the dashboard appearance</div>
-          <div class="form-group"><label>Dashboard Title</label><input id="s-brand-name" placeholder="LeadPulse CRM"></div>
-          <div class="form-group"><label>Logo URL</label><input id="s-logo-url" placeholder="https://your-logo.png"></div>
-          <div class="form-row">
-            <div class="form-group"><label>Primary Color</label><input id="s-color-primary" type="color" value="#3D7FFA" style="height:40px;padding:4px;cursor:pointer"></div>
-            <div class="form-group"><label>Secondary Color</label><input id="s-color-secondary" type="color" value="#06C8E0" style="height:40px;padding:4px;cursor:pointer"></div>
-          </div>
-          <div class="save-bar"><button class="btn btn-primary" onclick="saveBranding()">Save Branding</button></div>
-        </div>
+      <div class="stg-save-bar">
+        <button class="stg-save-btn" onclick="saveBotConfig()">Save Changes</button>
       </div>
     </div>
-  </div>
-</div>
+
+    <!-- ── WhatsApp ── -->
+    <div class="settings-section" id="tab-whatsapp">
+      <div class="stg-page-title">WhatsApp</div>
+      <div class="stg-page-sub">Connection settings and credentials</div>
+
+      <div class="stg-divider">STATUS</div>
+      <div class="form-group">
+        <label>Connection Status</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+          <span id="tokStatus" class="tok-indicator">Checking...</span>
+          <button class="btn btn-secondary btn-sm" onclick="checkToken()">🔍 Test Connection</button>
+        </div>
+      </div>
+
+      <div class="stg-divider">CONNECTION</div>
+      <div class="form-group">
+        <label>Provider</label>
+        <select style="max-width:400px">
+          <option value="twilio">Twilio WhatsApp Sandbox</option>
+          <option value="meta">Meta Cloud API</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Owner WhatsApp Number</label>
+        <input id="s-owner-wa" placeholder="971501234567">
+      </div>
+
+      <div class="stg-divider">TWILIO CREDENTIALS</div>
+      <div class="form-group">
+        <label>Phone Number ID</label>
+        <div class="pw-wrap">
+          <input id="s-phone-id" placeholder="Your Phone Number ID" type="password">
+          <button type="button" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password';this.textContent=this.previousElementSibling.type==='password'?'👁':'🙈'">👁</button>
+        </div>
+      </div>
+
+      <div class="stg-save-bar">
+        <button class="stg-save-btn" onclick="saveWAConfig()">Save</button>
+      </div>
+    </div>
+
+    <!-- ── Flow ── -->
+    <div class="settings-section" id="tab-flow">
+      <div class="stg-page-title">Flow Customization</div>
+      <div class="stg-page-sub">Edit the messages your bot sends at each step</div>
+
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid #f1f5f9">
+        <button class="flow-vert-btn active" onclick="loadFlowSteps('realEstate', this)">🏠 Real Estate</button>
+        <button class="flow-vert-btn" onclick="loadFlowSteps('restaurant', this)">🍽️ Restaurant</button>
+        <button class="flow-vert-btn" onclick="loadFlowSteps('clinic', this)">🏥 Clinic</button>
+        <button class="flow-vert-btn" onclick="loadFlowSteps('retail', this)">🛍️ Retail</button>
+        <button class="flow-vert-btn" onclick="loadFlowSteps('salon', this)">✂️ Salon</button>
+        <button class="flow-vert-btn" onclick="loadFlowSteps('carDealer', this)">🚗 Car Dealer</button>
+      </div>
+      <div id="flowStepsList"><div class="loading"><div class="spinner"></div> Loading steps...</div></div>
+    </div>
+
+    <!-- ── Notifications ── -->
+    <div class="settings-section" id="tab-notifications">
+      <div class="stg-page-title">Notifications</div>
+      <div class="stg-page-sub">Control how and when you receive alerts</div>
+
+      <div class="stg-divider">EMAIL ALERTS</div>
+      <div class="form-group">
+        <label>Notification Email</label>
+        <input id="s-email" type="email" placeholder="agent@agency.com">
+      </div>
+      <div class="stg-check-row">
+        <input type="checkbox" id="s-email-notif">
+        <label for="s-email-notif">New HOT Lead notification</label>
+      </div>
+      <div class="stg-check-row">
+        <input type="checkbox" id="s-wa-notif">
+        <label for="s-wa-notif">New Appointment booked</label>
+      </div>
+      <div class="stg-check-row">
+        <input type="checkbox" id="s-daily-report">
+        <label for="s-daily-report">Daily summary report</label>
+      </div>
+
+      <div class="stg-divider">TIMING</div>
+      <div class="form-group">
+        <label>Report Send Time</label>
+        <div class="with-suffix">
+          <input id="s-report-time" type="time" placeholder="08:00" style="max-width:120px">
+        </div>
+      </div>
+
+      <div class="stg-save-bar">
+        <button class="stg-save-btn" onclick="saveNotifConfig()">Save</button>
+      </div>
+    </div>
+
+    <!-- ── Listings ── -->
+    <div class="settings-section" id="tab-listings">
+      <div class="stg-page-title">Property Listings</div>
+      <div class="stg-page-sub">Manage listings the bot can match with leads</div>
+
+      <div id="listingsTable" style="margin-bottom:16px"><div class="loading"><div class="spinner"></div></div></div>
+      <button class="stg-save-btn" onclick="showAddListing()">+ Add Listing</button>
+
+      <div id="addListingForm" style="display:none;margin-top:20px;border:1px solid #e2e8f0;padding:20px">
+        <div class="section-title" id="listing-form-title">Add / Edit Listing</div>
+        <input type="hidden" id="listing-id">
+        <div class="form-row">
+          <div class="form-group"><label>Title</label><input id="l-title" placeholder="2BR Apartment Downtown"></div>
+          <div class="form-group"><label>Type</label>
+            <select id="l-type"><option value="apartment">Apartment</option><option value="villa">Villa</option><option value="commercial">Commercial</option></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Area</label><input id="l-area" placeholder="jvc, marina, downtown..."></div>
+          <div class="form-group"><label>Price (AED)</label><input id="l-price" type="number" placeholder="750000"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Beds</label><input id="l-beds" type="number" placeholder="2"></div>
+          <div class="form-group"><label>Baths</label><input id="l-baths" type="number" placeholder="2"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Size (sqft)</label><input id="l-size" type="number" placeholder="1200"></div>
+          <div class="form-group"><label>Listing URL</label><input id="l-url" placeholder="https://..."></div>
+        </div>
+        <div class="form-group"><label>Description</label><textarea id="l-desc" rows="2" style="max-width:100%"></textarea></div>
+        <div class="stg-save-bar">
+          <button class="stg-save-btn" onclick="saveListing()">Save Listing</button>
+          <button class="btn-secondary" onclick="document.getElementById('addListingForm').style.display='none'">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Agents ── -->
+    <div class="settings-section" id="tab-agents">
+      <div class="stg-page-title">Team Agents</div>
+      <div class="stg-page-sub">Manage agents who handle leads</div>
+
+      <div id="agentsTable" style="margin-bottom:16px"><div class="loading"><div class="spinner"></div></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:16px;border-top:1px solid #f1f5f9">
+        <input id="ag-name" placeholder="Agent Name" style="flex:1;min-width:140px;max-width:none">
+        <input id="ag-wa" placeholder="WhatsApp Number" style="flex:1;min-width:140px;max-width:none">
+        <input id="ag-email" placeholder="Email" style="flex:1;min-width:140px;max-width:none">
+        <select id="ag-role" style="flex:0 0 120px;max-width:none"><option value="agent">Agent</option><option value="admin">Admin</option></select>
+        <button class="stg-save-btn" onclick="addAgent()">Add Agent</button>
+      </div>
+
+      <div style="margin-top:28px">
+        <div class="stg-divider" style="margin-top:0">REFERRAL LINKS</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:12px">Each agent gets a unique WhatsApp link. Leads who click it are auto-tagged with the agent's name.</div>
+        <div id="referralLinks"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ── Branding ── -->
+    <div class="settings-section" id="tab-branding">
+      <div class="stg-page-title">Branding</div>
+      <div class="stg-page-sub">Customize how the dashboard looks</div>
+
+      <div class="stg-divider">IDENTITY</div>
+      <div class="form-group">
+        <label>Dashboard Title</label>
+        <input id="s-brand-name" placeholder="LeadPulse CRM">
+      </div>
+      <div class="form-group">
+        <label>Logo URL</label>
+        <input id="s-logo-url" placeholder="https://your-logo.png" oninput="document.getElementById('logo-preview').src=this.value">
+      </div>
+      <div style="margin-bottom:16px">
+        <img id="logo-preview" src="" alt="Logo preview" style="max-height:48px;max-width:160px;object-fit:contain;border:1px solid #e2e8f0;padding:4px;background:#f8fafc;display:block" onerror="this.style.display='none'" onload="this.style.display='block'">
+      </div>
+
+      <div class="stg-divider">COLOURS</div>
+      <div class="form-group">
+        <label>Primary Color</label>
+        <div class="color-pair">
+          <input id="s-color-primary" type="color" value="#4F86C6" oninput="document.getElementById('s-color-primary-hex').value=this.value;updateBrandPreview()">
+          <input id="s-color-primary-hex" type="text" class="stg-input" value="#4F86C6" style="max-width:100px" oninput="if(/^#[0-9A-Fa-f]{6}$/.test(this.value)){document.getElementById('s-color-primary').value=this.value;updateBrandPreview()}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Secondary Color</label>
+        <div class="color-pair">
+          <input id="s-color-secondary" type="color" value="#06C8E0" oninput="document.getElementById('s-color-secondary-hex').value=this.value">
+          <input id="s-color-secondary-hex" type="text" class="stg-input" value="#06C8E0" style="max-width:100px" oninput="if(/^#[0-9A-Fa-f]{6}$/.test(this.value))document.getElementById('s-color-secondary').value=this.value">
+        </div>
+      </div>
+
+      <div class="stg-divider">PREVIEW</div>
+      <div class="brand-preview" id="brandPreviewBox">
+        <div class="brand-preview-name" id="brandPreviewName" style="color:#4F86C6">LeadPulse CRM</div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px">Dashboard preview</div>
+      </div>
+
+      <div class="stg-save-bar">
+        <button class="stg-save-btn" onclick="saveBranding()">Save Branding</button>
+      </div>
+    </div>
+
+  </div><!-- .stg-content -->
+</div><!-- .stg-wrap -->
 
 <script>
 (async function() {
@@ -228,6 +401,21 @@
   let listings = [];
   let agents = [];
 
+  window.updateBrandPreview = function() {
+    const name = document.getElementById('s-brand-name')?.value || 'LeadPulse CRM';
+    const color = document.getElementById('s-color-primary')?.value || '#4F86C6';
+    const nameEl = document.getElementById('brandPreviewName');
+    if (nameEl) { nameEl.textContent = name; nameEl.style.color = color; }
+  };
+
+  // Sync hex inputs on load
+  function syncColorHex() {
+    const p = document.getElementById('s-color-primary');
+    const s = document.getElementById('s-color-secondary');
+    if (p) { const h = document.getElementById('s-color-primary-hex'); if(h) h.value = p.value; }
+    if (s) { const h = document.getElementById('s-color-secondary-hex'); if(h) h.value = s.value; }
+  }
+
   async function loadSettings() {
     try {
       settings = await shared.apiFetch('/api/settings');
@@ -235,10 +423,10 @@
       settings = {};
       console.error('[Settings] Failed to load settings:', e.message);
       const warningEl = document.createElement('div');
-      warningEl.style.cssText = 'background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:10px 14px;border-radius:7px;font-size:13px;margin-bottom:16px';
-      warningEl.textContent = '⚠️ Could not load saved settings. Showing defaults — changes will be saved correctly.';
-      const settingsContainer = document.querySelector('.settings-content') || document.querySelector('.settings-layout') || document.body;
-      settingsContainer.prepend(warningEl);
+      warningEl.style.cssText = 'background:#fffbeb;border:1px solid #fcd34d;color:#92400e;padding:10px 14px;font-size:13px;margin-bottom:16px';
+      warningEl.textContent = '⚠️ Could not load saved settings. Showing defaults.';
+      const cont = document.querySelector('.stg-content') || document.body;
+      cont.prepend(warningEl);
     }
     populateSettings();
   }
@@ -257,14 +445,19 @@
     setVal('s-report-time', s.report_time || '08:00');
     setVal('s-brand-name', s.brand_name || '');
     setVal('s-logo-url', s.brand_logo || '');
-    setVal('s-color-primary', s.brand_color_primary || '#3D7FFA');
+    setVal('s-color-primary', s.brand_color_primary || '#4F86C6');
     setVal('s-color-secondary', s.brand_color_secondary || '#06C8E0');
     setCheck('s-email-notif', s.email_notifications === 'true');
     setCheck('s-wa-notif', s.wa_notifications === 'true');
     setCheck('s-daily-report', s.daily_report === 'true');
-    // Business days
     const days = (s.business_days || '1,2,3,4,5,6').split(',').map(Number);
     document.querySelectorAll('.bd-check').forEach(c => c.checked = days.includes(Number(c.value)));
+    syncColorHex();
+    // logo preview
+    const logoUrl = s.brand_logo || '';
+    const logoEl = document.getElementById('logo-preview');
+    if (logoEl && logoUrl) { logoEl.src = logoUrl; logoEl.style.display = 'block'; }
+    updateBrandPreview();
   }
 
   function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
@@ -295,29 +488,26 @@
     if (!el) return;
     el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
     try {
-      const hdrs = {};
-      const cid = window.__clientId || clientId || '';
-      if (cid) hdrs['x-client-id'] = cid;
       const steps = await shared.apiFetch('/api/flow/' + vertical);
       el.innerHTML = steps.map(s => `
         <div class="flow-step-item" id="flow-step-${s.stepId}">
           <div class="flow-step-header">
             <div class="flow-step-num">${s.order}</div>
             <div class="flow-step-name">${s.stepName}</div>
-            <button class="btn btn-secondary btn-sm flow-edit-btn" onclick="editFlowStep('${vertical}','${s.stepId}')">Edit</button>
+            <button class="btn-secondary btn-sm flow-edit-btn" style="font-size:12px;padding:4px 12px" onclick="editFlowStep('${vertical}','${s.stepId}')">Edit</button>
           </div>
           <div class="flow-step-msg" id="flow-msg-${s.stepId}">${s.message.replace(/</g,'&lt;')}</div>
           <div id="flow-edit-${s.stepId}" style="display:none;margin-top:10px">
-            <textarea rows="3" id="flow-ta-${s.stepId}" style="margin-bottom:8px">${s.message.replace(/</g,'&lt;')}</textarea>
+            <textarea rows="3" id="flow-ta-${s.stepId}" style="margin-bottom:8px;max-width:100%">${s.message.replace(/</g,'&lt;')}</textarea>
             <div style="display:flex;gap:8px">
-              <button class="btn btn-primary btn-sm" onclick="saveFlowStep('${vertical}','${s.stepId}')">Save</button>
-              <button class="btn btn-secondary btn-sm" onclick="cancelFlowEdit('${s.stepId}')">Cancel</button>
+              <button class="stg-save-btn" style="padding:6px 16px;font-size:12px" onclick="saveFlowStep('${vertical}','${s.stepId}')">Save</button>
+              <button class="btn-secondary btn-sm" onclick="cancelFlowEdit('${s.stepId}')">Cancel</button>
             </div>
           </div>
         </div>
       `).join('');
     } catch(e) {
-      el.innerHTML = '<div class="empty-state"><p>Failed to load flow steps</p></div>';
+      el.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8">Failed to load flow steps</div>';
     }
   };
 
@@ -349,11 +539,10 @@
     } catch(e) { shared.showToast('Save failed', 'error'); }
   };
 
-  // ── Unified save: collects ALL fields from all tabs, POSTs to /api/settings/save ──
+  // ── Unified save ──
   window.saveSettings = async function() {
     const days = [...document.querySelectorAll('.bd-check:checked')].map(c => c.value).join(',');
     const obj = {
-      // Bot Config
       client_name:    getVal('s-client-name'),
       active_flow:    getVal('s-active-flow'),
       hours_start:    getVal('s-hours-start'),
@@ -361,19 +550,15 @@
       business_days:  days,
       followup_delay: getVal('s-followup'),
       ooh_message:    getVal('s-ooh'),
-      // WhatsApp
       owner_whatsapp:    getVal('s-owner-wa'),
       whatsapp_phone_id: getVal('s-phone-id'),
-      // Flow
       completion_message: getVal('s-complete-msg'),
       knowledge_base:     getVal('s-knowledge'),
-      // Notifications
       email_notifications: String(getCheck('s-email-notif')),
       notification_email:  getVal('s-email'),
       wa_notifications:    String(getCheck('s-wa-notif')),
       daily_report:        String(getCheck('s-daily-report')),
       report_time:         getVal('s-report-time'),
-      // Branding
       brand_name:            getVal('s-brand-name'),
       brand_logo:            getVal('s-logo-url'),
       brand_color_primary:   getVal('s-color-primary'),
@@ -386,19 +571,18 @@
       await shared.apiFetch('/api/settings/save', { method: 'POST', headers: hdrs, body: JSON.stringify(obj) });
       settings = { ...settings, ...obj };
       shared.showToast('Settings saved');
-      // Apply branding live
       if (obj.brand_color_primary) document.documentElement.style.setProperty('--blue', obj.brand_color_primary);
       const newName = obj.brand_name || obj.client_name;
       if (newName && window.parent && window.parent !== window) {
         window.parent.postMessage({ type: 'settingsUpdated', brandName: newName }, '*');
         window.parent.postMessage({ type: 'brandUpdate',     brandName: newName }, '*');
       }
+      updateBrandPreview();
     } catch(e) {
       shared.showToast('Save failed: ' + e.message, 'error');
     }
   };
 
-  // Keep per-section aliases for backward compatibility
   window.saveBotConfig    = window.saveSettings;
   window.saveWAConfig     = window.saveSettings;
   window.saveFlowConfig   = window.saveSettings;
@@ -411,7 +595,7 @@
     try {
       const r = await shared.apiFetch('/api/token-check');
       el.className = 'tok-indicator ' + (r.valid ? 'tok-ok' : 'tok-err');
-      el.textContent = r.valid ? '✅ Valid' : '❌ ' + (r.error||'Invalid');
+      el.textContent = r.valid ? '✅ Connected' : '❌ ' + (r.error||'Invalid');
     } catch(e) { el.className = 'tok-indicator tok-err'; el.textContent = '❌ Error'; }
   };
 
@@ -422,15 +606,15 @@
 
   function renderListings() {
     const el = document.getElementById('listingsTable');
-    if (!listings.length) { el.innerHTML = '<div class="empty-state"><p>No listings yet</p></div>'; return; }
+    if (!listings.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">No listings yet</div>'; return; }
     el.innerHTML = `<table><thead><tr><th>Title</th><th>Type</th><th>Area</th><th>Price</th><th>Beds</th><th>Status</th><th></th></tr></thead>
       <tbody>${listings.map(l=>`<tr>
         <td>${l.title||'—'}</td><td>${l.type||'—'}</td><td>${l.area||'—'}</td>
         <td>AED ${(l.price||0).toLocaleString()}</td><td>${l.beds||'—'}</td>
         <td><span class="badge ${l.status==='available'?'badge-green':'badge-gray'}">${l.status}</span></td>
-        <td>
-          <button class="btn btn-secondary btn-sm" onclick="editListing(${l.id})">Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="delListing(${l.id})">Del</button>
+        <td style="white-space:nowrap">
+          <button class="btn-secondary btn-sm" onclick="editListing(${l.id})">Edit</button>
+          <button class="btn-danger btn-sm" onclick="delListing(${l.id})">Del</button>
         </td>
       </tr>`).join('')}</tbody></table>`;
   }
@@ -438,7 +622,6 @@
   window.showAddListing = function() {
     setVal('listing-id', '');
     ['l-title','l-area','l-price','l-beds','l-baths','l-size','l-url','l-desc'].forEach(id => setVal(id, ''));
-    // FIX: reset type select too
     const typeEl = document.getElementById('l-type');
     if (typeEl) typeEl.value = 'apartment';
     const titleEl = document.getElementById('listing-form-title');
@@ -458,7 +641,6 @@
     setVal('l-size',  l.size_sqft   || '');
     setVal('l-url',   l.listing_url || '');
     setVal('l-desc',  l.description || '');
-    // FIX: also restore type select
     const typeEl = document.getElementById('l-type');
     if (typeEl) typeEl.value = l.type || 'apartment';
     const titleEl = document.getElementById('listing-form-title');
@@ -500,19 +682,19 @@
     const el = document.getElementById('referralLinks');
     if (!el) return;
     if (!agents.length) {
-      el.innerHTML = '<div style="color:var(--text3);font-size:13px">Add agents above to generate referral links.</div>';
+      el.innerHTML = '<div style="color:#94a3b8;font-size:13px">Add agents above to generate referral links.</div>';
       return;
     }
     const rows = await Promise.all(agents.map(async a => {
       try {
         const d = await shared.apiFetch(`/api/agents/${a.id}/referral-link`);
-        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
-          <img src="${d.qrCodeUrl}" width="60" height="60" style="border-radius:6px;border:1px solid var(--border)" alt="QR">
+        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9">
+          <img src="${d.qrCodeUrl}" width="54" height="54" style="border:1px solid #e2e8f0;padding:2px" alt="QR">
           <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:13px;margin-bottom:4px">${a.name}</div>
-            <div style="font-size:11px;color:var(--text2);word-break:break-all">${d.link}</div>
+            <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:3px">${a.name}</div>
+            <div style="font-size:11px;color:#94a3b8;word-break:break-all">${d.link}</div>
           </div>
-          <button onclick="navigator.clipboard.writeText('${d.link}').then(()=>shared.showToast('Link copied!'))" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:11px;flex-shrink:0">Copy Link</button>
+          <button onclick="navigator.clipboard.writeText('${d.link}').then(()=>shared.showToast('Link copied!'))" style="padding:5px 12px;border:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:11px;font-weight:600;color:#64748b;flex-shrink:0">Copy</button>
         </div>`;
       } catch(_) { return ''; }
     }));
@@ -521,12 +703,12 @@
 
   function renderAgents() {
     const el = document.getElementById('agentsTable');
-    if (!agents.length) { el.innerHTML = '<div class="empty-state"><p>No agents yet</p></div>'; return; }
+    if (!agents.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">No agents yet</div>'; return; }
     el.innerHTML = `<table><thead><tr><th>Name</th><th>WhatsApp</th><th>Email</th><th>Role</th><th></th></tr></thead>
       <tbody>${agents.map(a=>`<tr>
-        <td>${a.name}</td><td>${a.wa_number}</td><td>${a.email||'—'}</td>
+        <td style="font-weight:600;color:#1e293b">${a.name}</td><td>${a.wa_number}</td><td>${a.email||'—'}</td>
         <td><span class="badge ${a.role==='admin'?'badge-purple':'badge-blue'}">${a.role}</span></td>
-        <td><button class="btn btn-danger btn-sm" onclick="removeAgent(${a.id})">Remove</button></td>
+        <td><button class="btn-danger btn-sm" onclick="removeAgent(${a.id})">Remove</button></td>
       </tr>`).join('')}</tbody></table>`;
   }
 
@@ -537,10 +719,7 @@
       await shared.apiFetch('/api/agents', { method:'POST', body: JSON.stringify(body) });
       shared.showToast('Agent added');
       await loadAgents();
-      // FIX: clear form after successful add
-      setVal('ag-name', '');
-      setVal('ag-wa', '');
-      setVal('ag-email', '');
+      setVal('ag-name', ''); setVal('ag-wa', ''); setVal('ag-email', '');
     } catch(e) { shared.showToast('Failed','error'); }
   };
 
