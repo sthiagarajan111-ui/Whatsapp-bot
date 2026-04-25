@@ -14,7 +14,11 @@
       "Bash(\"/c/Users/40745/AppData/Roaming/npm/node_modules/ngrok/bin/ngrok.exe\" http:*)",
       "Bash(powershell.exe:*)",
       "WebFetch(domain:whatsapp-bot-41x7.onrender.com)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(netstat:*)",
+      "Bash(wmic process:*)",
+      "Bash(kill:*)",
+      "Bash(xargs -I{} wmic process where \"processid={}\" delete)"
     ]
   }
 }

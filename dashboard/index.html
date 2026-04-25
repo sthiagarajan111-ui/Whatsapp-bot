@@ -293,12 +293,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .kpi:nth-child(1){animation-delay:.04s}.kpi:nth-child(2){animation-delay:.08s}.kpi:nth-child(3){animation-delay:.12s}.kpi:nth-child(4){animation-delay:.16s}.kpi:nth-child(5){animation-delay:.2s}
 .w{animation:fadeUp .35s ease both;animation-delay:.22s}
 /* ── Edit Dashboard Drag Mode ─── */
-#dashboard-sortable.edit-mode .sort-row{outline:2px dashed rgba(61,127,250,.4);outline-offset:3px;border-radius:8px;position:relative;}
-.sort-handle{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20;cursor:grab;background:var(--white);border:1px solid var(--border2);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:600;color:var(--text2);user-select:none;box-shadow:var(--sh2);align-items:center;gap:5px;line-height:1.4;white-space:nowrap;}
-.sort-handle:active{cursor:grabbing;}
-#dashboard-sortable.edit-mode .sort-handle{display:inline-flex;}
-.sort-row.sortable-ghost{opacity:.3;}
-.sort-row.sortable-drag{outline:2px solid var(--blue)!important;box-shadow:0 10px 36px rgba(61,127,250,.22)!important;border-radius:8px;background:rgba(238,244,255,.5);}
+.card-ghost{opacity:0.4;background:#f0f0ff;}
+.card-chosen{box-shadow:0 0 0 2px #6366f1;}
+.edit-mode > *{cursor:grab;}
 </style>
 </head>
 <body>
@@ -377,7 +374,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
     <!-- ── KPI SCORECARDS ── -->
     <div id="dashboard-sortable">
-    <div class="kpi-row sort-row" id="sort-row-kpi">
+    <div class="sort-row" id="sort-row-kpi">
+      <div class="drag-handle" style="display:none;cursor:grab;padding:4px 8px;background:rgba(99,102,241,0.1);border-radius:4px;font-size:11px;color:#6366f1;width:fit-content;margin-bottom:8px;user-select:none;">⠿ drag</div>
+      <div class="kpi-row">
       <div class="kpi k-blue" id="card-opportunities">
         <div class="kpi-hd"><div class="kpi-lbl">Total Opportunities</div><div class="kpi-ib ib-bl"><svg viewBox="0 0 16 16" fill="var(--blue)"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-5 6a5 5 0 0110 0H3z"/></svg></div></div>
         <div class="kpi-val" id="kTotal">0</div>
@@ -403,10 +402,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         <div class="kpi-val" id="kAvgScore" style="color:var(--purple)">—</div>
         <div class="kpi-sub"><span class="kpi-badge kb-ne">Out of 10</span></div>
       </div>
+      </div>
     </div>
 
     <!-- ── ROW 2: Opportunity Status + Pipeline Revenue Bar + Conversion Rate ── -->
-    <div class="g3 mb16 sort-row" id="sort-row-analytics">
+    <div class="sort-row mb16" id="sort-row-analytics">
+      <div class="drag-handle" style="display:none;cursor:grab;padding:4px 8px;background:rgba(99,102,241,0.1);border-radius:4px;font-size:11px;color:#6366f1;width:fit-content;margin-bottom:8px;user-select:none;">⠿ drag</div>
+      <div class="g3">
       <!-- Opportunity Status Donut (GHL widget 1) -->
       <div class="w" id="card-opp-status">
         <div class="w-hd">
@@ -460,10 +462,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           </div>
         </div>
       </div>
+      </div>
     </div>
 
     <!-- ── ROW 3: Funnel (GHL style) + Stage Distribution ── -->
-    <div class="g2 mb16 sort-row" id="sort-row-funnel">
+    <div class="sort-row mb16" id="sort-row-funnel">
+      <div class="drag-handle" style="display:none;cursor:grab;padding:4px 8px;background:rgba(99,102,241,0.1);border-radius:4px;font-size:11px;color:#6366f1;width:fit-content;margin-bottom:8px;user-select:none;">⠿ drag</div>
+      <div class="g2">
       <!-- Funnel - GHL style with cumulative % and next step conversion % -->
       <div class="w" id="card-funnel">
         <div class="w-hd">
@@ -498,10 +503,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           <div id="sdLegend" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px"></div>
         </div>
       </div>
+      </div>
     </div>
 
     <!-- ── ROW 4: Leads over time + Lead Source Report (GHL style) ── -->
-    <div class="g2 mb16 sort-row" id="sort-row-activity">
+    <div class="sort-row mb16" id="sort-row-activity">
+      <div class="drag-handle" style="display:none;cursor:grab;padding:4px 8px;background:rgba(99,102,241,0.1);border-radius:4px;font-size:11px;color:#6366f1;width:fit-content;margin-bottom:8px;user-select:none;">⠿ drag</div>
+      <div class="g2">
       <!-- Line chart -->
       <div class="w" id="card-leads-time">
         <div class="w-hd">
@@ -537,10 +545,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           <tbody id="lsBody"></tbody>
         </table>
       </div>
+      </div>
     </div>
 
     <!-- ── ROW 5: All Leads table + Tasks + Manual Actions ── -->
-    <div class="g2l mb16 sort-row" id="sort-row-contacts">
+    <div class="sort-row mb16" id="sort-row-contacts">
+      <div class="drag-handle" style="display:none;cursor:grab;padding:4px 8px;background:rgba(99,102,241,0.1);border-radius:4px;font-size:11px;color:#6366f1;width:fit-content;margin-bottom:8px;user-select:none;">⠿ drag</div>
+      <div class="g2l">
       <!-- Full leads table -->
       <div class="w" id="card-contacts">
         <div class="w-hd">
@@ -634,10 +645,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 
       </div>
+      </div>
     </div>
 
     <!-- ROI CALCULATOR - Full Width -->
-    <div class="w mb16 sort-row" id="sort-row-roi">
+    <div class="sort-row mb16" id="sort-row-roi">
+      <div class="drag-handle" style="display:none;cursor:grab;padding:4px 8px;background:rgba(99,102,241,0.1);border-radius:4px;font-size:11px;color:#6366f1;width:fit-content;margin-bottom:8px;user-select:none;">⠿ drag</div>
+      <div class="w">
       <div class="w-hd">
         <div class="w-title"><span class="wtd wd-gr"></span>ROI Calculator — Show Your Clients the Value</div>
         <span class="w-tag wt-gr">Live calculation</span>
@@ -718,6 +732,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           </div>
 
         </div>
+      </div>
       </div>
     </div>
 
@@ -1178,29 +1193,28 @@ async function loadTopAgents() {
 let _sortable = null;
 
 function enterEditMode() {
+  document.querySelectorAll('.drag-handle').forEach(h => h.style.display = 'block');
   const grid = document.getElementById('dashboard-sortable');
   if (!grid) return;
   grid.classList.add('edit-mode');
-  grid.querySelectorAll(':scope > .sort-row').forEach(row => {
-    if (!row.querySelector('.sort-handle')) {
-      const h = document.createElement('span');
-      h.className = 'sort-handle';
-      h.innerHTML = '⠿ Drag to reorder';
-      row.insertBefore(h, row.firstChild);
-    }
-  });
   const btn = document.getElementById('btnEditDashboard');
   btn.innerHTML = '<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2" fill="none"/></svg> Save Layout';
   btn.onclick = saveLayout;
   document.getElementById('btnCancelEdit').style.display = 'inline-flex';
-  _sortable = Sortable.create(grid, { animation: 150, handle: '.sort-handle', ghostClass: 'sortable-ghost', dragClass: 'sortable-drag' });
+  _sortable = Sortable.create(grid, {
+    animation: 150,
+    ghostClass: 'card-ghost',
+    chosenClass: 'card-chosen',
+    dragClass: 'card-drag',
+    handle: '.drag-handle',
+    onEnd: function() {}
+  });
 }
 
 function exitEditMode() {
+  document.querySelectorAll('.drag-handle').forEach(h => h.style.display = 'none');
   const grid = document.getElementById('dashboard-sortable');
-  if (!grid) return;
-  grid.classList.remove('edit-mode');
-  grid.querySelectorAll('.sort-handle').forEach(h => h.remove());
+  if (grid) grid.classList.remove('edit-mode');
   if (_sortable) { _sortable.destroy(); _sortable = null; }
   const btn = document.getElementById('btnEditDashboard');
   btn.innerHTML = '<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M11 2l3 3-8.5 8.5L2 15l1.5-3.5L11 2z"/></svg> Edit Dashboard';
