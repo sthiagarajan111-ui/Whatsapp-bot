@@ -18,7 +18,8 @@
       "Bash(netstat:*)",
       "Bash(wmic process:*)",
       "Bash(kill:*)",
-      "Bash(xargs -I{} wmic process where \"processid={}\" delete)"
+      "Bash(xargs -I{} wmic process where \"processid={}\" delete)",
+      "Bash(ls:*)"
     ]
   }
 }

@@ -1,4 +1,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#64748b';
+Chart.defaults.plugins.legend.position = 'bottom';
+Chart.defaults.plugins.legend.labels.padding = 20;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+</script>
 <style>
 .analytics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
 .analytics-grid .wide { grid-column: span 2; }
@@ -12,7 +20,7 @@
 .date-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--white); cursor: pointer; font-size: 12px; font-weight: 500; transition: all .15s; }
 .date-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
 .heatmap { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; }
-.heatmap-cell { height: 18px; border-radius: 3px; background: var(--border); position: relative; }
+.heatmap-cell { width: 28px; height: 24px; border-radius: 2px; background: var(--border); position: relative; }
 .heatmap-label { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; margin-top: 4px; }
 .heatmap-label span { font-size: 9px; color: var(--text3); text-align: center; }
 </style>
@@ -145,6 +153,26 @@
     `;
   }
 
+  const CHART_COLORS = ['#4F86C6','#62B58F','#F5A623','#E8605A','#9B7FD4','#5BC0DE','#F0AD4E','#5CB85C'];
+
+  function mkBarGrad(canvasId) {
+    const ctx = document.getElementById(canvasId)?.getContext('2d');
+    if (!ctx) return '#4F86C6';
+    const g = ctx.createLinearGradient(0, 0, 0, 300);
+    g.addColorStop(0, 'rgba(79,134,198,0.8)');
+    g.addColorStop(1, 'rgba(79,134,198,0.2)');
+    return g;
+  }
+
+  function mkLineGrad(canvasId) {
+    const ctx = document.getElementById(canvasId)?.getContext('2d');
+    if (!ctx) return 'rgba(79,134,198,0.1)';
+    const g = ctx.createLinearGradient(0, 0, 0, 300);
+    g.addColorStop(0, 'rgba(79,134,198,0.3)');
+    g.addColorStop(1, 'rgba(79,134,198,0.02)');
+    return g;
+  }
+
   function renderCharts(d) {
     const grid = document.getElementById('analyticsGrid');
     grid.innerHTML = `
@@ -160,13 +188,37 @@
         <div class="heatmap-label">${Array.from({length:24},(_,i)=>`<span>${i}h</span>`).join('')}</div>
       </div>
     `;
-    makeChart('cTrend','line', d.trend?.labels||[], [{label:'Leads',data:d.trend?.counts||[],borderColor:'#3D7FFA',backgroundColor:'rgba(61,127,250,.1)',tension:.3,fill:true}]);
-    makeChart('cArea','bar', Object.keys(d.byArea||{}), [{label:'Leads',data:Object.values(d.byArea||{}),backgroundColor:'#3D7FFA'}], {indexAxis:'y'});
-    makeChart('cBudget','doughnut', Object.keys(d.byBudget||{}), [{data:Object.values(d.byBudget||{}),backgroundColor:['#3D7FFA','#06C8E0','#10B981','#F59E0B','#EF4444']}]);
-    makeChart('cInterest','doughnut', Object.keys(d.byInterest||{}), [{data:Object.values(d.byInterest||{}),backgroundColor:['#7C3AED','#10B981','#F59E0B']}]);
-    makeChart('cLang','doughnut', ['Arabic','English'], [{data:[d.arabic||0,d.english||0],backgroundColor:['#7C3AED','#3D7FFA']}]);
-    makeChart('cScore','bar', Object.keys(d.scoreDistribution||{}), [{label:'Leads',data:Object.values(d.scoreDistribution||{}),backgroundColor:'#10B981'}]);
-    makeChart('cSource','doughnut', ['Voice','Text'], [{data:[d.voice||0,d.text||0],backgroundColor:['#06C8E0','#3D7FFA']}]);
+    makeChart('cTrend','line', d.trend?.labels||[], [{
+      label:'Leads', data:d.trend?.counts||[],
+      borderColor:'#4F86C6', backgroundColor:mkLineGrad('cTrend'),
+      tension:.4, fill:true, pointBackgroundColor:'#4F86C6', pointRadius:4
+    }]);
+    makeChart('cArea','bar', Object.keys(d.byArea||{}), [{
+      label:'Leads', data:Object.values(d.byArea||{}),
+      backgroundColor:mkBarGrad('cArea'), borderRadius:6, borderSkipped:false,
+      barPercentage:.6, categoryPercentage:.8, maxBarThickness:40
+    }], {indexAxis:'y'});
+    makeChart('cBudget','doughnut', Object.keys(d.byBudget||{}), [{
+      data:Object.values(d.byBudget||{}),
+      backgroundColor:CHART_COLORS, borderWidth:2, borderColor:'#ffffff'
+    }]);
+    makeChart('cInterest','doughnut', Object.keys(d.byInterest||{}), [{
+      data:Object.values(d.byInterest||{}),
+      backgroundColor:CHART_COLORS.slice(0,3), borderWidth:2, borderColor:'#ffffff'
+    }]);
+    makeChart('cLang','doughnut', ['Arabic','English'], [{
+      data:[d.arabic||0,d.english||0],
+      backgroundColor:['#9B7FD4','#4F86C6'], borderWidth:2, borderColor:'#ffffff'
+    }]);
+    makeChart('cScore','bar', Object.keys(d.scoreDistribution||{}), [{
+      label:'Leads', data:Object.values(d.scoreDistribution||{}),
+      backgroundColor:mkBarGrad('cScore'), borderRadius:6, borderSkipped:false,
+      barPercentage:.6, categoryPercentage:.8, maxBarThickness:40
+    }]);
+    makeChart('cSource','doughnut', ['Voice','Text'], [{
+      data:[d.voice||0,d.text||0],
+      backgroundColor:['#5BC0DE','#4F86C6'], borderWidth:2, borderColor:'#ffffff'
+    }]);
     // Heatmap
     const hm = document.getElementById('heatmap');
     const hourCounts = d.hourly||{};
@@ -174,7 +226,7 @@
     hm.innerHTML = Array.from({length:24},(_,h)=>{
       const v=hourCounts[h]||0;
       const intensity = Math.round((v/maxH)*100);
-      return `<div class="heatmap-cell" style="background:rgba(61,127,250,${intensity/100})" title="${h}:00 — ${v} leads"></div>`;
+      return `<div class="heatmap-cell" style="background:rgba(79,134,198,${intensity/100})" title="${h}:00 — ${v} leads"></div>`;
     }).join('');
   }
 
@@ -182,7 +234,18 @@
     if (charts[id]) charts[id].destroy();
     const ctx = document.getElementById(id)?.getContext('2d');
     if (!ctx) return;
-    charts[id] = new Chart(ctx, { type, data:{labels,datasets}, options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:type==='bar'||type==='line'?{y:{beginAtZero:true}}:undefined,...extra} });
+    const isDonut = type === 'doughnut' || type === 'pie';
+    charts[id] = new Chart(ctx, {
+      type, data: { labels, datasets },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } },
+        scales: (type === 'bar' || type === 'line') ? { y: { beginAtZero: true } } : undefined,
+        cutout: isDonut ? '75%' : undefined,
+        radius: isDonut ? '85%' : undefined,
+        ...extra
+      }
+    });
   }
 
   // Default: last 30 days

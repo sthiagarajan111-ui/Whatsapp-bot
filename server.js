@@ -546,6 +546,85 @@ app.post('/api/settings/save', async (req, res) => {
   }
 });
 
+// ── API: flow steps ───────────────────────────────────────────────────────────
+const FLOW_DEFAULTS = {
+  realEstate: [
+    { stepId: 'greeting',  stepName: 'Greeting',        order: 1, message: "Hello! Welcome to our real estate service. I'm here to help you find your perfect property. 🏡" },
+    { stepId: 'intent',    stepName: 'Intent Question',  order: 2, message: 'Are you looking to Buy or Rent?' },
+    { stepId: 'budget',    stepName: 'Budget Question',  order: 3, message: 'What is your budget range?' },
+    { stepId: 'area',      stepName: 'Area Preference',  order: 4, message: 'Which area are you interested in?' },
+    { stepId: 'bedrooms',  stepName: 'Bedrooms',         order: 5, message: 'How many bedrooms do you need?' },
+    { stepId: 'timeline',  stepName: 'Timeline',         order: 6, message: 'When are you looking to move?' },
+    { stepId: 'complete',  stepName: 'Completion',       order: 7, message: 'Thank you! Our agent will contact you shortly.' },
+  ],
+  restaurant: [
+    { stepId: 'greeting',    stepName: 'Greeting',         order: 1, message: "Welcome! I'd love to help you book a table. 🍽️" },
+    { stepId: 'party_size',  stepName: 'Party Size',       order: 2, message: 'How many guests will be dining?' },
+    { stepId: 'date',        stepName: 'Date',             order: 3, message: 'What date would you like to book?' },
+    { stepId: 'time',        stepName: 'Time',             order: 4, message: 'What time would you prefer?' },
+    { stepId: 'special',     stepName: 'Special Requests', order: 5, message: 'Any dietary requirements or special requests?' },
+    { stepId: 'complete',    stepName: 'Completion',       order: 6, message: 'Your table is booked! See you soon.' },
+  ],
+  clinic: [
+    { stepId: 'greeting',  stepName: 'Greeting',           order: 1, message: 'Hello! How can we help you today? 🏥' },
+    { stepId: 'service',   stepName: 'Service Type',       order: 2, message: 'What type of appointment do you need?' },
+    { stepId: 'doctor',    stepName: 'Doctor Preference',  order: 3, message: 'Do you have a preferred doctor?' },
+    { stepId: 'date',      stepName: 'Preferred Date',     order: 4, message: 'What date works best for you?' },
+    { stepId: 'time',      stepName: 'Preferred Time',     order: 5, message: 'What time do you prefer?' },
+    { stepId: 'patient',   stepName: 'Patient Name',       order: 6, message: "Please provide the patient's full name." },
+    { stepId: 'complete',  stepName: 'Completion',         order: 7, message: "Appointment request received. We'll confirm shortly." },
+  ],
+  retail: [
+    { stepId: 'greeting',  stepName: 'Greeting',       order: 1, message: 'Hi! Welcome to our store. How can I help you? 🛍️' },
+    { stepId: 'intent',    stepName: 'Shopping Intent', order: 2, message: 'Are you looking for something specific?' },
+    { stepId: 'budget',    stepName: 'Budget',         order: 3, message: 'What is your budget?' },
+    { stepId: 'product',   stepName: 'Product Type',   order: 4, message: 'What type of product are you looking for?' },
+    { stepId: 'delivery',  stepName: 'Delivery',       order: 5, message: 'Do you need delivery or will you pick up in store?' },
+    { stepId: 'complete',  stepName: 'Completion',     order: 6, message: 'Great! Our team will reach out to confirm your order.' },
+  ],
+  salon: [
+    { stepId: 'greeting',  stepName: 'Greeting',            order: 1, message: 'Welcome to our salon! What can we do for you today? ✂️' },
+    { stepId: 'service',   stepName: 'Service',             order: 2, message: 'What service are you interested in?' },
+    { stepId: 'stylist',   stepName: 'Stylist Preference',  order: 3, message: 'Do you have a preferred stylist?' },
+    { stepId: 'date',      stepName: 'Date',                order: 4, message: 'What date would you like to book?' },
+    { stepId: 'time',      stepName: 'Time',                order: 5, message: 'What time works best for you?' },
+    { stepId: 'complete',  stepName: 'Completion',          order: 6, message: 'Your appointment is booked! See you soon.' },
+  ],
+  carDealer: [
+    { stepId: 'greeting',  stepName: 'Greeting',          order: 1, message: "Welcome! I'm here to help you find your perfect vehicle. 🚗" },
+    { stepId: 'intent',    stepName: 'Intent',            order: 2, message: 'Are you looking to buy a new or used car?' },
+    { stepId: 'budget',    stepName: 'Budget',            order: 3, message: 'What is your budget range?' },
+    { stepId: 'car_type',  stepName: 'Car Type',          order: 4, message: 'What type of vehicle are you looking for? (Sedan, SUV, etc.)' },
+    { stepId: 'brand',     stepName: 'Brand Preference',  order: 5, message: 'Do you have a preferred brand?' },
+    { stepId: 'timeline',  stepName: 'Timeline',          order: 6, message: 'When are you looking to purchase?' },
+    { stepId: 'complete',  stepName: 'Completion',        order: 7, message: 'Thank you! Our sales team will contact you shortly.' },
+  ],
+};
+
+app.get('/api/flow/:vertical', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+    const { vertical } = req.params;
+    const defaults = FLOW_DEFAULTS[vertical] || [];
+    const overrides = await db.getFlowSteps(clientId, vertical);
+    const steps = defaults.map(step => {
+      const override = overrides.find(o => o.stepId === step.stepId);
+      return { ...step, message: override?.message ?? step.message };
+    });
+    res.json(steps);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/flow/save', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+    const { vertical, stepId, message } = req.body;
+    if (!vertical || !stepId) return res.status(400).json({ error: 'vertical and stepId required' });
+    await db.saveFlowStep(clientId, vertical, stepId, message || '');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── API: lead detail ──────────────────────────────────────────────────────────
 app.get('/api/leads/:id/detail', async (req, res) => {
   const { id } = req.params;

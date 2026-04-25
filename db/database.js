@@ -14,6 +14,7 @@ const Listing      = require('./models/Listing');
 const Appointment  = require('./models/Appointment');
 const LeadNote     = require('./models/LeadNote');
 const Availability = require('./models/Availability');
+const FlowStep     = require('./models/FlowStep');
 
 // ── Connection with retry ─────────────────────────────────────────────────────
 function connectWithRetry(attempt = 1) {
@@ -467,6 +468,23 @@ async function getAvailability() {
   return Availability.find().lean();
 }
 
+// ── Flow Steps ────────────────────────────────────────────────────────────────
+async function getFlowStep(clientId, vertical, stepId) {
+  return await FlowStep.findOne({ client_id: clientId, vertical, stepId }).lean();
+}
+
+async function getFlowSteps(clientId, vertical) {
+  return await FlowStep.find({ client_id: clientId, vertical }).lean();
+}
+
+async function saveFlowStep(clientId, vertical, stepId, message) {
+  await FlowStep.findOneAndUpdate(
+    { client_id: clientId, vertical, stepId },
+    { message, updated_at: new Date() },
+    { upsert: true, returnDocument: 'after' }
+  );
+}
+
 // ── Exports ───────────────────────────────────────────────────────────────────
 module.exports = {
   mongoose,
@@ -491,4 +509,6 @@ module.exports = {
   getNotes, saveNote, deleteNote,
   // Availability
   getAvailability,
+  // Flow Steps
+  getFlowStep, getFlowSteps, saveFlowStep,
 };

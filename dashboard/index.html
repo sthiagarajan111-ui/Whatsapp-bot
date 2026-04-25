@@ -6,6 +6,14 @@
 <title>Axyren — AI-powered Lead Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#64748b';
+Chart.defaults.plugins.legend.position = 'bottom';
+Chart.defaults.plugins.legend.labels.padding = 20;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 <style>
 :root{
@@ -828,14 +836,14 @@ function initCharts(){
   // Opportunity status donut
   oppChart = new Chart(document.getElementById('oppDonut').getContext('2d'),{
     type:'doughnut',
-    data:{labels:['New','In Progress','Won','Lost'],datasets:[{data:[0,0,0,0],backgroundColor:['#3D7FFA','#F59E0B','#10B981','#E4E9F2'],borderWidth:0,hoverOffset:4}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{display:false}}}
+    data:{labels:['New','In Progress','Won','Lost'],datasets:[{data:[0,0,0,0],backgroundColor:['#4F86C6','#F5A623','#62B58F','#E4E9F2'],borderWidth:2,borderColor:'#ffffff',hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'75%',radius:'85%',plugins:{legend:{display:false}}}
   });
 
   // Value bar chart (horizontal)
   valChart = new Chart(document.getElementById('valBar').getContext('2d'),{
     type:'bar',
-    data:{labels:['Won','Contacted','New','Lost'],datasets:[{label:'Value (AED)',data:[0,0,0,0],backgroundColor:['#10B981','#F59E0B','#3D7FFA','#E4E9F2'],borderRadius:4,borderSkipped:false}]},
+    data:{labels:['Won','Contacted','New','Lost'],datasets:[{label:'Value (AED)',data:[0,0,0,0],backgroundColor:['#62B58F','#F5A623','#4F86C6','#E4E9F2'],borderRadius:6,borderSkipped:false}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' AED '+Math.round(c.raw).toLocaleString()}}},scales:{x:{grid:{color:'#F4F6FA'},ticks:{font:{size:10},color:'#9AAABB',callback:v=>v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':v}},y:{grid:{display:false},ticks:{font:{size:11},color:'#5A6A8A'}}}}
   });
 
@@ -856,8 +864,8 @@ function initCharts(){
   // Stage distribution donut
   stageChart = new Chart(document.getElementById('stageDist').getContext('2d'),{
     type:'doughnut',
-    data:{labels:['New','Contacted','Converted','Lost'],datasets:[{data:[0,0,0,0],backgroundColor:['#3D7FFA','#F59E0B','#10B981','#E4E9F2'],borderWidth:0,hoverOffset:4}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false}}}
+    data:{labels:['New','Contacted','Converted','Lost'],datasets:[{data:[0,0,0,0],backgroundColor:['#4F86C6','#F5A623','#62B58F','#E4E9F2'],borderWidth:2,borderColor:'#ffffff',hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'75%',radius:'85%',plugins:{legend:{display:false}}}
   });
 }
 

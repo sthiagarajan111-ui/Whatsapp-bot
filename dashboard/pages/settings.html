@@ -24,6 +24,14 @@
 .list-editor-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
 .list-editor-item:last-child { border-bottom: none; }
 .list-editor-add { display: flex; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--bg); }
+.flow-vert-btn { padding: 6px 14px; border-radius: 4px; border: 1px solid var(--border); background: var(--white); cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text2); transition: all .15s; }
+.flow-vert-btn:hover { background: var(--bg); }
+.flow-vert-btn.active { background: var(--blue-l); color: var(--blue); border-color: var(--blue); }
+.flow-step-item { border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; margin-bottom: 10px; }
+.flow-step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.flow-step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--blue-l); color: var(--blue); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.flow-step-name { font-weight: 600; font-size: 13px; flex: 1; }
+.flow-step-msg { font-size: 13px; color: var(--text2); line-height: 1.5; white-space: pre-wrap; }
 </style>
 
 <div style="padding: 20px 24px;">
@@ -107,10 +115,19 @@
       <div class="settings-section" id="tab-flow">
         <div class="section-card">
           <div class="section-title">Flow Customization</div>
-          <div class="section-desc">Customize messages and options in the flow</div>
-          <div class="form-group"><label>Completion Message</label><textarea id="s-complete-msg" rows="3" placeholder="Thank you! Our agent will contact you shortly."></textarea></div>
-          <div class="form-group"><label>AI Mode Knowledge Base</label><textarea id="s-knowledge" rows="4" placeholder="Optional: paste property info, FAQs, etc."></textarea></div>
-          <div class="save-bar"><button class="btn btn-primary" onclick="saveFlowConfig()">Save</button></div>
+          <div class="section-desc">Customize the messages your bot sends at each step of the conversation</div>
+
+          <!-- Vertical selector -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:14px">
+            <button class="flow-vert-btn active" onclick="loadFlowSteps('realEstate', this)">🏠 Real Estate</button>
+            <button class="flow-vert-btn" onclick="loadFlowSteps('restaurant', this)">🍽️ Restaurant</button>
+            <button class="flow-vert-btn" onclick="loadFlowSteps('clinic', this)">🏥 Clinic</button>
+            <button class="flow-vert-btn" onclick="loadFlowSteps('retail', this)">🛍️ Retail</button>
+            <button class="flow-vert-btn" onclick="loadFlowSteps('salon', this)">✂️ Salon</button>
+            <button class="flow-vert-btn" onclick="loadFlowSteps('carDealer', this)">🚗 Car Dealer</button>
+          </div>
+
+          <div id="flowStepsList"><div class="loading"><div class="spinner"></div> Loading steps...</div></div>
         </div>
       </div>
 
@@ -262,6 +279,74 @@
     document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active');
     if (tab === 'listings') loadListings();
     if (tab === 'agents') loadAgents();
+    if (tab === 'flow') loadFlowSteps(window._currentFlowVertical || 'realEstate');
+  };
+
+  // Flow steps
+  window._currentFlowVertical = 'realEstate';
+
+  window.loadFlowSteps = async function(vertical, btn) {
+    window._currentFlowVertical = vertical;
+    if (btn) {
+      document.querySelectorAll('.flow-vert-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    const el = document.getElementById('flowStepsList');
+    if (!el) return;
+    el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+    try {
+      const hdrs = {};
+      const cid = window.__clientId || clientId || '';
+      if (cid) hdrs['x-client-id'] = cid;
+      const steps = await shared.apiFetch('/api/flow/' + vertical);
+      el.innerHTML = steps.map(s => `
+        <div class="flow-step-item" id="flow-step-${s.stepId}">
+          <div class="flow-step-header">
+            <div class="flow-step-num">${s.order}</div>
+            <div class="flow-step-name">${s.stepName}</div>
+            <button class="btn btn-secondary btn-sm flow-edit-btn" onclick="editFlowStep('${vertical}','${s.stepId}')">Edit</button>
+          </div>
+          <div class="flow-step-msg" id="flow-msg-${s.stepId}">${s.message.replace(/</g,'&lt;')}</div>
+          <div id="flow-edit-${s.stepId}" style="display:none;margin-top:10px">
+            <textarea rows="3" id="flow-ta-${s.stepId}" style="margin-bottom:8px">${s.message.replace(/</g,'&lt;')}</textarea>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" onclick="saveFlowStep('${vertical}','${s.stepId}')">Save</button>
+              <button class="btn btn-secondary btn-sm" onclick="cancelFlowEdit('${s.stepId}')">Cancel</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } catch(e) {
+      el.innerHTML = '<div class="empty-state"><p>Failed to load flow steps</p></div>';
+    }
+  };
+
+  window.editFlowStep = function(vertical, stepId) {
+    document.getElementById('flow-edit-' + stepId).style.display = 'block';
+    const editBtn = document.querySelector(`#flow-step-${stepId} .flow-edit-btn`);
+    if (editBtn) editBtn.style.display = 'none';
+  };
+
+  window.cancelFlowEdit = function(stepId) {
+    document.getElementById('flow-edit-' + stepId).style.display = 'none';
+    const editBtn = document.querySelector(`#flow-step-${stepId} .flow-edit-btn`);
+    if (editBtn) editBtn.style.display = '';
+  };
+
+  window.saveFlowStep = async function(vertical, stepId) {
+    const taEl = document.getElementById('flow-ta-' + stepId);
+    if (!taEl) return;
+    const message = taEl.value;
+    try {
+      const hdrs = { 'Content-Type': 'application/json' };
+      const cid = window.__clientId || clientId || '';
+      if (cid) hdrs['x-client-id'] = cid;
+      await shared.apiFetch('/api/flow/save', { method: 'POST', headers: hdrs, body: JSON.stringify({ vertical, stepId, message }) });
+      const msgEl = document.getElementById('flow-msg-' + stepId);
+      if (msgEl) msgEl.textContent = message;
+      cancelFlowEdit(stepId);
+      shared.showToast('Step saved');
+    } catch(e) { shared.showToast('Save failed', 'error'); }
   };
 
   // ── Unified save: collects ALL fields from all tabs, POSTs to /api/settings/save ──

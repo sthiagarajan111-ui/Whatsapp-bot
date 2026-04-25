@@ -82,7 +82,7 @@
         <div class="avatar ${cls}" style="width:40px;height:40px;font-size:14px">${initials}</div>
         <div class="conv-item-info">
           <div class="conv-item-name">${c.name || c.wa_number}</div>
-          <div class="conv-item-preview">${c.last_direction==='outbound'?'🤖 ':''}${(c.last_message||'').slice(0,50)}</div>
+          <div class="conv-item-preview">${c.last_direction==='outbound'?'🤖 ':''}${(c.last_message||'').slice(0,40)}</div>
         </div>
         <div class="conv-item-meta">
           <div class="conv-item-time">${shared.timeAgo(c.last_at)}</div>
@@ -149,7 +149,7 @@
       html += `<div class="msg-row ${m.direction}">
         <div class="msg-bubble">
           ${icon}
-          ${voice}${m.content || '(media)'}
+          ${voice}${m.content || '[No content]'}
           <div class="msg-time">${shared.formatDate(m.created_at)}</div>
         </div>
       </div>`;
