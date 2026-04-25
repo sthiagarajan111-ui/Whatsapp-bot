@@ -6,6 +6,7 @@
 <title>Axyren — AI-powered Lead Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 <style>
 :root{
   --bg:#F4F6FA;--sidebar:#1B2236;--sidebar2:#222D44;--sw:#A8B5CC;
@@ -291,6 +292,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .kpi{animation:fadeUp .35s ease both}
 .kpi:nth-child(1){animation-delay:.04s}.kpi:nth-child(2){animation-delay:.08s}.kpi:nth-child(3){animation-delay:.12s}.kpi:nth-child(4){animation-delay:.16s}.kpi:nth-child(5){animation-delay:.2s}
 .w{animation:fadeUp .35s ease both;animation-delay:.22s}
+/* ── Edit Dashboard Drag Mode ─── */
+#dashboard-sortable.edit-mode .sort-row{outline:2px dashed rgba(61,127,250,.4);outline-offset:3px;border-radius:8px;position:relative;}
+.sort-handle{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20;cursor:grab;background:var(--white);border:1px solid var(--border2);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:600;color:var(--text2);user-select:none;box-shadow:var(--sh2);align-items:center;gap:5px;line-height:1.4;white-space:nowrap;}
+.sort-handle:active{cursor:grabbing;}
+#dashboard-sortable.edit-mode .sort-handle{display:inline-flex;}
+.sort-row.sortable-ghost{opacity:.3;}
+.sort-row.sortable-drag{outline:2px solid var(--blue)!important;box-shadow:0 10px 36px rgba(61,127,250,.22)!important;border-radius:8px;background:rgba(238,244,255,.5);}
 </style>
 </head>
 <body>
@@ -354,7 +362,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="rt" id="lastRefreshed">—</div>
       <div class="tok-pill tok-err" id="tokPill"><span class="tok-dot"></span><span id="tokTxt">Token Pending</span></div>
       <a class="btn btn-o" href="/api/leads/export?status=all"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v8M5 6l3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>Export</a>
-      <button class="btn btn-b" onclick="loadAll()"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 8a6 6 0 0110.5-4M14 8a6 6 0 01-10.5 4M2 4v3h3M14 12v-3h-3"/></svg>Edit Dashboard</button>
+      <button class="btn btn-b" id="btnEditDashboard" onclick="enterEditMode()"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M11 2l3 3-8.5 8.5L2 15l1.5-3.5L11 2z"/></svg>Edit Dashboard</button>
+      <button class="btn btn-o" id="btnCancelEdit" style="display:none" onclick="exitEditMode()">Cancel</button>
     </div>
   </div>
 
@@ -367,28 +376,29 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="content">
 
     <!-- ── KPI SCORECARDS ── -->
-    <div class="kpi-row">
-      <div class="kpi k-blue">
+    <div id="dashboard-sortable">
+    <div class="kpi-row sort-row" id="sort-row-kpi">
+      <div class="kpi k-blue" id="card-opportunities">
         <div class="kpi-hd"><div class="kpi-lbl">Total Opportunities</div><div class="kpi-ib ib-bl"><svg viewBox="0 0 16 16" fill="var(--blue)"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-5 6a5 5 0 0110 0H3z"/></svg></div></div>
         <div class="kpi-val" id="kTotal">0</div>
         <div class="kpi-sub"><span class="kpi-badge kb-up" id="kTotalBadge">All time</span></div>
       </div>
-      <div class="kpi k-red">
+      <div class="kpi k-red" id="card-hot-leads">
         <div class="kpi-hd"><div class="kpi-lbl">HOT Leads</div><div class="kpi-ib ib-re"><svg viewBox="0 0 16 16" fill="var(--red)"><path d="M8 1c0 4-3 5-3 8a3 3 0 006 0c0-3-3-4-3-8z"/></svg></div></div>
         <div class="kpi-val" id="kHot" style="color:var(--red)">0</div>
         <div class="kpi-sub"><span class="kpi-badge kb-ne" id="kHotPct">Score 8–10</span></div>
       </div>
-      <div class="kpi k-green">
+      <div class="kpi k-green" id="card-won">
         <div class="kpi-hd"><div class="kpi-lbl">Won / Converted</div><div class="kpi-ib ib-gr"><svg viewBox="0 0 16 16" fill="var(--green)"><path d="M2 8l4 4 8-8" stroke="var(--green)" stroke-width="2" fill="none"/></svg></div></div>
         <div class="kpi-val" id="kConverted" style="color:var(--green)">0</div>
         <div class="kpi-sub"><span class="kpi-badge kb-ne" id="kConvRate">0% win rate</span></div>
       </div>
-      <div class="kpi k-amber">
+      <div class="kpi k-amber" id="card-pipeline">
         <div class="kpi-hd"><div class="kpi-lbl">Pipeline Value</div><div class="kpi-ib ib-am"><svg viewBox="0 0 16 16" fill="var(--amber)"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3v2h2v1H7v-1H5V5h2V4h1zm0 6v2H7v-2h1z"/></svg></div></div>
         <div class="kpi-val" id="kPipeVal" style="color:var(--amber);font-size:20px">AED 0</div>
         <div class="kpi-sub"><span class="kpi-badge kb-ne">Estimated</span></div>
       </div>
-      <div class="kpi k-purple">
+      <div class="kpi k-purple" id="card-avg-score">
         <div class="kpi-hd"><div class="kpi-lbl">Avg Lead Score</div><div class="kpi-ib ib-pu"><svg viewBox="0 0 16 16" fill="var(--purple)"><path d="M8 1l2 4 5 .7-3.5 3.4.8 4.9L8 12l-4.3 2 .8-4.9L1 5.7 6 5z"/></svg></div></div>
         <div class="kpi-val" id="kAvgScore" style="color:var(--purple)">—</div>
         <div class="kpi-sub"><span class="kpi-badge kb-ne">Out of 10</span></div>
@@ -396,9 +406,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
 
     <!-- ── ROW 2: Opportunity Status + Pipeline Revenue Bar + Conversion Rate ── -->
-    <div class="g3 mb16">
+    <div class="g3 mb16 sort-row" id="sort-row-analytics">
       <!-- Opportunity Status Donut (GHL widget 1) -->
-      <div class="w">
+      <div class="w" id="card-opp-status">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-bl"></span>Opportunity Status</div>
           <select class="w-sel"><option>All Pipelines</option></select>
@@ -418,7 +428,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       </div>
 
       <!-- Opportunity Value by Stage (GHL widget 2 - horizontal bar) -->
-      <div class="w">
+      <div class="w" id="card-opp-value">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-cy"></span>Opportunity Value</div>
           <select class="w-sel"><option>All Pipelines</option></select>
@@ -429,7 +439,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       </div>
 
       <!-- Conversion Rate Ring (GHL widget 3) -->
-      <div class="w">
+      <div class="w" id="card-conversion">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-gr"></span>Conversion Rate</div>
           <select class="w-sel"><option>All Pipelines</option></select>
@@ -453,9 +463,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
 
     <!-- ── ROW 3: Funnel (GHL style) + Stage Distribution ── -->
-    <div class="g2 mb16">
+    <div class="g2 mb16 sort-row" id="sort-row-funnel">
       <!-- Funnel - GHL style with cumulative % and next step conversion % -->
-      <div class="w">
+      <div class="w" id="card-funnel">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-am"></span>Funnel</div>
           <div class="w-acts"><span class="w-tag wt-am">Lead Pipeline</span></div>
@@ -472,7 +482,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       </div>
 
       <!-- Stage Distribution donut + leads by area bar -->
-      <div class="w">
+      <div class="w" id="card-stage-dist">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-pu"></span>Stage Distribution</div>
           <select class="w-sel"><option>Lead Pipeline</option></select>
@@ -491,9 +501,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
 
     <!-- ── ROW 4: Leads over time + Lead Source Report (GHL style) ── -->
-    <div class="g2 mb16">
+    <div class="g2 mb16 sort-row" id="sort-row-activity">
       <!-- Line chart -->
-      <div class="w">
+      <div class="w" id="card-leads-time">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-bl"></span>Leads Over Time</div>
           <span class="w-tag wt-bl">Last 7 days</span>
@@ -504,7 +514,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       </div>
 
       <!-- Lead Source Report (GHL style table) -->
-      <div class="w">
+      <div class="w" id="card-lead-source">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-gr"></span>Lead Source Report</div>
           <select class="w-sel"><option>All Pipelines</option></select>
@@ -530,9 +540,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
 
     <!-- ── ROW 5: All Leads table + Tasks + Manual Actions ── -->
-    <div class="g2l mb16">
+    <div class="g2l mb16 sort-row" id="sort-row-contacts">
       <!-- Full leads table -->
-      <div class="w">
+      <div class="w" id="card-contacts">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-bl"></span>All Contacts<span style="background:var(--blue-l);color:var(--blue);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px" id="tableCount">0</span></div>
           <div class="w-acts">
@@ -627,7 +637,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
 
     <!-- ROI CALCULATOR - Full Width -->
-    <div class="w mb16">
+    <div class="w mb16 sort-row" id="sort-row-roi">
       <div class="w-hd">
         <div class="w-title"><span class="wtd wd-gr"></span>ROI Calculator — Show Your Clients the Value</div>
         <span class="w-tag wt-gr">Live calculation</span>
@@ -711,6 +721,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       </div>
     </div>
 
+    </div><!-- /dashboard-sortable -->
   </div><!-- /content -->
   </div><!-- #main-dashboard -->
 </main>
@@ -1163,9 +1174,74 @@ async function loadTopAgents() {
   } catch(_) {}
 }
 
+// ── Edit Dashboard Drag & Drop ──────────────────────────────
+let _sortable = null;
+
+function enterEditMode() {
+  const grid = document.getElementById('dashboard-sortable');
+  if (!grid) return;
+  grid.classList.add('edit-mode');
+  grid.querySelectorAll(':scope > .sort-row').forEach(row => {
+    if (!row.querySelector('.sort-handle')) {
+      const h = document.createElement('span');
+      h.className = 'sort-handle';
+      h.innerHTML = '⠿ Drag to reorder';
+      row.insertBefore(h, row.firstChild);
+    }
+  });
+  const btn = document.getElementById('btnEditDashboard');
+  btn.innerHTML = '<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2" fill="none"/></svg> Save Layout';
+  btn.onclick = saveLayout;
+  document.getElementById('btnCancelEdit').style.display = 'inline-flex';
+  _sortable = Sortable.create(grid, { animation: 150, handle: '.sort-handle', ghostClass: 'sortable-ghost', dragClass: 'sortable-drag' });
+}
+
+function exitEditMode() {
+  const grid = document.getElementById('dashboard-sortable');
+  if (!grid) return;
+  grid.classList.remove('edit-mode');
+  grid.querySelectorAll('.sort-handle').forEach(h => h.remove());
+  if (_sortable) { _sortable.destroy(); _sortable = null; }
+  const btn = document.getElementById('btnEditDashboard');
+  btn.innerHTML = '<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M11 2l3 3-8.5 8.5L2 15l1.5-3.5L11 2z"/></svg> Edit Dashboard';
+  btn.onclick = enterEditMode;
+  document.getElementById('btnCancelEdit').style.display = 'none';
+}
+
+async function saveLayout() {
+  const grid = document.getElementById('dashboard-sortable');
+  const order = [...grid.querySelectorAll(':scope > .sort-row')].map(r => r.id);
+  try {
+    await fetch('/api/settings/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dashboard_layout: JSON.stringify(order) })
+    });
+    showToast('Layout saved');
+  } catch(e) {
+    showToast('Save failed', 'error');
+  }
+  exitEditMode();
+}
+
+async function restoreLayout() {
+  try {
+    const settings = await fetch('/api/settings').then(r => r.json());
+    if (!settings.dashboard_layout) return;
+    const order = JSON.parse(settings.dashboard_layout);
+    const grid = document.getElementById('dashboard-sortable');
+    if (!grid) return;
+    order.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement === grid) grid.appendChild(el);
+    });
+  } catch(e) {}
+}
+
 // ── INIT ───────────────────────────────────────────────────
 initCharts();
 loadAll();
+restoreLayout();
 loadTopAgents();
 checkToken();
 setInterval(loadAll,30000);
