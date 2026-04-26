@@ -53,6 +53,17 @@
 </div>
 
 <script>
+// Resolve clientId from multiple sources
+if (!window.__clientId) {
+  try { window.__clientId = window.parent.__clientId; } catch(e) {}
+}
+if (!window.__clientId) {
+  const m = window.location.pathname.match(/\/client-dashboard\/([^/]+)/);
+  if (m) window.__clientId = m[1];
+}
+if (!window.__clientId) {
+  window.__clientId = sessionStorage.getItem('clientId') || 'default';
+}
 (async function() {
   const STAGES = [
     { id: 'new_lead',     label: 'New Lead',           color: '#3D7FFA' },
@@ -76,29 +87,32 @@
 
   window.loadPipeline = async function() {
     try {
-      pipeline = await shared.apiFetch('/api/pipeline');
-      renderBar();
+      const [pipelineData, stats] = await Promise.all([
+        shared.apiFetch('/api/pipeline'),
+        shared.apiFetch('/api/stats'),
+      ]);
+      pipeline = pipelineData;
+      renderBar(stats);
       renderBoard();
     } catch(e) {
       document.getElementById('kanbanBoard').innerHTML = '<div class="empty-state"><p>Failed to load pipeline</p></div>';
     }
   };
 
-  function renderBar() {
+  function renderBar(stats) {
+    // Pipeline Value: sum budgets from pipeline data (stored as numbers by seeder)
     const allLeads = Object.values(pipeline).flat();
-    const total = allLeads.length;
     const totalValue = allLeads.reduce((s, l) => {
-      let d = {}; try { d = JSON.parse(l.data||'{}'); } catch(_) {}
-      return s + (BUDGET_MAP[d.budget] || 0);
+      const d = l.data || {};
+      const budget = typeof d.budget === 'number' ? d.budget : (BUDGET_MAP[d.budget] || 0);
+      return s + budget;
     }, 0);
-    const won = (pipeline.won||[]).length;
-    const rate = total ? Math.round(won/total*100) : 0;
 
     document.getElementById('pipelineBar').innerHTML = `
-      <div class="pipeline-bar-stat"><div class="val">${total}</div><div class="lbl">Total Leads</div></div>
+      <div class="pipeline-bar-stat"><div class="val">${stats.totalLeads ?? allLeads.length}</div><div class="lbl">Total Leads</div></div>
       <div class="pipeline-bar-stat"><div class="val">AED ${(totalValue/1e6).toFixed(1)}M</div><div class="lbl">Pipeline Value</div></div>
-      <div class="pipeline-bar-stat"><div class="val">${rate}%</div><div class="lbl">Win Rate</div></div>
-      <div class="pipeline-bar-stat"><div class="val">${(pipeline.hot||[]).length}</div><div class="lbl">HOT Leads</div></div>
+      <div class="pipeline-bar-stat"><div class="val">${stats.conversionRate ?? 0}%</div><div class="lbl">Win Rate</div></div>
+      <div class="pipeline-bar-stat"><div class="val">${stats.hotLeads ?? 0}</div><div class="lbl">HOT Leads</div></div>
     `;
   }
 
@@ -107,11 +121,12 @@
     board.innerHTML = STAGES.map(stage => {
       const leads = pipeline[stage.id] || [];
       const totalVal = leads.reduce((s,l) => {
-        let d={}; try{d=JSON.parse(l.data||'{}')}catch(_){}
-        return s+(BUDGET_MAP[d.budget]||0);
+        const d = l.data || {};
+        const budget = typeof d.budget === 'number' ? d.budget : (BUDGET_MAP[d.budget] || 0);
+        return s + budget;
       }, 0);
       const cards = leads.map(l => {
-        let d={}; try{d=JSON.parse(l.data||'{}')}catch(_){}
+        const d = l.data || {};
         return `<div class="kanban-card stage-${stage.id}" draggable="true"
           data-id="${l.id}" ondragstart="onDragStart(event,${l.id})">
           <div class="card-name">${l.name||l.wa_number}</div>

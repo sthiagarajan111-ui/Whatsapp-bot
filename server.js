@@ -488,13 +488,22 @@ app.post('/api/sessions/:waNumber/clear', async (req, res) => {
 
 
 // ── API: pipeline ─────────────────────────────────────────────────────────────
-app.get('/api/pipeline', async (_req, res) => {
-  const leads = await db.getAllLeads();
+app.get('/api/pipeline', async (req, res) => {
+  const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+  const leads = await db.getAllLeads(clientId);
+  // Normalise stage names: DB uses full names, Kanban board uses short names
+  const stageNorm = {
+    'qualified_hot':     'hot',
+    'qualified_warm':    'warm',
+    'viewing_requested': 'viewing_req',
+    'viewing_confirmed': 'viewing_conf',
+  };
   leads.forEach((l) => {
     if (!l.pipeline_stage || l.pipeline_stage === 'null') {
       const map = { new: 'new_lead', contacted: 'ai_contacted', converted: 'won', lost: 'lost' };
       l.pipeline_stage = map[l.status] || 'new_lead';
     }
+    l.pipeline_stage = stageNorm[l.pipeline_stage] || l.pipeline_stage;
   });
   const grouped = {};
   for (const l of leads) {
@@ -513,8 +522,9 @@ app.post('/api/leads/:id/stage', async (req, res) => {
 
 // ── API: analytics ────────────────────────────────────────────────────────────
 app.get('/api/analytics', async (req, res) => {
+  const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
   const { from, to } = req.query;
-  let leads = await db.getAllLeads();
+  let leads = await db.getAllLeads(clientId);
   if (from) leads = leads.filter(l => l.created_at >= from);
   if (to)   leads = leads.filter(l => l.created_at <= to + 'T23:59:59.999Z');
 
