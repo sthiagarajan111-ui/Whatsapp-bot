@@ -58,4 +58,18 @@ function showToast(msg, type = 'success') {
   setTimeout(() => t.remove(), 3000);
 }
 
-window.shared = { timeAgo, formatDate, scoreBadge, statusBadge, avatarInitials, apiFetch, showToast };
+// Fix 6: refresh sidebar badge counts from the unified stats API
+async function refreshSidebarBadges() {
+  try {
+    const res = await fetch('/api/stats', {
+      headers: { 'x-client-id': window.__clientId || 'default' }
+    });
+    const data = await res.json();
+    const convBadge = document.querySelector('[data-badge="conversations"]');
+    const apptBadge = document.querySelector('[data-badge="appointments"]');
+    if (convBadge) convBadge.textContent = data.totalLeads ?? 0;
+    if (apptBadge) apptBadge.textContent = data.todayAppointments ?? 0;
+  } catch(_) {}
+}
+
+window.shared = { timeAgo, formatDate, scoreBadge, statusBadge, avatarInitials, apiFetch, showToast, refreshSidebarBadges };

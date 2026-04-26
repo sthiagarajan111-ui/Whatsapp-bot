@@ -256,13 +256,61 @@ app.get('/api/leads', async (_req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: stats ────────────────────────────────────────────────────────────────
+// ── API: stats (unified — supports ?range=today|7d|30d|90d or ?from=&to=) ────
 app.get('/api/stats', async (req, res) => {
   try {
     const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
-    const stats = await db.getLeadStats(clientId);
+    const { from, to, range } = req.query;
+    const LeadModel        = require('./db/models/Lead');
+    const AppointmentModel = require('./db/models/Appointment');
 
-    // Resolve brand name: settings → Client model → env var
+    // Build date filter for leads (created_at)
+    let dateFilter = {};
+    const now = new Date();
+    if (from && to) {
+      dateFilter = { created_at: { $gte: new Date(from), $lte: new Date(new Date(to).setHours(23,59,59,999)) } };
+    } else if (range) {
+      const days = range === 'today' ? 0 : range === '7d' ? 7 : range === '30d' ? 30 : range === '90d' ? 90 : null;
+      if (days !== null) {
+        const start = new Date(now);
+        if (days === 0) start.setHours(0,0,0,0); else start.setDate(start.getDate() - days);
+        dateFilter = { created_at: { $gte: start } };
+      }
+    }
+
+    // Lead stats (date-filtered)
+    const allLeads     = await LeadModel.find({ client_id: clientId, ...dateFilter }).lean();
+    const totalLeads   = allLeads.length;
+    const hotLeads     = allLeads.filter(l => (l.score || 0) >= 8).length;
+    const newLeads     = allLeads.filter(l => l.status === 'new').length;
+    const contactedLeads = allLeads.filter(l => l.status === 'contacted').length;
+    const convertedLeads = allLeads.filter(l => l.status === 'converted').length;
+    const lostLeads    = allLeads.filter(l => l.status === 'lost').length;
+    const wonLeads     = allLeads.filter(l => l.pipeline_stage === 'won' || l.status === 'converted').length;
+    const avgScore     = totalLeads > 0
+      ? Math.round(allLeads.reduce((s, l) => s + (l.score || 0), 0) / totalLeads * 10) / 10
+      : 0;
+    const stageGroups  = {};
+    allLeads.forEach(l => {
+      const stage = l.pipeline_stage || l.status || 'new';
+      stageGroups[stage] = (stageGroups[stage] || 0) + 1;
+    });
+
+    // Appointment stats (always absolute counts, no date filter applied)
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const todayEnd   = new Date(); todayEnd.setHours(23,59,59,999);
+    const weekStart  = new Date(); weekStart.setDate(weekStart.getDate() - 7);
+    const [todayAppts, weekAppts, totalAppts, allApptDocs] = await Promise.all([
+      AppointmentModel.countDocuments({ client_id: clientId, appointment_date: { $gte: todayStart, $lte: todayEnd } }),
+      AppointmentModel.countDocuments({ client_id: clientId, appointment_date: { $gte: weekStart } }),
+      AppointmentModel.countDocuments({ client_id: clientId }),
+      AppointmentModel.find({ client_id: clientId }).select('status').lean(),
+    ]);
+    const completedAppts     = allApptDocs.filter(a => a.status === 'completed').length;
+    const nonCancelledAppts  = allApptDocs.filter(a => a.status !== 'cancelled').length;
+    const completionRate     = nonCancelledAppts > 0 ? Math.round(completedAppts / nonCancelledAppts * 100) : 0;
+
+    // Resolve brand name
     let clientName = process.env.CLIENT_NAME || 'My Real Estate Agency';
     const brandSetting = await db.getSetting('brand_name', clientId);
     if (brandSetting?.value) {
@@ -274,14 +322,25 @@ app.get('/api/stats', async (req, res) => {
     }
 
     res.json({
-      ...stats,
+      // Lead counts (date-filtered)
+      totalLeads, hotLeads, wonLeads, avgScore,
+      conversionRate: totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0,
+      stageGroups,
+      // Legacy aliases (backwards compat with existing dashboard code)
+      newLeads, contactedLeads, convertedLeads, lostLeads,
+      total: totalLeads, new: newLeads, contacted: contactedLeads,
+      converted: convertedLeads, lost: lostLeads, hot: hotLeads, avg_score: avgScore,
+      // Appointment counts (always all-time)
+      todayAppointments: todayAppts,
+      weekAppointments:  weekAppts,
+      totalAppointments: totalAppts,
+      completionRate,
+      // Meta
       clientName,
-      totalLeads:     stats.total     || 0,
-      newLeads:       stats.new       || 0,
-      contactedLeads: stats.contacted || 0,
-      convertedLeads: stats.converted || 0,
+      dateRange: { from, to, range },
+      generatedAt: new Date(),
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error('[Stats API]', e.message); res.status(500).json({ error: e.message }); }
 });
 
 // ── API: update lead status ───────────────────────────────────────────────────
@@ -1250,8 +1309,9 @@ app.get('/api/agents/performance', async (_req, res) => {
 // ── API: Appointments ─────────────────────────────────────────────────────────
 app.get('/api/appointments', async (req, res) => {
   try {
-    const { status, agent, date_from, date_to } = req.query;
-    const appointments = await db.getAppointments({ status, agent, date_from, date_to });
+    const { status, agent, date_from, date_to, from, to } = req.query;
+    // Accept both ?from=&to= and legacy ?date_from=&date_to=
+    const appointments = await db.getAppointments({ status, agent, date_from: date_from || from, date_to: date_to || to });
     // Enrich with lead score from leads table
     const leads = await db.getAllLeads();
     const leadMap = {};
@@ -1340,6 +1400,32 @@ app.get('/api/reengagement/run', async (_req, res) => {
     const { runReengagement } = require('./utils/reengagementEngine');
     const sent = await runReengagement();
     res.json({ ok: true, sent: sent || 0 });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Dev audit — show raw counts for debugging ────────────────────────────
+app.get('/api/dev/audit', async (req, res) => {
+  try {
+    const Lead        = require('./db/models/Lead');
+    const Appointment = require('./db/models/Appointment');
+    const clientId    = req.headers['x-client-id'] || 'default';
+
+    const leads        = await Lead.find({ client_id: clientId }).lean();
+    const appointments = await Appointment.find({ client_id: clientId }).lean();
+
+    res.json({
+      total_leads: leads.length,
+      leads: leads.map(l => ({
+        id: l._id, name: l.name, wa_number: l.wa_number,
+        score: l.score, pipeline_stage: l.pipeline_stage,
+        created_at: l.created_at
+      })),
+      total_appointments: appointments.length,
+      appointments: appointments.map(a => ({
+        id: a._id, name: a.lead_name, wa_number: a.wa_number,
+        date: a.date, status: a.status, created_at: a.created_at
+      }))
+    });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -19,7 +19,9 @@
       "Bash(wmic process:*)",
       "Bash(kill:*)",
       "Bash(xargs -I{} wmic process where \"processid={}\" delete)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx kill-port 3000)",
+      "Bash(xargs -r taskkill //F //PID)"
     ]
   }
 }

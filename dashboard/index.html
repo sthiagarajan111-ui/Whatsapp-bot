@@ -324,10 +324,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="sb-sec">
     <div class="ss-lbl">Main Menu</div>
     <a class="ni active nav-link" href="#dashboard" data-page="dashboard"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>Dashboard</a>
-    <a class="ni nav-link" href="#conversations" data-page="conversations"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v1L8 10 2 5V4zm0 3l6 4 6-4v5H2V7z"/></svg>Conversations<span class="nb nb-blue" id="nbNew">0</span></a>
+    <a class="ni nav-link" href="#conversations" data-page="conversations"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v1L8 10 2 5V4zm0 3l6 4 6-4v5H2V7z"/></svg>Conversations<span class="nb nb-blue" id="nbNew" data-badge="conversations">0</span></a>
     <a class="ni nav-link" href="#opportunities" data-page="opportunities"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4a1 1 0 011-1zm5 2L4 9h2v2h4V9h2L8 5z"/></svg>Pipeline</a>
     <a class="ni nav-link" href="#analytics" data-page="analytics"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><path d="M9 11.5h5M11.5 9v5"/></svg>Analytics</a>
-    <a class="ni nav-link" href="#appointments" data-page="appointments"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 1v4M11 1v4M2 7h12" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>Appointments<span class="nb nb-blue" id="nbAppts">0</span></a>
+    <a class="ni nav-link" href="#appointments" data-page="appointments"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 1v4M11 1v4M2 7h12" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>Appointments<span class="nb nb-blue" id="nbAppts" data-badge="appointments">0</span></a>
     <a class="ni nav-link" href="#settings" data-page="settings"><svg class="ni-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 5a3 3 0 100 6A3 3 0 008 5zm-6 3a6 6 0 1112 0A6 6 0 012 8z"/></svg>Settings</a>
   </div>
   <div class="sb-sec">
@@ -1143,14 +1143,23 @@ async function loadAll(){
     const apptStats=await ar.json().catch(()=>({}));
     if(stats.clientName){document.getElementById('sbClientName').textContent=stats.clientName;document.getElementById('tbTitle').textContent=stats.clientName+' — Dashboard';}
     const filtered = filterLeadsByDate(allLeads, dateFilter);
-    updateAll(stats,filtered);
+    const filteredStats = {
+      totalLeads:     filtered.length,
+      newLeads:       filtered.filter(l=>l.status==='new').length,
+      contactedLeads: filtered.filter(l=>l.status==='contacted').length,
+      convertedLeads: filtered.filter(l=>l.status==='converted').length,
+      clientName:     stats.clientName,
+    };
+    updateAll(filteredStats,filtered);
     renderTable();
     const nbA=document.getElementById('nbAppts');
-    if(nbA) nbA.textContent=apptStats.today??'0';
+    if(nbA) nbA.textContent=stats.todayAppointments??apptStats.today??'0';
     document.getElementById('lastRefreshed').textContent='Updated '+new Date().toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }catch(e){document.getElementById('lastRefreshed').textContent='Connection error';}
   calcROI();
+  if(typeof shared!=='undefined'&&shared.refreshSidebarBadges) shared.refreshSidebarBadges();
 }
+
 
 async function takeOver(waNumber, currentMode) {
   const endpoint = currentMode ? 'release' : 'takeover';

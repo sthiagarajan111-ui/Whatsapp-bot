@@ -82,6 +82,9 @@ Chart.defaults.color = '#64748b';
     if (!Array.isArray(allLeads)) allLeads = allLeads.leads || allLeads.data || [];
   } catch(e) { allLeads = []; }
 
+  // Refresh sidebar badges on page load
+  if (typeof shared.refreshSidebarBadges === 'function') shared.refreshSidebarBadges();
+
   window.setRange = function(days, btn) {
     currentRange = days;
     document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
@@ -103,11 +106,30 @@ Chart.defaults.color = '#64748b';
     renderAll(filtered, null);
   };
 
-  function loadAnalytics(days) {
+  async function loadAnalytics(days) {
     const fromDate = new Date(Date.now() - days * 86400000);
-    const filtered = allLeads.filter(l => new Date(l.created_at) >= fromDate);
-    renderAll(filtered, days);
+    const filtered = days < 9999
+      ? allLeads.filter(l => new Date(l.created_at) >= fromDate)
+      : allLeads;
+    // Fetch authoritative counts from unified stats API (same source as dashboard)
+    const rangeParam = days === 1 ? 'today' : days === 7 ? '7d' : days === 30 ? '30d' : days === 90 ? '90d' : null;
+    let apiStats = null;
+    try {
+      const url = rangeParam ? `/api/stats?range=${rangeParam}` : '/api/stats';
+      apiStats = await shared.apiFetch(url);
+    } catch(_) {}
+    renderAll(filtered, days, apiStats);
   }
+
+  // Fix 5: auto-refresh every 30s
+  setInterval(async () => {
+    try {
+      allLeads = await shared.apiFetch('/api/leads?status=all&limit=10000');
+      if (!Array.isArray(allLeads)) allLeads = allLeads.leads || allLeads.data || [];
+    } catch(_) {}
+    loadAnalytics(currentRange);
+    if (typeof shared.refreshSidebarBadges === 'function') shared.refreshSidebarBadges();
+  }, 30000);
 
   function computeStats(filtered, days) {
     const total = filtered.length;
@@ -151,19 +173,23 @@ Chart.defaults.color = '#64748b';
              trend: { labels: trendLabels, counts: trendCounts } };
   }
 
-  function renderAll(filtered, days) {
+  function renderAll(filtered, days, apiStats) {
     const d = computeStats(filtered, days);
-    renderKPIs(d);
+    renderKPIs(d, apiStats);
     renderCharts(d);
   }
 
-  function renderKPIs(d) {
+  function renderKPIs(d, apiStats) {
+    // Use unified stats API for counts that must match the dashboard
+    const total = apiStats?.totalLeads ?? d.total ?? 0;
+    const convRate = apiStats?.conversionRate ?? d.conversionRate ?? 0;
+    const avgScore = apiStats?.avgScore ?? d.avgScore ?? 0;
     const kpis = [
-      { val: d.total||0,                lbl: 'Total Leads',     color: '#4F86C6' },
-      { val: (d.conversionRate||0)+'%', lbl: 'Conversion Rate', color: '#62B58F' },
-      { val: d.avgScore||0,             lbl: 'Avg Lead Score',  color: '#F5A623' },
-      { val: d.bestArea||'—',           lbl: 'Top Area',        color: '#9B7FD4' },
-      { val: d.bestDay||'—',            lbl: 'Best Day',        color: '#5BC0DE' },
+      { val: total,            lbl: 'Total Leads',     color: '#4F86C6' },
+      { val: convRate + '%',   lbl: 'Conversion Rate', color: '#62B58F' },
+      { val: avgScore,         lbl: 'Avg Lead Score',  color: '#F5A623' },
+      { val: d.bestArea||'—',  lbl: 'Top Area',        color: '#9B7FD4' },
+      { val: d.bestDay||'—',   lbl: 'Best Day',        color: '#5BC0DE' },
     ];
     document.getElementById('kpiRow').innerHTML = kpis.map(k => `
       <div class="a-kpi-card">

@@ -135,20 +135,26 @@
   async function init() {
     const [appts, stats] = await Promise.all([
       shared.apiFetch('/api/appointments').catch(() => []),
-      shared.apiFetch('/api/appointments/stats').catch(() => ({})),
+      // Use unified stats API — same source as dashboard KPIs
+      shared.apiFetch('/api/stats').catch(() => ({})),
     ]);
     allAppointments = Array.isArray(appts) ? appts : [];
 
-    document.getElementById('kToday').textContent = stats.today ?? '0';
-    document.getElementById('kWeek').textContent  = stats.this_week ?? '0';
-    document.getElementById('kRate').textContent  = (stats.completion_rate ?? 0) + '%';
-    document.getElementById('kTotal').textContent = stats.total ?? allAppointments.length;
+    document.getElementById('kToday').textContent = stats.todayAppointments ?? stats.today ?? '0';
+    document.getElementById('kWeek').textContent  = stats.weekAppointments  ?? stats.this_week ?? '0';
+    document.getElementById('kRate').textContent  = (stats.completionRate   ?? stats.completion_rate ?? 0) + '%';
+    document.getElementById('kTotal').textContent = stats.totalAppointments ?? stats.total ?? allAppointments.length;
 
     const nb = document.getElementById('nbAppts');
-    if (nb) nb.textContent = stats.today ?? '0';
+    if (nb) nb.textContent = stats.todayAppointments ?? stats.today ?? '0';
+
+    if (typeof shared.refreshSidebarBadges === 'function') shared.refreshSidebarBadges();
 
     apptRender();
   }
+
+  // Fix 5: auto-refresh every 30s
+  setInterval(init, 30000);
 
   window.apptSetRange = function(range, btn) {
     currentRange = range;
