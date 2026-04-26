@@ -33,6 +33,21 @@
 .conv-footer input { flex: 1; }
 
 .conv-empty { display: flex; align-items: center; justify-content: center; flex: 1; color: var(--text3); font-size: 14px; }
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #22c55e;
+  border-radius: 50%;
+  margin-right: 6px;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+}
+.live-label { font-size: 11px; color: #22c55e; font-weight: 600; letter-spacing: .5px; margin-right: 8px; }
 </style>
 
 <div style="padding: 20px 24px; height: 100%;">
@@ -57,15 +72,55 @@
 (async function() {
   let conversations = [];
   let selectedNumber = null;
+  let pollingInterval = null;
+  let lastMessageCount = 0;
+  let leadListInterval = null;
 
   async function loadConversations() {
     try {
-      conversations = await shared.apiFetch('/api/conversations');
+      const fresh = await shared.apiFetch('/api/conversations');
+      // Check for new messages on non-selected leads (for badge)
+      const prevNums = new Set(conversations.map(c => c.wa_number));
+      conversations = fresh;
       document.getElementById('convCount').textContent = conversations.length + ' chats';
       renderConvList();
+      // Badge: count leads with messages not currently open
+      const unread = conversations.filter(c => c.wa_number !== selectedNumber && !prevNums.has(c.wa_number)).length;
+      if (unread > 0) {
+        const badge = document.querySelector('[data-page="conversations"] .badge');
+        if (badge) badge.textContent = unread;
+      }
     } catch(e) {
       document.getElementById('convList').innerHTML = '<div class="empty-state"><div class="icon">💬</div><p>No conversations yet</p></div>';
     }
+  }
+
+  function startLeadListPolling() {
+    if (leadListInterval) clearInterval(leadListInterval);
+    leadListInterval = setInterval(() => { loadConversations(); }, 10000);
+  }
+
+  function startPolling(waNumber) {
+    if (pollingInterval) clearInterval(pollingInterval);
+    pollingInterval = setInterval(async () => {
+      try {
+        const msgs = await shared.apiFetch('/api/conversations/' + encodeURIComponent(waNumber));
+        if (msgs.length !== lastMessageCount) {
+          lastMessageCount = msgs.length;
+          const thread = document.getElementById('chatThread');
+          if (thread) {
+            thread.innerHTML = renderMessages(msgs);
+            thread.scrollTop = thread.scrollHeight;
+          }
+        }
+      } catch(e) {
+        console.warn('[Polling] Error:', e.message);
+      }
+    }, 3000);
+  }
+
+  function stopPolling() {
+    if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
   }
 
   function renderConvList() {
@@ -92,6 +147,8 @@
   }
 
   window.selectConv = async function(waNumber) {
+    stopPolling();
+    lastMessageCount = 0;
     selectedNumber = waNumber;
     renderConvList();
     const panel = document.getElementById('convPanel');
@@ -106,13 +163,15 @@
       try { d = JSON.parse(lead?.data || '{}'); } catch(_) {}
       const hm = lead?.human_mode || 0;
 
+      lastMessageCount = messages.length;
       panel.innerHTML = `
         <div class="conv-lead-bar">
           ${shared.avatarInitials(lead?.name || waNumber)}
           <div>
-            <div class="conv-lead-bar-name">${lead?.name || waNumber}</div>
+            <div class="conv-lead-bar-name"><span class="live-dot"></span>${lead?.name || waNumber}</div>
             <div class="conv-lead-bar-num">${waNumber} · ${d.area||''} · ${d.budget||''}</div>
           </div>
+          <span class="live-label">LIVE</span>
           ${lead ? shared.scoreBadge(lead.score) : ''}
           ${lead ? shared.statusBadge(lead.status) : ''}
           <div class="conv-lead-bar-actions">
@@ -131,6 +190,7 @@
       `;
       const thread = document.getElementById('chatThread');
       thread.scrollTop = thread.scrollHeight;
+      startPolling(waNumber);
     } catch(e) {
       panel.innerHTML = '<div class="conv-empty">Failed to load messages</div>';
     }
@@ -221,5 +281,6 @@
   };
 
   await loadConversations();
+  startLeadListPolling();
 })();
 </script>

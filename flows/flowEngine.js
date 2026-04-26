@@ -94,6 +94,27 @@ async function saveOutbound(waNumber, type, content) {
   try { await dbSaveMessage(waNumber, 'outbound', type, content, null); } catch (_) {}
 }
 
+// Wrap the real API to capture the text that gets sent, for accurate message logging
+function makeCaptureAPI() {
+  let captured = '';
+  const api = {
+    sendText: async (to, text) => {
+      captured = text;
+      return API.sendText(to, text);
+    },
+    sendButtons: async (to, text, buttons) => {
+      const opts = buttons.map((b, i) => `${i + 1}. ${b.title}`).join('\n');
+      captured = `${text}\n\n${opts}`;
+      return API.sendButtons(to, text, buttons);
+    },
+    sendList: async (to, text, sections) => {
+      captured = text;
+      return API.sendList(to, text, sections);
+    },
+  };
+  return { api, getText: () => captured };
+}
+
 // ── Main entry point ──────────────────────────────────────────────────────────
 
 async function handleMessage(message) {
@@ -125,8 +146,9 @@ async function handleMessage(message) {
     const existingRow = await getSession(from);
     const lang = existingRow?.language || 'en';
     await clearSession(from);
-    await flow.STEPS.START.send(from, {}, API, lang);
-    await saveOutbound(from, 'text', 'START prompt sent');
+    const capMenu = makeCaptureAPI();
+    await flow.STEPS.START.send(from, {}, capMenu.api, lang);
+    await saveOutbound(from, 'text', capMenu.getText() || 'Welcome message');
     await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
     return;
   }
@@ -169,8 +191,9 @@ async function handleMessage(message) {
       );
     }
 
-    await flow.STEPS.START.send(from, {}, API, lang);
-    await saveOutbound(from, 'text', 'START prompt sent');
+    const capStart = makeCaptureAPI();
+    await flow.STEPS.START.send(from, {}, capStart.api, lang);
+    await saveOutbound(from, 'text', capStart.getText() || 'Welcome message');
     await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
     return;
   }
@@ -298,7 +321,7 @@ async function handleMessage(message) {
       ? `✅ *تم تأكيد الموعد!*\n\n📅 التاريخ: ${dateDisplay}\n⏰ الوقت: ${timeSlot}\n👤 سيتصل بك خبيرنا على: +${from}\n\nسنرسل لك تذكيراً قبل ساعة من الموعد.`
       : `✅ *Appointment Confirmed!*\n\n📅 Date: ${dateDisplay}\n⏰ Time: ${timeSlot}\n👤 Our expert will call you at: +${from}\n\nWe'll send you a reminder 1 hour before.\n\nIs there anything specific you'd like to discuss?\nReply with your message or type 'menu' anytime.`;
     await sendText(from, confirmMsg);
-    await saveOutbound(from, 'text', 'Appointment confirmed');
+    await saveOutbound(from, 'text', confirmMsg);
 
     // Save appointment and notify agent (non-blocking on failures)
     let savedAppt = null;
@@ -399,8 +422,9 @@ async function handleMessage(message) {
     await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, language, false, []);
     return;
   }
-  await nextDef.send(from, newData, API, language);
-  await saveOutbound(from, 'text', `Step: ${nextStep}`);
+  const capNext = makeCaptureAPI();
+  await nextDef.send(from, newData, capNext.api, language);
+  await saveOutbound(from, 'text', capNext.getText() || `Step: ${nextStep}`);
   try {
     await persistSession(from, nextStep, newData, language, false, []);
   } catch (err) {
