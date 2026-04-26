@@ -450,9 +450,10 @@ app.get('/dashboard/css/:file', (req, res) => {
 app.use('/dashboard', express.static(path.join(__dirname, 'dashboard')));
 
 // ── API: conversations ────────────────────────────────────────────────────────
-app.get('/api/conversations', async (_req, res) => {
+app.get('/api/conversations', async (req, res) => {
   try {
-    const convs = await db.getRecentConversations(50);
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+    const convs = await db.getRecentConversations(50, clientId);
     res.json(convs);
   } catch (e) { res.json([]); }
 });
@@ -465,8 +466,9 @@ app.get('/api/conversations/:waNumber', async (req, res) => {
 });
 
 app.get('/api/conversations/:waNumber/lead', async (req, res) => {
+  const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
   const wa   = decodeURIComponent(req.params.waNumber);
-  const lead = await db.getLead(wa);
+  const lead = await db.getLead(wa, clientId);
   if (!lead) return res.status(404).json({ error: 'Not found' });
   const sessions = await db.getSessionsHumanMode();
   lead.human_mode = sessions[wa] || 0;
@@ -1310,11 +1312,12 @@ app.get('/api/agents/performance', async (_req, res) => {
 // ── API: Appointments ─────────────────────────────────────────────────────────
 app.get('/api/appointments', async (req, res) => {
   try {
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
     const { status, agent, date_from, date_to, from, to } = req.query;
     // Accept both ?from=&to= and legacy ?date_from=&date_to=
-    const appointments = await db.getAppointments({ status, agent, date_from: date_from || from, date_to: date_to || to });
+    const appointments = await db.getAppointments({ status, agent, date_from: date_from || from, date_to: date_to || to }, clientId);
     // Enrich with lead score from leads table
-    const leads = await db.getAllLeads();
+    const leads = await db.getAllLeads(clientId);
     const leadMap = {};
     leads.forEach(l => { leadMap[l.wa_number] = l; });
     const enriched = appointments.map(a => ({
@@ -1326,9 +1329,10 @@ app.get('/api/appointments', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/appointments/stats', async (_req, res) => {
+app.get('/api/appointments/stats', async (req, res) => {
   try {
-    const all = await db.getAppointments();
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+    const all = await db.getAppointments({}, clientId);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
     const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -1341,10 +1345,11 @@ app.get('/api/appointments/stats', async (_req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/appointments/today', async (_req, res) => {
+app.get('/api/appointments/today', async (req, res) => {
   try {
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
     const today = new Date();
-    res.json(await db.getAppointmentsByDate(today));
+    res.json(await db.getAppointmentsByDate(today, clientId));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1781,6 +1786,22 @@ app.get('/client-dashboard/:clientId', async (req, res) => {
     res.send(html.replace('</head>', `<script>window.__clientId=${JSON.stringify(clientId)};</script></head>`));
   } catch (e) { res.status(500).send('Error loading dashboard'); }
 });
+
+// ── Client-scoped sub-page serving (injects window.__clientId) ───────────────
+app.get('/client-dashboard/:clientId/pages/:page', (req, res) => {
+  const { clientId, page } = req.params;
+  const filePath = path.join(__dirname, 'dashboard', 'pages', page);
+  if (!fs.existsSync(filePath)) return res.status(404).send('Page not found');
+  const fragment = fs.readFileSync(filePath, 'utf8');
+  // Sub-pages are HTML fragments (no <head>), so prepend the injection
+  const html = `<script>window.__clientId=${JSON.stringify(clientId)};</script>\n` + fragment;
+  res.setHeader('Content-Type', 'text/html');
+  res.send(html);
+});
+
+// Static JS/CSS assets under the client path
+app.use('/client-dashboard/:clientId/js',  express.static(path.join(__dirname, 'dashboard', 'js')));
+app.use('/client-dashboard/:clientId/css', express.static(path.join(__dirname, 'dashboard', 'css')));
 
 // ── Dev: reseed demo data ─────────────────────────────────────────────────────
 app.post('/api/dev/reseed', async (req, res) => {

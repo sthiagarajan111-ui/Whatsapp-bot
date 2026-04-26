@@ -43,7 +43,10 @@ function avatarInitials(name, colorClass) {
 }
 
 async function apiFetch(url, options = {}) {
-  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+  options.headers = options.headers || {};
+  options.headers['x-client-id'] = window.__clientId || 'default';
+  options.headers['Content-Type'] = options.headers['Content-Type'] || 'application/json';
+  const res = await fetch(url, options);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }

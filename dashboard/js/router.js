@@ -24,12 +24,15 @@
     if (mainDash) mainDash.style.display = 'none';
     if (container) container.style.display = '';
 
+    const base = window.__clientId
+      ? `/client-dashboard/${window.__clientId}/pages`
+      : '/dashboard/pages';
     const PAGE_URLS = {
-      conversations: '/dashboard/pages/conversations.html',
-      opportunities: '/dashboard/pages/opportunities.html',
-      analytics:     '/dashboard/pages/analytics.html',
-      appointments:  '/dashboard/pages/appointments.html',
-      settings:      '/dashboard/pages/settings.html',
+      conversations: `${base}/conversations.html`,
+      opportunities: `${base}/opportunities.html`,
+      analytics:     `${base}/analytics.html`,
+      appointments:  `${base}/appointments.html`,
+      settings:      `${base}/settings.html`,
     };
 
     const url = PAGE_URLS[page];

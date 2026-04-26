@@ -69,6 +69,17 @@
 </div>
 
 <script>
+// Resolve clientId from multiple sources
+if (!window.__clientId) {
+  try { window.__clientId = window.parent.__clientId; } catch(e) {}
+}
+if (!window.__clientId) {
+  const m = window.location.pathname.match(/\/client-dashboard\/([^/]+)/);
+  if (m) window.__clientId = m[1];
+}
+if (!window.__clientId) {
+  window.__clientId = sessionStorage.getItem('clientId') || 'default';
+}
 (async function() {
   let conversations = [];
   let selectedNumber = null;
