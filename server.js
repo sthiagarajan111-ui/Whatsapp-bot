@@ -424,22 +424,6 @@ app.post('/api/sessions/:waNumber/clear', async (req, res) => {
   }
 });
 
-// ── API: dev / one-time data cleanup ──────────────────────────────────────────
-app.post('/api/dev/fix-messages', async (req, res) => {
-  try {
-    const Message = require('./db/models/Message');
-    const clientId = req.headers['x-client-id'] || 'default';
-    const r1 = await Message.deleteMany({ client_id: clientId, content: 'START prompt sent' });
-    const r2 = await Message.deleteMany({
-      client_id: clientId,
-      direction: 'inbound',
-      content: { $in: ['1','2','3','4','5','6','7','8','9'] },
-    });
-    res.json({ deleted_bot_labels: r1.deletedCount, deleted_digit_replies: r2.deletedCount });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
 
 // ── API: pipeline ─────────────────────────────────────────────────────────────
 app.get('/api/pipeline', async (_req, res) => {
