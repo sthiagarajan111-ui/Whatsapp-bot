@@ -752,13 +752,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 </div>
 
 <script>
-// ── Multi-tenant: detect clientId from URL ─────────────────
+// ── Multi-tenant: detect clientId from URL (server may pre-set window.__clientId) ──
 (function() {
-  const urlParts = window.location.pathname.split('/');
-  // URL pattern: /client-dashboard/<clientId>
-  const clientIdFromUrl = urlParts[1] === 'client-dashboard' ? urlParts[2] : null;
-  window.__clientId = clientIdFromUrl || '';
+  // Server injects window.__clientId via <script> before </head>; fall back to URL parsing
+  if (!window.__clientId) {
+    const pathParts = window.location.pathname.split('/');
+    const cidIdx = pathParts.indexOf('client-dashboard');
+    window.__clientId = cidIdx !== -1 ? pathParts[cidIdx + 1] : '';
+  }
   if (window.__clientId) {
+    // Show clientId in sidebar immediately (API response may later replace with company name)
+    const sbEl = document.getElementById('sbClientName');
+    if (sbEl) sbEl.textContent = window.__clientId;
     // Patch fetch to automatically inject x-client-id header for all /api/ calls
     const _origFetch = window.fetch.bind(window);
     window.fetch = function(url, opts) {

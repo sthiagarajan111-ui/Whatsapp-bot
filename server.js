@@ -244,9 +244,10 @@ app.get('/dashboard', (_req, res) => {
 });
 
 // ── API: all leads ────────────────────────────────────────────────────────────
-app.get('/api/leads', async (_req, res) => {
+app.get('/api/leads', async (req, res) => {
   try {
-    const leads = await db.getAllLeads();
+    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
+    const leads = await db.getAllLeads(clientId);
 
     // Attach human_mode from sessions
     const sessions = await db.getSessionsHumanMode();
@@ -1739,7 +1740,8 @@ app.get('/client-dashboard/:clientId', async (req, res) => {
 
     // Demo client — bypass DB lookup and serve dashboard directly
     if (clientId === 'demo') {
-      return res.sendFile(path.join(__dirname, 'dashboard', 'index.html'));
+      const html = fs.readFileSync(path.join(__dirname, 'dashboard', 'index.html'), 'utf8');
+      return res.send(html.replace('</head>', `<script>window.__clientId=${JSON.stringify(clientId)};</script></head>`));
     }
 
     const ClientModel = require('./db/models/Client');
@@ -1774,8 +1776,9 @@ app.get('/client-dashboard/:clientId', async (req, res) => {
       `);
     }
 
-    // Active client — serve dashboard
-    res.sendFile(path.join(__dirname, 'dashboard', 'index.html'));
+    // Active client — inject clientId and serve dashboard
+    const html = fs.readFileSync(path.join(__dirname, 'dashboard', 'index.html'), 'utf8');
+    res.send(html.replace('</head>', `<script>window.__clientId=${JSON.stringify(clientId)};</script></head>`));
   } catch (e) { res.status(500).send('Error loading dashboard'); }
 });
 

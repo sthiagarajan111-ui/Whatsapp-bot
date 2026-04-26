@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
+// ── Use the app's real models (shared collections, filtered by client_id) ──
+const Lead        = require('../db/models/Lead');
+const Appointment = require('../db/models/Appointment');
+const Message     = require('../db/models/Message');
+
 const DEMO_CLIENT_ID = 'demo';
 
 // ── Realistic UAE names ──
@@ -22,12 +27,12 @@ const AREAS = [
 
 const PROPERTY_TYPES = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio'];
 const INTENTS = ['buy', 'rent', 'invest'];
-const LANGUAGES = ['English', 'Arabic'];
+const LANGUAGES = ['en', 'ar'];
 const STAGES = [
   'new_lead', 'ai_contacted', 'qualified_hot', 'qualified_warm',
   'viewing_requested', 'viewing_confirmed', 'offer_made', 'won', 'lost'
 ];
-const STAGE_WEIGHTS = [3, 4, 3, 3, 2, 2, 1, 1, 1]; // realistic distribution
+const STAGE_WEIGHTS = [3, 4, 3, 3, 2, 2, 1, 1, 1];
 
 const TIME_SLOTS = [
   'Morning (9am - 12pm)', 'Afternoon (12pm - 3pm)',
@@ -39,7 +44,6 @@ const BUDGETS = [
   2000000, 2500000, 3000000, 5000000, 800000
 ];
 
-// Weighted random stage picker
 function pickStage() {
   const total = STAGE_WEIGHTS.reduce((a, b) => a + b, 0);
   let r = Math.random() * total;
@@ -62,15 +66,15 @@ function randomDate(daysAgo) {
 
 function generateScore(stage) {
   const scoreMap = {
-    'new_lead': [1, 4],
-    'ai_contacted': [3, 6],
-    'qualified_hot': [7, 9],
-    'qualified_warm': [4, 6],
+    'new_lead':          [1, 4],
+    'ai_contacted':      [3, 6],
+    'qualified_hot':     [7, 9],
+    'qualified_warm':    [4, 6],
     'viewing_requested': [7, 9],
     'viewing_confirmed': [8, 10],
-    'offer_made': [9, 10],
-    'won': [9, 10],
-    'lost': [1, 5]
+    'offer_made':        [9, 10],
+    'won':               [9, 10],
+    'lost':              [1, 5]
   };
   const [min, max] = scoreMap[stage] || [1, 10];
   return randInt(min, max);
@@ -86,107 +90,82 @@ async function seed() {
   await mongoose.connect(process.env.MONGODB_URI);
   console.log('[Seeder] Connected to MongoDB');
 
-  // ── Dynamic model builder (same pattern as db/database.js) ──
-  function getModel(name, clientId) {
-    const modelName = `${clientId}_${name}`;
-    if (mongoose.models[modelName]) return mongoose.models[modelName];
-
-    let schema;
-    if (name === 'Lead') {
-      schema = new mongoose.Schema({
-        client_id: String, wa_number: String, name: String,
-        score: Number, score_label: String, pipeline_stage: String,
-        budget: Number, area_interest: String, property_type: String,
-        intent: String, language: String, status: String,
-        created_at: Date, updated_at: Date
-      }, { collection: `${clientId}_leads` });
-    } else if (name === 'Appointment') {
-      schema = new mongoose.Schema({
-        client_id: String, wa_number: String, lead_name: String,
-        date: Date, time_slot: String, status: String,
-        lead_score: Number, lead_label: String, industry: String,
-        agent: String, created_at: Date
-      }, { collection: `${clientId}_appointments` });
-    } else if (name === 'Message') {
-      schema = new mongoose.Schema({
-        client_id: String, wa_number: String, body: String,
-        direction: String, sender: String, created_at: Date
-      }, { collection: `${clientId}_messages` });
-    }
-    return mongoose.model(modelName, schema);
-  }
-
-  const Lead = getModel('Lead', DEMO_CLIENT_ID);
-  const Appointment = getModel('Appointment', DEMO_CLIENT_ID);
-  const Message = getModel('Message', DEMO_CLIENT_ID);
-
-  // Clear existing demo data
+  // Clear existing demo data from the shared collections
   await Lead.deleteMany({ client_id: DEMO_CLIENT_ID });
   await Appointment.deleteMany({ client_id: DEMO_CLIENT_ID });
   await Message.deleteMany({ client_id: DEMO_CLIENT_ID });
+
+  // Set brand_name for demo so stats API returns it (overrides default fallback)
+  const col = mongoose.connection.db.collection('settings');
+  await col.deleteMany({ client_id: DEMO_CLIENT_ID, key: 'brand_name' });
+  await col.insertOne({ key: 'brand_name', value: 'Axyren Demo', client_id: DEMO_CLIENT_ID, updated_at: new Date() });
+
   console.log('[Seeder] Cleared existing demo data');
 
   // ── Seed 20 leads ──
-  const leads = [];
+  const leadDocs = [];
   for (let i = 0; i < 20; i++) {
     const stage = pickStage();
     const score = generateScore(stage);
-    const name = NAMES[i];
+    const name  = NAMES[i];
     const waNumber = `9715${randInt(10000000, 99999999)}`;
     const createdAt = randomDate(30);
 
-    leads.push({
-      client_id: DEMO_CLIENT_ID,
-      wa_number: waNumber,
+    leadDocs.push({
+      client_id:      DEMO_CLIENT_ID,
+      wa_number:      waNumber,
       name,
       score,
-      score_label: scoreLabel(score),
       pipeline_stage: stage,
-      budget: rand(BUDGETS),
-      area_interest: rand(AREAS),
-      property_type: rand(PROPERTY_TYPES),
-      intent: rand(INTENTS),
-      language: rand(LANGUAGES),
-      status: stage === 'won' ? 'won' : stage === 'lost' ? 'lost' : 'active',
+      language:       rand(LANGUAGES),
+      status:         stage === 'won' ? 'converted' : stage === 'lost' ? 'lost' : 'new',
+      data: {
+        score_label:   scoreLabel(score),
+        budget:        rand(BUDGETS),
+        area_interest: rand(AREAS),
+        property_type: rand(PROPERTY_TYPES),
+        intent:        rand(INTENTS),
+      },
       created_at: createdAt,
       updated_at: createdAt
     });
   }
 
-  await Lead.insertMany(leads);
-  console.log(`[Seeder] Created ${leads.length} leads`);
+  const insertedLeads = await Lead.insertMany(leadDocs);
+  console.log(`[Seeder] Created ${insertedLeads.length} leads`);
 
   // ── Seed appointments for HOT/viewing/won leads ──
-  const apptLeads = leads.filter(l =>
+  const apptLeads = leadDocs.filter(l =>
     ['qualified_hot', 'viewing_requested', 'viewing_confirmed', 'offer_made', 'won']
     .includes(l.pipeline_stage)
   );
 
-  const appointments = [];
+  const apptDocs = [];
   apptLeads.forEach(lead => {
     const numAppts = lead.pipeline_stage === 'won' ? 2 : 1;
     for (let j = 0; j < numAppts; j++) {
       const apptDate = new Date(lead.created_at);
       apptDate.setDate(apptDate.getDate() + randInt(1, 10));
-      appointments.push({
-        client_id: DEMO_CLIENT_ID,
-        wa_number: lead.wa_number,
-        lead_name: lead.name,
-        date: apptDate,
-        time_slot: rand(TIME_SLOTS),
-        status: lead.pipeline_stage === 'won' ? 'completed' :
-                lead.pipeline_stage === 'viewing_confirmed' ? 'confirmed' : 'pending',
-        lead_score: lead.score,
-        lead_label: lead.score_label,
-        industry: 'Real Estate',
-        agent: '96891336093',
-        created_at: lead.created_at
+      apptDocs.push({
+        client_id:                DEMO_CLIENT_ID,
+        wa_number:                lead.wa_number,
+        lead_name:                lead.name,
+        appointment_date:         apptDate,
+        appointment_date_display: apptDate.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }),
+        time_slot:                rand(TIME_SLOTS),
+        status:                   lead.pipeline_stage === 'won'               ? 'completed' :
+                                  lead.pipeline_stage === 'viewing_confirmed' ? 'confirmed'  : 'pending',
+        lead_score:               lead.score,
+        lead_label:               scoreLabel(lead.score),
+        industry:                 'Real Estate',
+        agent_wa:                 '96891336093',
+        created_at:               lead.created_at
       });
     }
   });
 
-  await Appointment.insertMany(appointments);
-  console.log(`[Seeder] Created ${appointments.length} appointments`);
+  await Appointment.insertMany(apptDocs);
+  console.log(`[Seeder] Created ${apptDocs.length} appointments`);
 
   // ── Seed sample messages for first 5 leads ──
   const sampleBotMsgs = [
@@ -199,37 +178,48 @@ async function seed() {
   ];
 
   for (let i = 0; i < 5; i++) {
-    const lead = leads[i];
+    const lead = leadDocs[i];
     const msgs = [];
+
     msgs.push({
-      client_id: DEMO_CLIENT_ID, wa_number: lead.wa_number,
-      body: 'Hi', direction: 'inbound', sender: 'customer',
-      created_at: new Date(lead.created_at.getTime() + 1000)
+      client_id:    DEMO_CLIENT_ID,
+      wa_number:    lead.wa_number,
+      content:      'Hi',
+      direction:    'inbound',
+      message_type: 'text',
+      created_at:   new Date(lead.created_at.getTime() + 1000)
     });
+
     sampleBotMsgs.forEach((msg, idx) => {
       msgs.push({
-        client_id: DEMO_CLIENT_ID, wa_number: lead.wa_number,
-        body: msg, direction: 'outbound', sender: 'bot',
-        created_at: new Date(lead.created_at.getTime() + (idx + 2) * 30000)
+        client_id:    DEMO_CLIENT_ID,
+        wa_number:    lead.wa_number,
+        content:      msg,
+        direction:    'outbound',
+        message_type: 'text',
+        created_at:   new Date(lead.created_at.getTime() + (idx + 2) * 30000)
       });
       if (idx < 5) {
         msgs.push({
-          client_id: DEMO_CLIENT_ID, wa_number: lead.wa_number,
-          body: ['Buy', lead.name.split(' ')[0], 'Apartment', 'AED 1.5M', rand(AREAS), 'This week'][idx],
-          direction: 'inbound', sender: 'customer',
-          created_at: new Date(lead.created_at.getTime() + (idx + 2) * 30000 + 15000)
+          client_id:    DEMO_CLIENT_ID,
+          wa_number:    lead.wa_number,
+          content:      ['Buy', lead.name.split(' ')[0], 'Apartment', 'AED 1.5M', rand(AREAS), 'This week'][idx],
+          direction:    'inbound',
+          message_type: 'text',
+          created_at:   new Date(lead.created_at.getTime() + (idx + 2) * 30000 + 15000)
         });
       }
     });
+
     await Message.insertMany(msgs);
   }
   console.log('[Seeder] Created sample messages for 5 leads');
 
   console.log('\n[Seeder] ✅ Demo data seeding complete!');
-  console.log(`  Leads: 20`);
-  console.log(`  Appointments: ${appointments.length}`);
-  console.log(`  Messages: seeded for 5 leads`);
-  console.log(`  Client ID: ${DEMO_CLIENT_ID}`);
+  console.log(`  Leads:        ${insertedLeads.length}`);
+  console.log(`  Appointments: ${apptDocs.length}`);
+  console.log(`  Messages:     seeded for 5 leads`);
+  console.log(`  Client ID:    ${DEMO_CLIENT_ID}`);
   console.log('\n  Access demo dashboard at:');
   console.log('  http://localhost:3000/client-dashboard/demo');
   console.log('  https://whatsapp-bot-41x7.onrender.com/client-dashboard/demo\n');
