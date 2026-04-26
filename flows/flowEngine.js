@@ -98,18 +98,21 @@ async function saveOutbound(waNumber, type, content) {
 function makeCaptureAPI() {
   let captured = '';
   const api = {
-    sendText: async (to, text) => {
+    sendText: async (to, text, ...rest) => {
       captured = text;
-      return API.sendText(to, text);
+      return API.sendText(to, text, ...rest);
     },
-    sendButtons: async (to, text, buttons) => {
-      const opts = buttons.map((b, i) => `${i + 1}. ${b.title}`).join('\n');
+    sendButtons: async (to, text, buttons, ...rest) => {
+      const opts = (buttons || []).map((b, i) => `${i + 1}. ${b.title || b.body || b}`).join('\n');
       captured = `${text}\n\n${opts}`;
-      return API.sendButtons(to, text, buttons);
+      return API.sendButtons(to, text, buttons, ...rest);
     },
-    sendList: async (to, text, sections) => {
-      captured = text;
-      return API.sendList(to, text, sections);
+    // sendList real signature: (to, headerText, bodyText, buttonText, sections)
+    sendList: async (to, headerText, bodyText, buttonText, sections, ...rest) => {
+      const allRows = (sections || []).flatMap(s => s.rows || []);
+      const opts = allRows.map((r, i) => `${i + 1}. ${r.title}`).join('\n');
+      captured = `${headerText}\n\n${bodyText}\n\n${opts}`;
+      return API.sendList(to, headerText, bodyText, buttonText, sections, ...rest);
     },
   };
   return { api, getText: () => captured };
