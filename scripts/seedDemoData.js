@@ -1,0 +1,244 @@
+const mongoose = require('mongoose');
+require('dotenv').config();
+
+const DEMO_CLIENT_ID = 'demo';
+
+// ── Realistic UAE names ──
+const NAMES = [
+  'Ahmed Al Mansoori', 'Sara Al Hashimi', 'Mohammed Al Rashidi',
+  'Fatima Al Zaabi', 'Khalid Al Kaabi', 'Mariam Al Nuaimi',
+  'Omar Al Shamsi', 'Noura Al Mazrouei', 'Saeed Al Dhaheri',
+  'Latifa Al Suwaidi', 'Rashid Al Muhairi', 'Aisha Al Falasi',
+  'Sultan Al Ketbi', 'Hessa Al Blooshi', 'Hamad Al Qubaisi',
+  'Shamma Al Remeithi', 'Zayed Al Mansouri', 'Maryam Al Junaibi',
+  'Jassim Al Hammadi', 'Reem Al Mazrouei'
+];
+
+const AREAS = [
+  'Dubai Marina', 'Downtown Dubai', 'JVC', 'Business Bay',
+  'Palm Jumeirah', 'JLT', 'Arabian Ranches', 'Meydan',
+  'Dubai Hills', 'Al Barsha', 'Jumeirah', 'DIFC'
+];
+
+const PROPERTY_TYPES = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio'];
+const INTENTS = ['buy', 'rent', 'invest'];
+const LANGUAGES = ['English', 'Arabic'];
+const STAGES = [
+  'new_lead', 'ai_contacted', 'qualified_hot', 'qualified_warm',
+  'viewing_requested', 'viewing_confirmed', 'offer_made', 'won', 'lost'
+];
+const STAGE_WEIGHTS = [3, 4, 3, 3, 2, 2, 1, 1, 1]; // realistic distribution
+
+const TIME_SLOTS = [
+  'Morning (9am - 12pm)', 'Afternoon (12pm - 3pm)',
+  'Evening (3pm - 6pm)', 'Late Evening (6pm - 8pm)'
+];
+
+const BUDGETS = [
+  500000, 750000, 1000000, 1200000, 1500000,
+  2000000, 2500000, 3000000, 5000000, 800000
+];
+
+// Weighted random stage picker
+function pickStage() {
+  const total = STAGE_WEIGHTS.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < STAGES.length; i++) {
+    r -= STAGE_WEIGHTS[i];
+    if (r <= 0) return STAGES[i];
+  }
+  return STAGES[0];
+}
+
+function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function randomDate(daysAgo) {
+  const d = new Date();
+  d.setDate(d.getDate() - randInt(0, daysAgo));
+  d.setHours(randInt(8, 22), randInt(0, 59), 0, 0);
+  return d;
+}
+
+function generateScore(stage) {
+  const scoreMap = {
+    'new_lead': [1, 4],
+    'ai_contacted': [3, 6],
+    'qualified_hot': [7, 9],
+    'qualified_warm': [4, 6],
+    'viewing_requested': [7, 9],
+    'viewing_confirmed': [8, 10],
+    'offer_made': [9, 10],
+    'won': [9, 10],
+    'lost': [1, 5]
+  };
+  const [min, max] = scoreMap[stage] || [1, 10];
+  return randInt(min, max);
+}
+
+function scoreLabel(score) {
+  if (score >= 7) return 'HOT';
+  if (score >= 4) return 'WARM';
+  return 'COLD';
+}
+
+async function seed() {
+  await mongoose.connect(process.env.MONGODB_URI);
+  console.log('[Seeder] Connected to MongoDB');
+
+  // ── Dynamic model builder (same pattern as db/database.js) ──
+  function getModel(name, clientId) {
+    const modelName = `${clientId}_${name}`;
+    if (mongoose.models[modelName]) return mongoose.models[modelName];
+
+    let schema;
+    if (name === 'Lead') {
+      schema = new mongoose.Schema({
+        client_id: String, wa_number: String, name: String,
+        score: Number, score_label: String, pipeline_stage: String,
+        budget: Number, area_interest: String, property_type: String,
+        intent: String, language: String, status: String,
+        created_at: Date, updated_at: Date
+      }, { collection: `${clientId}_leads` });
+    } else if (name === 'Appointment') {
+      schema = new mongoose.Schema({
+        client_id: String, wa_number: String, lead_name: String,
+        date: Date, time_slot: String, status: String,
+        lead_score: Number, lead_label: String, industry: String,
+        agent: String, created_at: Date
+      }, { collection: `${clientId}_appointments` });
+    } else if (name === 'Message') {
+      schema = new mongoose.Schema({
+        client_id: String, wa_number: String, body: String,
+        direction: String, sender: String, created_at: Date
+      }, { collection: `${clientId}_messages` });
+    }
+    return mongoose.model(modelName, schema);
+  }
+
+  const Lead = getModel('Lead', DEMO_CLIENT_ID);
+  const Appointment = getModel('Appointment', DEMO_CLIENT_ID);
+  const Message = getModel('Message', DEMO_CLIENT_ID);
+
+  // Clear existing demo data
+  await Lead.deleteMany({ client_id: DEMO_CLIENT_ID });
+  await Appointment.deleteMany({ client_id: DEMO_CLIENT_ID });
+  await Message.deleteMany({ client_id: DEMO_CLIENT_ID });
+  console.log('[Seeder] Cleared existing demo data');
+
+  // ── Seed 20 leads ──
+  const leads = [];
+  for (let i = 0; i < 20; i++) {
+    const stage = pickStage();
+    const score = generateScore(stage);
+    const name = NAMES[i];
+    const waNumber = `9715${randInt(10000000, 99999999)}`;
+    const createdAt = randomDate(30);
+
+    leads.push({
+      client_id: DEMO_CLIENT_ID,
+      wa_number: waNumber,
+      name,
+      score,
+      score_label: scoreLabel(score),
+      pipeline_stage: stage,
+      budget: rand(BUDGETS),
+      area_interest: rand(AREAS),
+      property_type: rand(PROPERTY_TYPES),
+      intent: rand(INTENTS),
+      language: rand(LANGUAGES),
+      status: stage === 'won' ? 'won' : stage === 'lost' ? 'lost' : 'active',
+      created_at: createdAt,
+      updated_at: createdAt
+    });
+  }
+
+  await Lead.insertMany(leads);
+  console.log(`[Seeder] Created ${leads.length} leads`);
+
+  // ── Seed appointments for HOT/viewing/won leads ──
+  const apptLeads = leads.filter(l =>
+    ['qualified_hot', 'viewing_requested', 'viewing_confirmed', 'offer_made', 'won']
+    .includes(l.pipeline_stage)
+  );
+
+  const appointments = [];
+  apptLeads.forEach(lead => {
+    const numAppts = lead.pipeline_stage === 'won' ? 2 : 1;
+    for (let j = 0; j < numAppts; j++) {
+      const apptDate = new Date(lead.created_at);
+      apptDate.setDate(apptDate.getDate() + randInt(1, 10));
+      appointments.push({
+        client_id: DEMO_CLIENT_ID,
+        wa_number: lead.wa_number,
+        lead_name: lead.name,
+        date: apptDate,
+        time_slot: rand(TIME_SLOTS),
+        status: lead.pipeline_stage === 'won' ? 'completed' :
+                lead.pipeline_stage === 'viewing_confirmed' ? 'confirmed' : 'pending',
+        lead_score: lead.score,
+        lead_label: lead.score_label,
+        industry: 'Real Estate',
+        agent: '96891336093',
+        created_at: lead.created_at
+      });
+    }
+  });
+
+  await Appointment.insertMany(appointments);
+  console.log(`[Seeder] Created ${appointments.length} appointments`);
+
+  // ── Seed sample messages for first 5 leads ──
+  const sampleBotMsgs = [
+    "Welcome! I'm your AI property assistant. Are you looking to Buy, Rent, or Invest?",
+    "Great choice! May I have your name please?",
+    "Thanks! What type of property are you interested in? Apartment, Villa, or Townhouse?",
+    "What's your budget range?",
+    "Which area of Dubai are you interested in?",
+    "Excellent! We have great options available. When would you like to view a property?"
+  ];
+
+  for (let i = 0; i < 5; i++) {
+    const lead = leads[i];
+    const msgs = [];
+    msgs.push({
+      client_id: DEMO_CLIENT_ID, wa_number: lead.wa_number,
+      body: 'Hi', direction: 'inbound', sender: 'customer',
+      created_at: new Date(lead.created_at.getTime() + 1000)
+    });
+    sampleBotMsgs.forEach((msg, idx) => {
+      msgs.push({
+        client_id: DEMO_CLIENT_ID, wa_number: lead.wa_number,
+        body: msg, direction: 'outbound', sender: 'bot',
+        created_at: new Date(lead.created_at.getTime() + (idx + 2) * 30000)
+      });
+      if (idx < 5) {
+        msgs.push({
+          client_id: DEMO_CLIENT_ID, wa_number: lead.wa_number,
+          body: ['Buy', lead.name.split(' ')[0], 'Apartment', 'AED 1.5M', rand(AREAS), 'This week'][idx],
+          direction: 'inbound', sender: 'customer',
+          created_at: new Date(lead.created_at.getTime() + (idx + 2) * 30000 + 15000)
+        });
+      }
+    });
+    await Message.insertMany(msgs);
+  }
+  console.log('[Seeder] Created sample messages for 5 leads');
+
+  console.log('\n[Seeder] ✅ Demo data seeding complete!');
+  console.log(`  Leads: 20`);
+  console.log(`  Appointments: ${appointments.length}`);
+  console.log(`  Messages: seeded for 5 leads`);
+  console.log(`  Client ID: ${DEMO_CLIENT_ID}`);
+  console.log('\n  Access demo dashboard at:');
+  console.log('  http://localhost:3000/client-dashboard/demo');
+  console.log('  https://whatsapp-bot-41x7.onrender.com/client-dashboard/demo\n');
+
+  await mongoose.disconnect();
+  process.exit(0);
+}
+
+seed().catch(e => {
+  console.error('[Seeder] Error:', e.message);
+  process.exit(1);
+});

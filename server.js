@@ -1736,6 +1736,12 @@ app.post('/admin/onboard', requireAdmin, async (req, res) => {
 app.get('/client-dashboard/:clientId', async (req, res) => {
   try {
     const { clientId } = req.params;
+
+    // Demo client — bypass DB lookup and serve dashboard directly
+    if (clientId === 'demo') {
+      return res.sendFile(path.join(__dirname, 'dashboard', 'index.html'));
+    }
+
     const ClientModel = require('./db/models/Client');
     const client = await ClientModel.findOne({ client_id: clientId });
 
@@ -1771,6 +1777,17 @@ app.get('/client-dashboard/:clientId', async (req, res) => {
     // Active client — serve dashboard
     res.sendFile(path.join(__dirname, 'dashboard', 'index.html'));
   } catch (e) { res.status(500).send('Error loading dashboard'); }
+});
+
+// ── Dev: reseed demo data ─────────────────────────────────────────────────────
+app.post('/api/dev/reseed', async (req, res) => {
+  try {
+    const { execSync } = require('child_process');
+    execSync('node scripts/seedDemoData.js', { stdio: 'inherit', cwd: __dirname });
+    res.json({ success: true, message: 'Demo data reseeded' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────

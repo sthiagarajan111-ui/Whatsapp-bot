@@ -367,6 +367,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="rt" id="lastRefreshed">—</div>
       <div class="tok-pill tok-err" id="tokPill"><span class="tok-dot"></span><span id="tokTxt">Token Pending</span></div>
       <a class="btn btn-o" href="/api/leads/export?status=all"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v8M5 6l3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>Export</a>
+      <button id="btn-demo-seed" onclick="loadDemoData()" style="display:none;background:#f59e0b;color:#fff;border:none;padding:8px 16px;font-size:12px;font-weight:600;border-radius:4px;cursor:pointer;margin-left:8px">⚡ Load Demo Data</button>
       <button class="btn btn-b" id="btnEditDashboard" onclick="enterEditMode()"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M11 2l3 3-8.5 8.5L2 15l1.5-3.5L11 2z"/></svg>Edit Dashboard</button>
       <button class="btn btn-o" id="btnCancelEdit" style="display:none" onclick="exitEditMode()">Cancel</button>
     </div>
@@ -769,6 +770,28 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     };
   }
 })();
+
+// ── Demo mode ───────────────────────────────────────────────
+if ((window.__clientId || '') === 'demo') {
+  document.getElementById('btn-demo-seed').style.display = 'inline-block';
+}
+
+async function loadDemoData() {
+  if (!confirm('This will replace all demo data with fresh realistic data. Continue?')) return;
+  const btn = document.getElementById('btn-demo-seed');
+  btn.textContent = '⏳ Loading...';
+  btn.disabled = true;
+  try {
+    await fetch('/api/dev/reseed', { method: 'POST' });
+    showToast('Demo data loaded! Refreshing...');
+    setTimeout(() => location.reload(), 1500);
+  } catch(e) {
+    showToast('Reseed failed', 'error');
+  } finally {
+    btn.textContent = '⚡ Load Demo Data';
+    btn.disabled = false;
+  }
+}
 
 // ── DATA ───────────────────────────────────────────────────
 let allLeads = [];
