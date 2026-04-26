@@ -143,8 +143,9 @@ async function handleMessage(message) {
     } catch(_) {}
   }
 
-  // "menu" / "restart" → reset to START
-  if (['menu', 'restart', 'start'].includes(rawText.toLowerCase())) {
+  // "hi" / "hello" / "menu" / "restart" / "start" → reset to START (fresh session)
+  const RESTART_KEYWORDS = ['hi', 'hello', 'menu', 'restart', 'start'];
+  if (RESTART_KEYWORDS.includes(rawText.toLowerCase())) {
     const flow = getDefaultFlow();
     const existingRow = await getSession(from);
     const lang = existingRow?.language || 'en';

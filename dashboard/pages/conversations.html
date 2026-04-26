@@ -175,6 +175,7 @@
           ${lead ? shared.scoreBadge(lead.score) : ''}
           ${lead ? shared.statusBadge(lead.status) : ''}
           <div class="conv-lead-bar-actions">
+            <button onclick="clearLeadSession('${waNumber}')" style="font-size:11px;padding:4px 10px;border:1px solid #e2e8f0;border-radius:4px;background:#fff;color:#64748b;cursor:pointer;">↺ Reset Session</button>
             <button class="btn btn-sm" onclick="takeOver('${waNumber}', ${hm})" style="font-weight:600;background:${hm?'var(--red-l)':'var(--blue-l)'};color:${hm?'var(--red)':'var(--blue)'};border:1px solid ${hm?'var(--red)':'var(--blue)'}">
               ${hm ? 'Release' : '🎧 Take Over'}
             </button>
@@ -216,6 +217,19 @@
     }
     return html;
   }
+
+  window.clearLeadSession = async function(waNumber) {
+    if (!confirm('Reset this lead session? Bot will treat next message as new.')) return;
+    try {
+      await fetch(`/api/sessions/${waNumber}/clear`, {
+        method: 'POST',
+        headers: { 'x-client-id': window.__clientId || 'default' }
+      });
+      shared.showToast('Session reset — next message will start fresh');
+    } catch(e) {
+      alert('Connection error');
+    }
+  };
 
   window.takeOver = async function(waNumber, currentMode) {
     const endpoint = currentMode ? 'release' : 'takeover';
