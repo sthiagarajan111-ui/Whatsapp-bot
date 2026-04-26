@@ -148,7 +148,7 @@ async function sendDailyReport(email, name, leads, stats, todayAppointments = []
   }).length;
 
   await transporter.sendMail({
-    from: `LeadPulse CRM <${process.env.SMTP_USER}>`,
+    from: `Axyren CRM <${process.env.SMTP_USER}>`,
     to: email,
     subject: `🔥 Daily Lead Report — ${newYesterday} new leads | ${new Date().toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long' })}`,
     html,

@@ -128,7 +128,7 @@ Dashboard: ${dashboardUrl}`;
   </div>
 
   <div style="background:#f9fafb;padding:16px 24px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none;text-align:center">
-    <div style="font-size:12px;color:#9ca3af">LeadPulse AI Alert • ${new Date().toLocaleString('en-AE', {timeZone:'Asia/Dubai'})} UAE Time</div>
+    <div style="font-size:12px;color:#9ca3af">Axyren AI Alert • ${new Date().toLocaleString('en-AE', {timeZone:'Asia/Dubai'})} UAE Time</div>
   </div>
 
 </div>
@@ -143,7 +143,7 @@ Dashboard: ${dashboardUrl}`;
 
     for (const email of emails) {
       await transporter.sendMail({
-        from: `LeadPulse CRM <${process.env.SMTP_USER}>`,
+        from: `Axyren CRM <${process.env.SMTP_USER}>`,
         to: email,
         subject: `🔥 HOT LEAD: ${name} — Score ${score}/10 — ${interest} in ${areaDisplay} (${budgetDisplay})`,
         html: html

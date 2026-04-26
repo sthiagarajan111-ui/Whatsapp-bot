@@ -157,7 +157,17 @@ async function updateLeadPipelineStage(id, stage) {
 }
 
 async function updateLeadScore(waNumber, score, clientId = 'default') {
-  await Lead.findOneAndUpdate({ wa_number: waNumber, client_id: clientId }, { $set: { score, updated_at: new Date() } });
+  const lead = await Lead.findOne({ wa_number: waNumber, client_id: clientId }).lean();
+  const update = { score, updated_at: new Date() };
+  if (lead) {
+    const currentStage = lead.pipeline_stage || 'new_lead';
+    if (score >= 7 && currentStage === 'new_lead') {
+      update.pipeline_stage = 'qualified_hot';
+    } else if (score >= 4 && score < 7 && currentStage === 'new_lead') {
+      update.pipeline_stage = 'qualified_warm';
+    }
+  }
+  await Lead.findOneAndUpdate({ wa_number: waNumber, client_id: clientId }, { $set: update });
 }
 
 async function updateLeadAgent(id, agentWaNumber) {
