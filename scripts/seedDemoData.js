@@ -5,6 +5,7 @@ require('dotenv').config();
 const Lead        = require('../db/models/Lead');
 const Appointment = require('../db/models/Appointment');
 const Message     = require('../db/models/Message');
+const Listing     = require('../db/models/Listing');
 
 const DEMO_CLIENT_ID = 'demo';
 
@@ -94,6 +95,7 @@ async function seed() {
   await Lead.deleteMany({ client_id: DEMO_CLIENT_ID });
   await Appointment.deleteMany({ client_id: DEMO_CLIENT_ID });
   await Message.deleteMany({ client_id: DEMO_CLIENT_ID });
+  await Listing.deleteMany({ client_id: DEMO_CLIENT_ID });
 
   // Set brand_name for demo so stats API returns it (overrides default fallback)
   const col = mongoose.connection.db.collection('settings');
@@ -215,9 +217,27 @@ async function seed() {
   }
   console.log('[Seeder] Created sample messages for 5 leads');
 
+  // ── Seed 10 demo listings ──
+  const DEMO_LISTINGS = [
+    { title: 'Luxury 2BR Apartment - Dubai Marina',    property_type: 'Apartment', type: 'Apartment', area: 'Dubai Marina',    price: 1800000,  bedrooms: 2, beds: 2, bathrooms: 2, baths: 2, size_sqft: 1200, intent: 'buy',  status: 'available', description: 'Stunning sea view apartment with premium finishes, gym, and pool access.' },
+    { title: 'Spacious 3BR Villa - Arabian Ranches',   property_type: 'Villa',     type: 'Villa',     area: 'Arabian Ranches', price: 3500000,  bedrooms: 3, beds: 3, bathrooms: 4, baths: 4, size_sqft: 3200, intent: 'buy',  status: 'available', description: 'Corner villa with private garden, maid room, and community pool.' },
+    { title: 'Modern Studio - JVC',                    property_type: 'Studio',    type: 'Studio',    area: 'JVC',             price: 520000,   bedrooms: 0, beds: 0, bathrooms: 1, baths: 1, size_sqft: 450,  intent: 'buy',  status: 'available', description: 'Fully fitted studio ideal for investment or first home.' },
+    { title: '1BR Apartment for Rent - JLT',           property_type: 'Apartment', type: 'Apartment', area: 'JLT',             price: 65000,    bedrooms: 1, beds: 1, bathrooms: 1, baths: 1, size_sqft: 850,  intent: 'rent', status: 'available', description: 'Well maintained apartment with lake view and covered parking.' },
+    { title: 'Penthouse - Downtown Dubai',             property_type: 'Penthouse', type: 'Penthouse', area: 'Downtown Dubai',  price: 12000000, bedrooms: 4, beds: 4, bathrooms: 5, baths: 5, size_sqft: 5500, intent: 'buy',  status: 'available', description: 'Exclusive penthouse with Burj Khalifa views and private rooftop terrace.' },
+    { title: '4BR Townhouse - Dubai Hills',            property_type: 'Townhouse', type: 'Townhouse', area: 'Dubai Hills',     price: 4200000,  bedrooms: 4, beds: 4, bathrooms: 5, baths: 5, size_sqft: 3800, intent: 'buy',  status: 'available', description: 'Brand new townhouse in Dubai Hills Estate with park views.' },
+    { title: '2BR Apartment for Rent - Business Bay',  property_type: 'Apartment', type: 'Apartment', area: 'Business Bay',   price: 110000,   bedrooms: 2, beds: 2, bathrooms: 2, baths: 2, size_sqft: 1100, intent: 'rent', status: 'available', description: 'High floor apartment with canal views, fully furnished option available.' },
+    { title: '3BR Villa - Palm Jumeirah',              property_type: 'Villa',     type: 'Villa',     area: 'Palm Jumeirah',  price: 8500000,  bedrooms: 3, beds: 3, bathrooms: 4, baths: 4, size_sqft: 4200, intent: 'buy',  status: 'reserved',  description: 'Beachfront villa with private pool and direct beach access.' },
+    { title: '1BR Apartment - Al Barsha',              property_type: 'Apartment', type: 'Apartment', area: 'Al Barsha',      price: 75000,    bedrooms: 1, beds: 1, bathrooms: 1, baths: 1, size_sqft: 780,  intent: 'rent', status: 'available', description: 'Spacious apartment near Mall of the Emirates with Metro access.' },
+    { title: '2BR Apartment - Meydan',                 property_type: 'Apartment', type: 'Apartment', area: 'Meydan',         price: 1450000,  bedrooms: 2, beds: 2, bathrooms: 2, baths: 2, size_sqft: 1050, intent: 'buy',  status: 'available', description: 'Off-plan apartment with flexible payment plan, handover Q4 2026.' },
+  ];
+  const listingsToInsert = DEMO_LISTINGS.map(l => ({ ...l, client_id: DEMO_CLIENT_ID }));
+  await Listing.insertMany(listingsToInsert);
+  console.log(`[Seeder] Created ${listingsToInsert.length} demo listings`);
+
   console.log('\n[Seeder] ✅ Demo data seeding complete!');
   console.log(`  Leads:        ${insertedLeads.length}`);
   console.log(`  Appointments: ${apptDocs.length}`);
+  console.log(`  Listings:     ${listingsToInsert.length}`);
   console.log(`  Messages:     seeded for 5 leads`);
   console.log(`  Client ID:    ${DEMO_CLIENT_ID}`);
   console.log('\n  Access demo dashboard at:');

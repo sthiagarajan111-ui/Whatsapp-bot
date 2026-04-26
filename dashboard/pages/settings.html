@@ -290,37 +290,70 @@
 
     <!-- ── Listings ── -->
     <div class="settings-section" id="tab-listings">
-      <div class="stg-page-title">Property Listings</div>
-      <div class="stg-page-sub">Manage listings the bot can match with leads</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#1e293b">Property Listings</div>
+          <div style="font-size:12px;color:#94a3b8">Add listings to send to leads via WhatsApp</div>
+        </div>
+        <button onclick="openListingModal()" style="background:#4F86C6;color:#fff;border:none;padding:9px 18px;font-size:13px;font-weight:600;border-radius:4px;cursor:pointer">+ Add Listing</button>
+      </div>
 
-      <div id="listingsTable" style="margin-bottom:16px"><div class="loading"><div class="spinner"></div></div></div>
-      <button class="stg-save-btn" onclick="showAddListing()">+ Add Listing</button>
+      <div id="listings-container"><div class="loading"><div class="spinner"></div></div></div>
 
-      <div id="addListingForm" style="display:none;margin-top:20px;border:1px solid #e2e8f0;padding:20px">
-        <div class="section-title" id="listing-form-title">Add / Edit Listing</div>
-        <input type="hidden" id="listing-id">
-        <div class="form-row">
-          <div class="form-group"><label>Title</label><input id="l-title" placeholder="2BR Apartment Downtown"></div>
-          <div class="form-group"><label>Type</label>
-            <select id="l-type"><option value="apartment">Apartment</option><option value="villa">Villa</option><option value="commercial">Commercial</option></select>
+      <!-- Add / Edit Modal -->
+      <div id="listing-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:8px;padding:24px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+          <div style="font-size:15px;font-weight:700;color:#1e293b;margin-bottom:16px" id="listing-modal-title">Add Listing</div>
+          <input type="hidden" id="lm-id">
+          <div class="form-row">
+            <div class="form-group" style="flex:2"><label>Title *</label><input id="lm-title" placeholder="2BR Apartment - Dubai Marina"></div>
+            <div class="form-group"><label>Property Type</label>
+              <select id="lm-type"><option value="Apartment">Apartment</option><option value="Villa">Villa</option><option value="Townhouse">Townhouse</option><option value="Penthouse">Penthouse</option><option value="Studio">Studio</option><option value="Office">Office</option><option value="Shop">Shop</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Area</label><input id="lm-area" placeholder="Dubai Marina"></div>
+            <div class="form-group"><label>Location / Address</label><input id="lm-location" placeholder="Tower A, Marina Walk"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Price (AED)</label><input id="lm-price" type="number" placeholder="1800000"></div>
+            <div class="form-group"><label>Bedrooms</label><input id="lm-beds" type="number" placeholder="2"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Bathrooms</label><input id="lm-baths" type="number" placeholder="2"></div>
+            <div class="form-group"><label>Size (sqft)</label><input id="lm-size" type="number" placeholder="1200"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Intent</label>
+              <select id="lm-intent"><option value="buy">Buy</option><option value="rent">Rent</option><option value="both">Both</option></select>
+            </div>
+            <div class="form-group"><label>Status</label>
+              <select id="lm-status"><option value="available">Available</option><option value="reserved">Reserved</option><option value="sold">Sold</option></select>
+            </div>
+          </div>
+          <div class="form-group"><label>Description</label><textarea id="lm-desc" rows="3" style="max-width:100%"></textarea></div>
+          <div class="form-row">
+            <div class="form-group"><label>Image URL</label><input id="lm-image" placeholder="https://..."></div>
+            <div class="form-group"><label>Listing URL (portal link)</label><input id="lm-url" placeholder="https://..."></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #f1f5f9;padding-top:16px;margin-top:8px">
+            <button class="btn-secondary" onclick="closeListingModal()">Cancel</button>
+            <button class="stg-save-btn" onclick="saveListingModal()">Save Listing</button>
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label>Area</label><input id="l-area" placeholder="jvc, marina, downtown..."></div>
-          <div class="form-group"><label>Price (AED)</label><input id="l-price" type="number" placeholder="750000"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Beds</label><input id="l-beds" type="number" placeholder="2"></div>
-          <div class="form-group"><label>Baths</label><input id="l-baths" type="number" placeholder="2"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Size (sqft)</label><input id="l-size" type="number" placeholder="1200"></div>
-          <div class="form-group"><label>Listing URL</label><input id="l-url" placeholder="https://..."></div>
-        </div>
-        <div class="form-group"><label>Description</label><textarea id="l-desc" rows="2" style="max-width:100%"></textarea></div>
-        <div class="stg-save-bar">
-          <button class="stg-save-btn" onclick="saveListing()">Save Listing</button>
-          <button class="btn-secondary" onclick="document.getElementById('addListingForm').style.display='none'">Cancel</button>
+      </div>
+
+      <!-- Send to Lead Modal -->
+      <div id="send-lead-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:8px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+          <div style="font-size:15px;font-weight:700;color:#1e293b;margin-bottom:4px">Send to Lead</div>
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:12px">Select a lead to send this listing via WhatsApp</div>
+          <input type="hidden" id="slm-listing-id">
+          <input id="slm-search" placeholder="Search leads by name or number..." style="width:100%;margin-bottom:12px" oninput="filterSendLeads(this.value)">
+          <div id="slm-leads" style="max-height:320px;overflow-y:auto"></div>
+          <div style="margin-top:12px;text-align:right">
+            <button class="btn-secondary" onclick="closeSendLeadModal()">Cancel</button>
+          </div>
         </div>
       </div>
     </div>
@@ -612,76 +645,178 @@ if (!window.__clientId) {
 
   // Listings
   async function loadListings() {
-    try { listings = await shared.apiFetch('/api/listings'); renderListings(); } catch(_) {}
-  }
-
-  function renderListings() {
-    const el = document.getElementById('listingsTable');
-    if (!listings.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">No listings yet</div>'; return; }
-    el.innerHTML = `<table><thead><tr><th>Title</th><th>Type</th><th>Area</th><th>Price</th><th>Beds</th><th>Status</th><th></th></tr></thead>
-      <tbody>${listings.map(l=>`<tr>
-        <td>${l.title||'—'}</td><td>${l.type||'—'}</td><td>${l.area||'—'}</td>
-        <td>AED ${(l.price||0).toLocaleString()}</td><td>${l.beds||'—'}</td>
-        <td><span class="badge ${l.status==='available'?'badge-green':'badge-gray'}">${l.status}</span></td>
-        <td style="white-space:nowrap">
-          <button class="btn-secondary btn-sm" onclick="editListing(${l.id})">Edit</button>
-          <button class="btn-danger btn-sm" onclick="delListing(${l.id})">Del</button>
-        </td>
-      </tr>`).join('')}</tbody></table>`;
-  }
-
-  window.showAddListing = function() {
-    setVal('listing-id', '');
-    ['l-title','l-area','l-price','l-beds','l-baths','l-size','l-url','l-desc'].forEach(id => setVal(id, ''));
-    const typeEl = document.getElementById('l-type');
-    if (typeEl) typeEl.value = 'apartment';
-    const titleEl = document.getElementById('listing-form-title');
-    if (titleEl) titleEl.textContent = 'Add New Listing';
-    document.getElementById('addListingForm').style.display = 'block';
-  };
-
-  window.editListing = function(id) {
-    const l = listings.find(x => x.id === id || x._id === id);
-    if (!l) return;
-    setVal('listing-id', l._id || l.id || '');
-    setVal('l-title', l.title || '');
-    setVal('l-area',  l.area  || '');
-    setVal('l-price', l.price || '');
-    setVal('l-beds',  l.beds  || '');
-    setVal('l-baths', l.baths || '');
-    setVal('l-size',  l.size_sqft   || '');
-    setVal('l-url',   l.listing_url || '');
-    setVal('l-desc',  l.description || '');
-    const typeEl = document.getElementById('l-type');
-    if (typeEl) typeEl.value = l.type || 'apartment';
-    const titleEl = document.getElementById('listing-form-title');
-    if (titleEl) titleEl.textContent = 'Edit Listing';
-    document.getElementById('addListingForm').style.display = 'block';
-  };
-
-  window.saveListing = async function() {
-    const id = document.getElementById('listing-id').value;
-    const body = {
-      title:getVal('l-title'), type:getVal('l-type'), area:getVal('l-area'),
-      price:parseInt(getVal('l-price'))||0, beds:parseInt(getVal('l-beds'))||0,
-      baths:parseInt(getVal('l-baths'))||0, size_sqft:parseInt(getVal('l-size'))||0,
-      listing_url:getVal('l-url'), description:getVal('l-desc'), status:'available'
-    };
+    const el = document.getElementById('listings-container');
     try {
-      const method = id ? 'PUT' : 'POST';
-      const url = id ? '/api/listings/'+id : '/api/listings';
-      await shared.apiFetch(url, { method, body: JSON.stringify(body) });
-      shared.showToast('Listing saved');
-      document.getElementById('addListingForm').style.display = 'none';
+      const data = await shared.apiFetch('/api/listings');
+      listings = data.listings || (Array.isArray(data) ? data : []);
+      renderListingCards();
+    } catch(e) {
+      if (el) el.innerHTML = '<div style="padding:20px;color:#ef4444;font-size:13px">Failed to load listings</div>';
+    }
+  }
+
+  function renderListingCards() {
+    const el = document.getElementById('listings-container');
+    if (!el) return;
+    if (!listings.length) {
+      el.innerHTML = '<div style="padding:32px;text-align:center;color:#94a3b8;font-size:13px;border:2px dashed #e2e8f0;border-radius:8px">No listings yet. Click <strong>+ Add Listing</strong> to get started.</div>';
+      return;
+    }
+    const statusStyle = { available: 'background:#dcfce7;color:#16a34a', reserved: 'background:#fef9c3;color:#ca8a04', sold: 'background:#fee2e2;color:#dc2626' };
+    const intentStyle = { buy: 'background:#dbeafe;color:#2563eb', rent: 'background:#ede9fe;color:#7c3aed', both: 'background:#cffafe;color:#0891b2' };
+    el.innerHTML = listings.map(l => {
+      const price = (l.price||0) >= 1000000 ? `AED ${((l.price||0)/1000000).toFixed(1)}M` : `AED ${((l.price||0)/1000).toFixed(0)}K`;
+      const beds = l.bedrooms || l.beds || 0;
+      const baths = l.bathrooms || l.baths || 0;
+      const propType = l.property_type || l.type || '';
+      const status = l.status || 'available';
+      const intent = l.intent || 'buy';
+      const id = l._id || l.id || '';
+      const sSt = statusStyle[status] || statusStyle.available;
+      const iSt = intentStyle[intent] || intentStyle.buy;
+      return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
+            <span style="font-size:14px;font-weight:600;color:#1e293b">${l.title||'—'}</span>
+            ${propType ? `<span style="font-size:10px;color:#64748b;padding:1px 6px;border-radius:3px;background:#f1f5f9">${propType}</span>` : ''}
+            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;${sSt}">${status.charAt(0).toUpperCase()+status.slice(1)}</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;${iSt}">${intent.charAt(0).toUpperCase()+intent.slice(1)}</span>
+          </div>
+          <div style="font-size:12px;color:#64748b;display:flex;flex-wrap:wrap;gap:10px">
+            ${l.area ? `<span>📍 ${l.area}</span>` : ''}
+            <span>💰 ${price}</span>
+            ${beds  ? `<span>🛏 ${beds} Bed${beds>1?'s':''}</span>` : ''}
+            ${baths ? `<span>🚿 ${baths} Bath${baths>1?'s':''}</span>` : ''}
+            ${l.size_sqft ? `<span>📐 ${l.size_sqft.toLocaleString()} sqft</span>` : ''}
+          </div>
+          ${l.description ? `<div style="font-size:11px;color:#94a3b8;margin-top:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${l.description}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+          <button class="btn-secondary btn-sm" onclick="openListingModal('${id}')">✏️ Edit</button>
+          <button class="stg-save-btn btn-sm" style="font-size:11px;padding:4px 10px" onclick="sendListingToLead('${id}')">🏠 Send</button>
+          <button class="btn-danger btn-sm" onclick="deleteListingCard('${id}')">🗑 Delete</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  window.openListingModal = function(id) {
+    setVal('lm-id', '');
+    ['lm-title','lm-area','lm-location','lm-price','lm-beds','lm-baths','lm-size','lm-desc','lm-image','lm-url'].forEach(i => setVal(i, ''));
+    document.getElementById('lm-type').value   = 'Apartment';
+    document.getElementById('lm-intent').value = 'buy';
+    document.getElementById('lm-status').value = 'available';
+    document.getElementById('listing-modal-title').textContent = id ? 'Edit Listing' : 'Add Listing';
+    if (id) {
+      const l = listings.find(x => (x._id||x.id) === id);
+      if (l) {
+        setVal('lm-id',       l._id || l.id || '');
+        setVal('lm-title',    l.title        || '');
+        setVal('lm-area',     l.area         || '');
+        setVal('lm-location', l.location     || '');
+        setVal('lm-price',    l.price        || '');
+        setVal('lm-beds',     l.bedrooms || l.beds  || '');
+        setVal('lm-baths',    l.bathrooms || l.baths || '');
+        setVal('lm-size',     l.size_sqft    || '');
+        setVal('lm-desc',     l.description  || '');
+        setVal('lm-image',    l.image_url    || '');
+        setVal('lm-url',      l.listing_url  || '');
+        document.getElementById('lm-type').value   = l.property_type || l.type || 'Apartment';
+        document.getElementById('lm-intent').value = l.intent  || 'buy';
+        document.getElementById('lm-status').value = l.status  || 'available';
+      }
+    }
+    document.getElementById('listing-modal').style.display = 'flex';
+  };
+
+  window.closeListingModal = function() {
+    document.getElementById('listing-modal').style.display = 'none';
+  };
+
+  window.saveListingModal = async function() {
+    const id = getVal('lm-id');
+    const title = getVal('lm-title');
+    if (!title.trim()) { shared.showToast('Title is required', 'error'); return; }
+    const beds  = parseInt(getVal('lm-beds'))  || 0;
+    const baths = parseInt(getVal('lm-baths')) || 0;
+    const body = {
+      title, area: getVal('lm-area'), location: getVal('lm-location'),
+      property_type: getVal('lm-type'), type: getVal('lm-type'),
+      price: parseInt(getVal('lm-price')) || 0,
+      bedrooms: beds, beds, bathrooms: baths, baths,
+      size_sqft: parseInt(getVal('lm-size')) || 0,
+      intent: getVal('lm-intent'), status: getVal('lm-status'),
+      description: getVal('lm-desc'), image_url: getVal('lm-image'), listing_url: getVal('lm-url'),
+    };
+    if (id) body._id = id;
+    try {
+      await shared.apiFetch('/api/listings/save', { method: 'POST', body: JSON.stringify(body) });
+      shared.showToast(id ? 'Listing updated' : 'Listing added');
+      closeListingModal();
       await loadListings();
     } catch(e) { shared.showToast('Failed to save listing', 'error'); }
   };
 
-  window.delListing = async function(id) {
-    if (!confirm('Delete this listing?')) return;
-    await shared.apiFetch('/api/listings/'+id, { method:'DELETE' });
-    shared.showToast('Deleted');
-    await loadListings();
+  window.deleteListingCard = async function(id) {
+    if (!confirm('Delete this listing? This cannot be undone.')) return;
+    try {
+      await shared.apiFetch('/api/listings/' + id, { method: 'DELETE' });
+      shared.showToast('Listing deleted');
+      await loadListings();
+    } catch(e) { shared.showToast('Failed to delete listing', 'error'); }
+  };
+
+  window.sendListingToLead = async function(listingId) {
+    try {
+      const data = await shared.apiFetch('/api/leads');
+      const allLeads = Array.isArray(data) ? data : (data.leads || []);
+      const activeLeads = allLeads.filter(l => l.status !== 'lost' && l.pipeline_stage !== 'lost');
+      window._sendLeadsAll = activeLeads;
+      setVal('slm-listing-id', listingId);
+      setVal('slm-search', '');
+      renderSendLeadList(activeLeads);
+      document.getElementById('send-lead-modal').style.display = 'flex';
+    } catch(e) { shared.showToast('Failed to load leads', 'error'); }
+  };
+
+  function renderSendLeadList(leadsArr) {
+    const el = document.getElementById('slm-leads');
+    if (!leadsArr.length) {
+      el.innerHTML = '<div style="padding:16px;color:#94a3b8;font-size:13px;text-align:center">No leads found</div>';
+      return;
+    }
+    el.innerHTML = leadsArr.map(l => {
+      const name = (l.name || 'Unknown').replace(/'/g, '&#39;');
+      const wa   = (l.wa_number || '').replace(/'/g, '&#39;');
+      return `<div onclick="confirmSendListing('${l.wa_number}','${name}')"
+        style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;cursor:pointer;transition:border-color .15s"
+        onmouseover="this.style.borderColor='#4F86C6'" onmouseout="this.style.borderColor='#e2e8f0'">
+        <div style="font-size:13px;font-weight:600;color:#1e293b">${l.name||'Unknown'}</div>
+        <div style="font-size:11px;color:#64748b">${l.wa_number||''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  window.filterSendLeads = function(q) {
+    const filtered = (window._sendLeadsAll || []).filter(l =>
+      (l.name||'').toLowerCase().includes(q.toLowerCase()) || (l.wa_number||'').includes(q)
+    );
+    renderSendLeadList(filtered);
+  };
+
+  window.confirmSendListing = async function(waNumber, leadName) {
+    const listingId = getVal('slm-listing-id');
+    closeSendLeadModal();
+    try {
+      await shared.apiFetch(`/api/listings/${listingId}/send`, {
+        method: 'POST', body: JSON.stringify({ wa_number: waNumber })
+      });
+      shared.showToast(`Listing sent to ${leadName} via WhatsApp ✓`);
+    } catch(e) { shared.showToast('Failed to send: ' + e.message, 'error'); }
+  };
+
+  window.closeSendLeadModal = function() {
+    document.getElementById('send-lead-modal').style.display = 'none';
   };
 
   // Agents

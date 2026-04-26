@@ -1131,29 +1131,56 @@ function renderTable(){
       <td><span style="background:${lang==='ar'?'#FFFBEB':'var(--bg)'};color:${lang==='ar'?'var(--amber)':'var(--text3)'};font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;border:1px solid ${lang==='ar'?'rgba(245,158,11,.2)':'var(--border)'}">${lang==='ar'?'AR':'EN'}</span></td>
       <td>${getSPill(l.pipeline_stage,l.status,l.human_mode)}</td>
       <td style="font-size:11px;color:var(--text3)">${fmtDate(l.created_at)}</td>
-      <td><select class="isel" onchange="updateStatus(${l.id},this.value)"><option value="new" ${l.status==='new'?'selected':''}>New</option><option value="contacted" ${l.status==='contacted'?'selected':''}>Contacted</option><option value="converted" ${l.status==='converted'?'selected':''}>Won</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select><button onclick="takeOver('${l.wa_number}', ${l.human_mode||0})" style="margin-left:4px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid;background:${(l.human_mode||0)?'var(--red-l)':'var(--blue-l)'};color:${(l.human_mode||0)?'var(--red)':'var(--blue)'};border-color:${(l.human_mode||0)?'var(--red)':'var(--blue)'}">${(l.human_mode||0) ? 'Release' : 'Take Over'}</button><button onclick="sendPropertyToLead('${l.wa_number}')" style="margin-left:4px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--green);background:var(--green-l);color:var(--green)">🏠 Send</button></td>
+      <td><select class="isel" onchange="updateStatus(${l.id},this.value)"><option value="new" ${l.status==='new'?'selected':''}>New</option><option value="contacted" ${l.status==='contacted'?'selected':''}>Contacted</option><option value="converted" ${l.status==='converted'?'selected':''}>Won</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select><button onclick="takeOver('${l.wa_number}', ${l.human_mode||0})" style="margin-left:4px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid;background:${(l.human_mode||0)?'var(--red-l)':'var(--blue-l)'};color:${(l.human_mode||0)?'var(--red)':'var(--blue)'};border-color:${(l.human_mode||0)?'var(--red)':'var(--blue)'}">${(l.human_mode||0) ? 'Release' : 'Take Over'}</button><button onclick="showListingSelector('${l.wa_number}','${(l.name||'').replace(/'/g,"\\'")}')" style="margin-left:4px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--green);background:var(--green-l);color:var(--green)">🏠 Send</button></td>
     </tr>`;
   }).join('');
 }
 
 function setFilter(f,el){currentFilter=f;document.querySelectorAll('.ft').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderTable()}
 
-async function sendPropertyToLead(waNumber) {
+async function showListingSelector(waNumber, leadName) {
   try {
-    const listings = await fetch('/api/listings').then(r=>r.json());
-    if (!listings.length) { alert('No listings available. Add listings in Settings first.'); return; }
-    const opts = listings.map((l,i) => `${i+1}. ${l.title} — AED ${(l.price||0).toLocaleString()} (${l.area})`).join('\n');
-    const choice = prompt(`Select listing number to send:\n\n${opts}`);
-    const idx = parseInt(choice) - 1;
-    if (isNaN(idx) || !listings[idx]) return;
-    const r = await fetch(`/api/leads/${waNumber}/send-property`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ listingId: listings[idx].id })
+    const data = await shared.apiFetch('/api/listings?status=available');
+    const listings = data.listings || (Array.isArray(data) ? data : []);
+    if (!listings.length) {
+      shared.showToast('No listings available. Add listings in Settings → Listings.', 'error');
+      return;
+    }
+    const modalHtml = `
+      <div id="listing-selector-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:8px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+          <div style="font-size:15px;font-weight:700;color:#1e293b;margin-bottom:4px">Send Listing to ${leadName||waNumber}</div>
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:16px">Select a property to send via WhatsApp</div>
+          ${listings.map(l => {
+            const price = (l.price||0) >= 1000000 ? `AED ${((l.price||0)/1000000).toFixed(1)}M` : `AED ${((l.price||0)/1000).toFixed(0)}K`;
+            const beds = l.bedrooms || l.beds || 0;
+            return `<div onclick="sendSelectedListing('${l._id||l.id}','${waNumber}','${(leadName||'').replace(/'/g,"\\'")}',this)"
+              style="border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s"
+              onmouseover="this.style.borderColor='#4F86C6'" onmouseout="this.style.borderColor='#e2e8f0'">
+              <div style="font-weight:600;color:#1e293b;font-size:13px">${l.title||'—'}</div>
+              <div style="font-size:12px;color:#64748b;margin-top:2px">${l.area||''} · ${price}${beds?' · '+beds+' Bed'+(beds>1?'s':''):''}</div>
+            </div>`;
+          }).join('')}
+          <button onclick="document.getElementById('listing-selector-modal').remove()"
+            style="margin-top:4px;padding:8px 16px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#64748b;cursor:pointer;font-size:13px">Cancel</button>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  } catch(e) { shared.showToast('Failed to load listings', 'error'); }
+}
+
+async function sendSelectedListing(listingId, waNumber, leadName) {
+  document.getElementById('listing-selector-modal')?.remove();
+  try {
+    const data = await shared.apiFetch(`/api/listings/${listingId}/send`, {
+      method: 'POST', body: JSON.stringify({ wa_number: waNumber })
     });
-    const d = await r.json();
-    if (d.success) alert('Property card sent!');
-    else alert('Error: ' + (d.error||'Send failed'));
-  } catch(e) { alert('Connection error'); }
+    if (data.success) {
+      shared.showToast(`Listing sent to ${leadName||waNumber} via WhatsApp ✓`);
+    } else {
+      shared.showToast('Failed to send: ' + (data.error || 'Unknown error'), 'error');
+    }
+  } catch(e) { shared.showToast('Error sending listing', 'error'); }
 }
 
 async function updateStatus(id,status){

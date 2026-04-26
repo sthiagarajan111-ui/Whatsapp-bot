@@ -363,35 +363,68 @@ async function deleteAgent(id) {
 }
 
 // ── Listings ──────────────────────────────────────────────────────────────────
-async function getListings(clientId = 'default') {
-  const docs = await Listing.find({ status: 'available', client_id: clientId }).lean();
-  return docs.map(d => ({
+function normalizeListing(d) {
+  if (!d) return null;
+  return {
     ...d,
-    id:         d._id.toString(),
+    id:         d._id ? d._id.toString() : (d.id || ''),
+    // expose canonical fields with fallback to legacy aliases
+    bedrooms:   d.bedrooms || d.beds || 0,
+    bathrooms:  d.bathrooms || d.baths || 0,
+    property_type: d.property_type || d.type || '',
     created_at: d.created_at instanceof Date ? d.created_at.toISOString() : (d.created_at || ''),
-  }));
+    updated_at: d.updated_at instanceof Date ? d.updated_at.toISOString() : (d.updated_at || ''),
+  };
+}
+
+async function getListings(clientId = 'default', filters = {}) {
+  const query = { client_id: clientId };
+  if (filters.status) query.status = filters.status;
+  if (filters.intent) query.intent = filters.intent;
+  if (filters.area)   query.area = new RegExp(filters.area, 'i');
+  const docs = await Listing.find(query).sort({ created_at: -1 }).lean();
+  return docs.map(normalizeListing);
+}
+
+async function getListing(clientId, listingId) {
+  try {
+    const doc = await Listing.findOne({ _id: listingId, client_id: clientId }).lean();
+    return normalizeListing(doc);
+  } catch (_) { return null; }
 }
 
 async function getAllListings(clientId = 'default') {
-  const docs = await Listing.find({ client_id: clientId }).sort({ created_at: -1 }).lean();
-  return docs.map(d => ({
-    ...d,
-    id:         d._id.toString(),
-    created_at: d.created_at instanceof Date ? d.created_at.toISOString() : (d.created_at || ''),
-  }));
+  return getListings(clientId);
 }
 
 async function saveListing(data, clientId = 'default') {
-  const doc = await Listing.create({ ...data, client_id: clientId });
-  return normalizeDoc(doc);
+  const cid = data.client_id || clientId;
+  if (data._id) {
+    // Update existing
+    const updated = await Listing.findOneAndUpdate(
+      { _id: data._id, client_id: cid },
+      { $set: { ...data, client_id: cid, updated_at: new Date() } },
+      { returnDocument: 'after', new: true }
+    ).lean();
+    return normalizeListing(updated);
+  }
+  // Create new
+  const doc = await Listing.create({ ...data, client_id: cid });
+  return normalizeListing(doc.toObject ? doc.toObject() : doc);
 }
 
 async function updateListing(id, data) {
-  try { await Listing.findByIdAndUpdate(id, { $set: data }); } catch (_) {}
+  try { await Listing.findByIdAndUpdate(id, { $set: { ...data, updated_at: new Date() } }); } catch (_) {}
 }
 
-async function deleteListing(id) {
-  try { await Listing.findByIdAndDelete(id); } catch (_) {}
+async function deleteListing(id, clientId) {
+  try {
+    if (clientId) {
+      await Listing.findOneAndDelete({ _id: id, client_id: clientId });
+    } else {
+      await Listing.findByIdAndDelete(id);
+    }
+  } catch (_) {}
 }
 
 async function matchListings(criteria, clientId = 'default') {
@@ -512,7 +545,7 @@ module.exports = {
   // Agents
   getAgents, saveAgent, updateAgent, deleteAgent,
   // Listings
-  getListings, getAllListings, saveListing, updateListing, deleteListing, matchListings,
+  getListings, getListing, getAllListings, saveListing, updateListing, deleteListing, matchListings,
   // Appointments
   getAppointments, getAppointmentsByDate, saveAppointment, updateAppointmentStatus, getUpcomingAppointments,
   // Notes

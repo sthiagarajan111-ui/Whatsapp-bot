@@ -773,32 +773,94 @@ async function notifyMatchingLeads(listing) {
   return notified;
 }
 
-app.get('/api/listings', async (_req, res) => {
-  res.json(await db.getAllListings());
+app.get('/api/listings', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const listings = await db.getListings(clientId, req.query);
+    res.json({ listings });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/listings/:id', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const listing = await db.getListing(clientId, req.params.id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    res.json({ listing });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Upsert — create or update based on presence of _id
+app.post('/api/listings/save', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const listing = await db.saveListing(req.body, clientId);
+    res.json({ success: true, listing });
+    if (!req.body._id) {
+      notifyMatchingLeads({ ...req.body, ...listing }).catch(e => console.error('[Property Match]', e.message));
+    }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/listings', async (req, res) => {
-  const b = req.body;
-  const listing = {
-    title: b.title || '', type: b.type || 'apartment', area: b.area || '',
-    price: b.price || 0, beds: b.beds || 0, baths: b.baths || 0,
-    size_sqft: b.size_sqft || 0, description: b.description || '',
-    image_url: b.image_url || '', listing_url: b.listing_url || '',
-    status: b.status || 'available',
-  };
-  const result = await db.saveListing(listing);
-  res.json({ ok: true, id: result.id });
-  notifyMatchingLeads({ ...listing, id: result.id }).catch(e => console.error('[Property Match]', e.message));
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const b = req.body;
+    const listing = {
+      title: b.title || '', property_type: b.property_type || b.type || 'Apartment',
+      type: b.type || b.property_type || 'Apartment', area: b.area || '',
+      price: b.price || 0, bedrooms: b.bedrooms || b.beds || 0, beds: b.beds || b.bedrooms || 0,
+      bathrooms: b.bathrooms || b.baths || 0, baths: b.baths || b.bathrooms || 0,
+      size_sqft: b.size_sqft || 0, description: b.description || '',
+      image_url: b.image_url || '', listing_url: b.listing_url || '',
+      status: b.status || 'available', intent: b.intent || 'buy',
+    };
+    const result = await db.saveListing(listing, clientId);
+    res.json({ ok: true, id: result.id, success: true, listing: result });
+    notifyMatchingLeads({ ...listing, id: result.id }).catch(e => console.error('[Property Match]', e.message));
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.put('/api/listings/:id', async (req, res) => {
-  await db.updateListing(req.params.id, req.body);
-  res.json({ ok: true });
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    await db.updateListing(req.params.id, { ...req.body, client_id: clientId });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/listings/:id', async (req, res) => {
-  await db.deleteListing(req.params.id);
-  res.json({ ok: true });
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    await db.deleteListing(req.params.id, clientId);
+    res.json({ ok: true, success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/listings/:id/send', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const { wa_number } = req.body;
+    if (!wa_number) return res.status(400).json({ error: 'wa_number required' });
+    const listing = await db.getListing(clientId, req.params.id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    const formatPrice = (p) => p >= 1000000 ? `AED ${(p/1000000).toFixed(1)}M` : `AED ${(p/1000).toFixed(0)}K`;
+    const beds = listing.bedrooms || listing.beds || 0;
+    const baths = listing.bathrooms || listing.baths || 0;
+    const msg =
+      `🏠 *${listing.title}*\n\n` +
+      `📍 ${listing.area || listing.location || 'Dubai'}\n` +
+      `💰 ${formatPrice(listing.price || 0)}\n` +
+      (beds  ? `🛏 ${beds} Bedroom${beds  > 1 ? 's' : ''}\n` : '') +
+      (baths ? `🚿 ${baths} Bathroom${baths > 1 ? 's' : ''}\n` : '') +
+      (listing.size_sqft ? `📐 ${listing.size_sqft.toLocaleString()} sqft\n` : '') +
+      (listing.description ? `\n${listing.description}\n` : '') +
+      (listing.listing_url ? `\n🔗 View Details: ${listing.listing_url}` : '') +
+      `\n\nInterested? Reply *YES* to schedule a viewing or call us anytime.`;
+    await sendText(`whatsapp:+${wa_number}`, msg);
+    await db.saveMessage(wa_number, 'outbound', 'text', `[Listing: ${listing.title}]`, {}).catch(() => {});
+    res.json({ success: true, message: 'Listing sent successfully' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── API: appointments (POST only — GET is handled below with enrichment) ───────
