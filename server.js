@@ -2132,7 +2132,7 @@ app.post('/api/leads/manual', async (req, res) => {
       $setOnInsert: { ...leadData, lead_id: leadId, created_at: new Date() },
       $set: { updated_at: new Date() }
     };
-    const options = { upsert: true, returnDocument: 'after', new: true };
+    const options = { upsert: true, returnDocument: 'after' };
 
     let savedLead;
     try {
@@ -2143,7 +2143,7 @@ app.post('/api/leads/manual', async (req, res) => {
         savedLead = await Lead.findOneAndUpdate(
           filter,
           { $set: { ...leadData, lead_id: leadId, updated_at: new Date() } },
-          { returnDocument: 'after', new: true }
+          { returnDocument: 'after' }
         );
       } else {
         throw dupErr;
