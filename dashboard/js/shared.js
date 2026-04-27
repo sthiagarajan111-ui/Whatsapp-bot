@@ -1,5 +1,31 @@
 /* Shared utilities for all dashboard pages */
 
+/* ── Chart.js global defaults ── */
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = '#64748b';
+  Chart.defaults.plugins.legend.position = 'bottom';
+  Chart.defaults.plugins.legend.labels.padding = 16;
+  Chart.defaults.plugins.legend.labels.usePointStyle = true;
+  Chart.defaults.plugins.legend.labels.font = { size: 11, family: "'Inter', sans-serif" };
+  Chart.defaults.plugins.tooltip.backgroundColor = '#1e293b';
+  Chart.defaults.plugins.tooltip.titleFont = { size: 12, weight: '600' };
+  Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.plugins.tooltip.cornerRadius = 4;
+  Chart.defaults.scale.grid.color = '#f1f5f9';
+  Chart.defaults.scale.ticks.color = '#94a3b8';
+  Chart.defaults.scale.ticks.font = { size: 11 };
+  Chart.defaults.scale.border = { display: false };
+
+  // Global colour palette
+  window.CHART_COLORS = [
+    '#4F86C6', '#62B58F', '#F5A623', '#E8605A',
+    '#9B7FD4', '#5BC0DE', '#F0AD4E', '#5CB85C'
+  ];
+}
+
 function timeAgo(dateStr) {
   if (!dateStr) return '';
   const diff = Date.now() - new Date(dateStr).getTime();

@@ -312,7 +312,7 @@
 
       <!-- Add / Edit Modal -->
       <div id="listing-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
-        <div style="background:#fff;border-radius:8px;padding:24px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+        <div style="background:#fff;border-radius:4px;padding:24px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
           <div style="font-size:15px;font-weight:700;color:#1e293b;margin-bottom:16px" id="listing-modal-title">Add Listing</div>
           <input type="hidden" id="lm-id">
           <div class="form-row">
@@ -355,7 +355,7 @@
 
       <!-- Send to Lead Modal -->
       <div id="send-lead-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
-        <div style="background:#fff;border-radius:8px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+        <div style="background:#fff;border-radius:4px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
           <div style="font-size:15px;font-weight:700;color:#1e293b;margin-bottom:4px">Send to Lead</div>
           <div style="font-size:12px;color:#94a3b8;margin-bottom:12px">Select a lead to send this listing via WhatsApp</div>
           <input type="hidden" id="slm-listing-id">
@@ -672,11 +672,11 @@ if (!window.__clientId) {
     const el = document.getElementById('listings-container');
     if (!el) return;
     if (!listings.length) {
-      el.innerHTML = '<div style="padding:32px;text-align:center;color:#94a3b8;font-size:13px;border:2px dashed #e2e8f0;border-radius:8px">No listings yet. Click <strong>+ Add Listing</strong> to get started.</div>';
+      el.innerHTML = '<div style="padding:32px;text-align:center;color:#94a3b8;font-size:13px;border:2px dashed #e2e8f0;border-radius:4px">No listings yet. Click <strong>+ Add Listing</strong> to get started.</div>';
       return;
     }
     const statusStyle = { available: 'background:#dcfce7;color:#16a34a', reserved: 'background:#fef9c3;color:#ca8a04', sold: 'background:#fee2e2;color:#dc2626' };
-    const intentStyle = { buy: 'background:#dbeafe;color:#2563eb', rent: 'background:#ede9fe;color:#7c3aed', both: 'background:#cffafe;color:#0891b2' };
+    const intentStyle = { buy: 'background:#dbeafe;color:#4F86C6', rent: 'background:#ede9fe;color:#7c3aed', both: 'background:#cffafe;color:#0891b2' };
     el.innerHTML = listings.map(l => {
       const price = (l.price||0) >= 1000000 ? `AED ${((l.price||0)/1000000).toFixed(1)}M` : `AED ${((l.price||0)/1000).toFixed(0)}K`;
       const beds = l.bedrooms || l.beds || 0;
@@ -687,13 +687,13 @@ if (!window.__clientId) {
       const id = l._id || l.id || '';
       const sSt = statusStyle[status] || statusStyle.available;
       const iSt = intentStyle[intent] || intentStyle.buy;
-      return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      return `<div style="border:1px solid #e2e8f0;border-radius:4px;padding:16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
             <span style="font-size:14px;font-weight:600;color:#1e293b">${l.title||'—'}</span>
             ${propType ? `<span style="font-size:10px;color:#64748b;padding:1px 6px;border-radius:3px;background:#f1f5f9">${propType}</span>` : ''}
-            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;${sSt}">${status.charAt(0).toUpperCase()+status.slice(1)}</span>
-            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;${iSt}">${intent.charAt(0).toUpperCase()+intent.slice(1)}</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px;${sSt}">${status.charAt(0).toUpperCase()+status.slice(1)}</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px;${iSt}">${intent.charAt(0).toUpperCase()+intent.slice(1)}</span>
           </div>
           <div style="font-size:12px;color:#64748b;display:flex;flex-wrap:wrap;gap:10px">
             ${l.area ? `<span>📍 ${l.area}</span>` : ''}
@@ -802,7 +802,7 @@ if (!window.__clientId) {
       const name = (l.name || 'Unknown').replace(/'/g, '&#39;');
       const wa   = (l.wa_number || '').replace(/'/g, '&#39;');
       return `<div onclick="confirmSendListing('${l.wa_number}','${name}')"
-        style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;cursor:pointer;transition:border-color .15s"
+        style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:4px;margin-bottom:6px;cursor:pointer;transition:border-color .15s"
         onmouseover="this.style.borderColor='#4F86C6'" onmouseout="this.style.borderColor='#e2e8f0'">
         <div style="font-size:13px;font-weight:600;color:#1e293b">${l.name||'Unknown'}</div>
         <div style="font-size:11px;color:#64748b">${l.wa_number||''}</div>

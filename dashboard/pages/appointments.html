@@ -22,31 +22,31 @@
   .tbl-wrap tbody tr{transition:background .1s}
   .tbl-wrap tbody tr:hover td{background:#f8fafc}
   .tbl-wrap td{padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#1e293b;vertical-align:middle}
-  .appt-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#7C3AED);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
+  .appt-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#4F86C6,#7C3AED);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
   .lead-cell{display:flex;align-items:center;gap:10px}
   .lead-name{font-weight:600;color:#1e293b;font-size:13px}
   .lead-wa{font-size:11px;color:#94a3b8}
-  .date-badge{font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px}
+  .date-badge{font-size:12px;font-weight:600;padding:3px 8px;border-radius:3px}
   .date-today{background:#D1FAE5;color:#065F46}
   .date-future{background:#DBEAFE;color:#1E40AF}
   .date-overdue{background:#FEE2E2;color:#991B1B}
-  .industry-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;text-transform:capitalize}
+  .industry-badge{font-size:11px;padding:2px 8px;border-radius:3px;font-weight:600;text-transform:capitalize}
   .industry-realEstate{background:#DBEAFE;color:#1E40AF}
   .industry-restaurant{background:#D1FAE5;color:#065F46}
   .industry-clinic{background:#FCE7F3;color:#9D174D}
   .industry-salon{background:#FEF3C7;color:#92400E}
   .industry-retail{background:#EDE9FE;color:#5B21B6}
   .industry-carDealer{background:#F3F4F6;color:#374151}
-  .status-pill{font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600}
+  .status-pill{font-size:11px;padding:3px 10px;border-radius:3px;font-weight:600}
   .status-confirmed{background:#DBEAFE;color:#1E40AF}
   .status-completed{background:#D1FAE5;color:#065F46}
   .status-cancelled{background:#F3F4F6;color:#6B7280}
   .status-rescheduled{background:#FEF3C7;color:#92400E}
-  .appt-score-hot{background:#FEE2E2;color:#991B1B;font-size:11px;padding:2px 7px;border-radius:8px;font-weight:700}
-  .appt-score-warm{background:#FEF3C7;color:#92400E;font-size:11px;padding:2px 7px;border-radius:8px;font-weight:700}
-  .appt-score-cold{background:#DBEAFE;color:#1E40AF;font-size:11px;padding:2px 7px;border-radius:8px;font-weight:700}
+  .appt-score-hot{background:#FEE2E2;color:#991B1B;font-size:11px;padding:2px 7px;border-radius:3px;font-weight:700}
+  .appt-score-warm{background:#FEF3C7;color:#92400E;font-size:11px;padding:2px 7px;border-radius:3px;font-weight:700}
+  .appt-score-cold{background:#DBEAFE;color:#1E40AF;font-size:11px;padding:2px 7px;border-radius:3px;font-weight:700}
   .action-btns{display:flex;gap:4px;flex-wrap:wrap}
-  .ab{padding:4px 8px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+  .ab{padding:4px 8px;border-radius:4px;border:none;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
   .ab-complete{background:#D1FAE5;color:#065F46}
   .ab-complete:hover{background:#10B981;color:#fff}
   .ab-cancel{background:#FEE2E2;color:#991B1B}
@@ -57,12 +57,12 @@
   .appt-empty-icon{font-size:40px;margin-bottom:12px}
   .calendar-view{display:none}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-  .cal-day{background:#fff;border-radius:10px;border:1px solid #E5E7EB;padding:10px;min-height:100px}
+  .cal-day{background:#fff;border-radius:4px;border:1px solid #e2e8f0;padding:10px;min-height:100px}
   .cal-day-header{font-size:11px;font-weight:700;color:#6B7280;margin-bottom:6px;text-align:center}
   .cal-day-date{font-size:16px;font-weight:800;color:#111827;text-align:center;margin-bottom:6px}
-  .cal-day.today{border-color:#3B82F6;background:#EFF6FF}
-  .cal-day.today .cal-day-date{color:#3B82F6}
-  .cal-appt{background:#3B82F6;color:#fff;border-radius:5px;padding:3px 6px;font-size:10px;font-weight:600;margin-bottom:3px;cursor:pointer}
+  .cal-day.today{border-color:#4F86C6;background:#eff6ff}
+  .cal-day.today .cal-day-date{color:#4F86C6}
+  .cal-appt{background:#4F86C6;color:#fff;border-radius:3px;padding:3px 6px;font-size:10px;font-weight:600;margin-bottom:3px;cursor:pointer}
   .cal-appt.completed{background:#10B981}
   .cal-appt.cancelled{background:#9CA3AF}
   .appt-loading{text-align:center;padding:40px;color:#9CA3AF;font-size:14px}
@@ -70,7 +70,10 @@
 </style>
 
 <div class="pg-hdr">
-  <div class="pg-title">📅 Appointments</div>
+  <div>
+    <div class="pg-title">📅 Appointments</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:2px">Scheduled meetings with leads</div>
+  </div>
   <div class="filter-row">
     <button class="dr-btn active" onclick="apptSetRange('today',this)">Today</button>
     <button class="dr-btn" onclick="apptSetRange('week',this)">This Week</button>

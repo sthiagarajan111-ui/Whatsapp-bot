@@ -1,14 +1,8 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script>
-Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
-Chart.defaults.font.size = 12;
-Chart.defaults.color = '#64748b';
-</script>
 <style>
 .a-page { padding: 24px; background: #f8fafc; min-height: 100%; }
 .a-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
 .a-title { font-size: 18px; font-weight: 700; color: #1e293b; }
-.a-subtitle { font-size: 13px; color: #64748b; margin-top: 2px; }
+.a-subtitle { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 
 /* Date filter pills */
 .date-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -18,14 +12,14 @@ Chart.defaults.color = '#64748b';
 
 /* KPI Row */
 .a-kpi-row { display: flex; gap: 16px; margin-bottom: 24px; }
-.a-kpi-card { flex: 1; min-width: 0; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); overflow: hidden; }
+.a-kpi-card { flex: 1; min-width: 0; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); border-radius: 4px; overflow: hidden; }
 .a-kpi-accent { height: 3px; border-radius: 2px 2px 0 0; }
 .a-kpi-body { padding: 16px 20px; }
 .a-kpi-val { font-size: 24px; font-weight: 700; color: #1e293b; margin: 4px 0; }
 .a-kpi-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; }
 
 /* Chart cards */
-.chart-card { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); padding: 20px; }
+.chart-card { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); border-radius: 4px; padding: 20px; }
 .chart-title { font-size: 13px; font-weight: 600; color: #1e293b; border-left: 3px solid #4F86C6; padding-left: 10px; margin-bottom: 16px; line-height: 1.4; }
 
 /* Heatmap */

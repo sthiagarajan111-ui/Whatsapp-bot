@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Axyren — AI-powered Lead Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/dashboard/shared.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
@@ -16,21 +17,7 @@ Chart.defaults.plugins.legend.labels.usePointStyle = true;
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 <style>
-:root{
-  --bg:#F4F6FA;--sidebar:#1B2236;--sidebar2:#222D44;--sw:#A8B5CC;
-  --white:#FFFFFF;--border:#E4E9F2;--border2:#CDD5E5;
-  --text:#0F1A35;--text2:#5A6A8A;--text3:#9AAABB;
-  --blue:#3D7FFA;--blue2:#2563EB;--blue-l:#EEF4FF;
-  --cyan:#06C8E0;--cyan-l:#E0FAFE;
-  --green:#10B981;--green-l:#ECFDF5;
-  --red:#EF4444;--red-l:#FEF2F2;
-  --amber:#F59E0B;--amber-l:#FFFBEB;
-  --purple:#7C3AED;--purple-l:#F5F3FF;
-  --teal:#0D9488;--teal-l:#F0FDFA;
-  --pink:#EC4899;--pink-l:#FDF2F8;
-  --sh:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
-  --sh2:0 4px 20px rgba(0,0,0,.08);
-}
+/* index.html layout overrides — variables defined in shared.css */
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
 
@@ -39,7 +26,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 /* ── Sidebar ─────────────────── */
 .sb{background:var(--sidebar);color:var(--sw);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
-.sb-logo{padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.05);background:linear-gradient(180deg,rgba(61,127,250,.08) 0%,transparent 100%)}
+.sb-logo{padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.05);background:linear-gradient(180deg,rgba(79,134,198,.08) 0%,transparent 100%)}
 .lw{display:flex;align-items:center;gap:10px}
 .lb{width:34px;height:34px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .lb svg{width:17px;height:17px;fill:white}
@@ -50,10 +37,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .sc-name{font-size:12px;font-weight:600;color:#fff;display:flex;align-items:center;gap:6px}
 .sc-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 2px rgba(16,185,129,.25);flex-shrink:0}
 .sb-sec{padding:16px 12px 0}
-.ss-lbl{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.2);padding:0 8px;margin-bottom:5px}
-.ni{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;transition:all .15s;color:var(--sw);font-size:12px;font-weight:400;text-decoration:none;margin-bottom:1px}
+.ss-lbl{font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:#475569;padding:0 8px;margin-bottom:5px}
+.ni{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:4px;cursor:pointer;transition:all .15s;color:var(--sw);font-size:12px;font-weight:400;text-decoration:none;margin-bottom:1px}
 .ni:hover{background:rgba(255,255,255,.06);color:#fff}
-.ni.active{background:rgba(61,127,250,.18);color:#fff;border-left:2px solid var(--blue);padding-left:8px}
+.ni.active{background:rgba(79,134,198,0.1);color:#fff;border-left:3px solid var(--blue);padding-left:8px}
 .ni.active::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--blue);flex-shrink:0}
 .ni.active .ni-ico{color:var(--blue)}
 .ni-ico{width:15px;height:15px;flex-shrink:0;opacity:.65}
@@ -74,7 +61,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .tb{background:var(--white);border-bottom:1px solid var(--border);padding:0 28px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
 .tb-l{display:flex;align-items:center;gap:12px}
 .tb-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:15px;color:var(--text);text-transform:uppercase;letter-spacing:.5px}
-.dr-btn{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:5px 11px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .15s}
+.dr-btn{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;padding:5px 11px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .15s}
 .dr-btn:hover{border-color:var(--blue);color:var(--blue)}
 .tb-r{display:flex;align-items:center;gap:9px}
 .btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;border:none;font-family:'Inter',sans-serif;text-decoration:none}
@@ -94,9 +81,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 /* ── KPI Scorecards ───────────── */
 .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
-.kpi{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:16px 18px;box-shadow:var(--sh);transition:all .2s;position:relative;overflow:hidden}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:16px 18px;box-shadow:var(--sh);transition:all .2s;position:relative;overflow:hidden}
 .kpi:hover{box-shadow:var(--sh2);transform:translateY(-1px)}
-.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:4px 4px 0 0}
 .kpi.k-blue::after{background:linear-gradient(90deg,var(--blue),var(--cyan))}
 .kpi.k-red::after{background:linear-gradient(90deg,var(--red),#ff8a94)}
 .kpi.k-green::after{background:linear-gradient(90deg,var(--green),#34d399)}
@@ -109,7 +96,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .kpi.k-purple{background:linear-gradient(135deg,#ffffff 0%,#f8f5ff 100%)}
 .kpi-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .kpi-lbl{font-size:10px;font-weight:600;color:var(--text2);letter-spacing:.3px;text-transform:uppercase}
-.kpi-ib{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.kpi-ib{width:30px;height:30px;border-radius:4px;display:flex;align-items:center;justify-content:center}
 .ib-bl{background:var(--blue-l)}.ib-re{background:var(--red-l)}.ib-gr{background:var(--green-l)}.ib-am{background:var(--amber-l)}.ib-pu{background:var(--purple-l)}
 .kpi-ib svg{width:14px;height:14px}
 .kpi-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:26px;color:var(--text);letter-spacing:-1px;line-height:1;margin-bottom:5px}
@@ -179,7 +166,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .fr-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:10px;font-weight:600;color:white;transition:width .8s cubic-bezier(.4,0,.2,1);white-space:nowrap;min-width:30px}
 .fr-count{font-size:11px;font-weight:700;color:var(--text);text-align:center}
 .fr-pct{font-size:11px;color:var(--text2);text-align:center;font-weight:500}
-.funnel-colors{--f0:#3D7FFA;--f1:#06C8E0;--f2:#7C3AED;--f3:#A78BFA;--f4:#10B981;--f5:#34D399;--f6:#F59E0B;--f7:#10B981;--f8:#EF4444}
+.funnel-colors{--f0:#4F86C6;--f1:#06C8E0;--f2:#7C3AED;--f3:#A78BFA;--f4:#10B981;--f5:#34D399;--f6:#F59E0B;--f7:#10B981;--f8:#EF4444}
 
 /* ── Pipeline value bar chart ─── */
 .chart-wrap{padding:16px 18px;height:200px;position:relative}
@@ -1108,7 +1095,7 @@ const budgetVal = {
 };
 const areaMap = {downtown:'Downtown',marina:'Marina',jvc:'JVC/JVT',business_bay:'Business Bay',palm:'Palm',mirdif:'Mirdif',open:'Flexible'};
 const funnelStages = ['New Lead','AI Contacted','Qualified Hot','Qualified Warm','Viewing Requested','Viewing Confirmed','Offer Made','Won','Lost'];
-const funnelColors = ['#3D7FFA','#06C8E0','#7C3AED','#A78BFA','#10B981','#34D399','#F59E0B','#10B981','#EF4444'];
+const funnelColors = ['#4F86C6','#06C8E0','#7C3AED','#A78BFA','#10B981','#34D399','#F59E0B','#10B981','#EF4444'];
 
 function parseD(l){try{return typeof l.data==='string'?JSON.parse(l.data):(l.data||{})}catch(e){return{}}}
 function initials(n){if(!n)return'?';const p=n.trim().split(' ');return(p[0][0]+(p[1]?p[1][0]:'')).toUpperCase()}
@@ -1144,7 +1131,7 @@ function initCharts(){
   // Line chart
   lineChart = new Chart(document.getElementById('lineChart').getContext('2d'),{
     type:'line',
-    data:{labels:getLast7Days(),datasets:[{label:'Leads',data:[0,0,0,0,0,0,0],borderColor:'#3D7FFA',backgroundColor:'rgba(61,127,250,0.07)',borderWidth:2,fill:true,tension:0.4,pointBackgroundColor:'#3D7FFA',pointRadius:4,pointHoverRadius:6}]},
+    data:{labels:getLast7Days(),datasets:[{label:'Leads',data:[0,0,0,0,0,0,0],borderColor:'#4F86C6',backgroundColor:'rgba(79,134,198,0.07)',borderWidth:2,fill:true,tension:0.4,pointBackgroundColor:'#4F86C6',pointRadius:4,pointHoverRadius:6}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#9AAABB'}},y:{grid:{color:'#F4F6FA'},ticks:{font:{size:10},color:'#9AAABB',stepSize:1},beginAtZero:true}}}
   });
 
@@ -1217,7 +1204,7 @@ function updateAll(stats,leads){
   stageChart.data.datasets[0].data=[newL,contacted,conv,lost];
   stageChart.update('none');
   document.getElementById('sdTotal').textContent=total;
-  const sdColors=['#3D7FFA','#F59E0B','#10B981','#E4E9F2'];
+  const sdColors=['#4F86C6','#F59E0B','#10B981','#E4E9F2'];
   const sdLabels=['New','Contacted','Won','Lost'];
   document.getElementById('sdLegend').innerHTML=[newL,contacted,conv,lost].map((n,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><span style="width:8px;height:8px;border-radius:2px;background:${sdColors[i]};flex-shrink:0"></span>${sdLabels[i]}<span style="margin-left:auto;font-weight:700;color:var(--text)">${n}</span></div>`).join('');
 
