@@ -2105,44 +2105,67 @@ app.post('/api/leads/manual', async (req, res) => {
     const waNumber = body.wa_number || (body.phone || '').replace(/\D/g, '');
     if (!waNumber) throw new Error('wa_number could not be derived from phone');
 
-    // Store fields not in Lead schema inside the data Mixed field
     const leadData = {
-      phone: body.phone || '', email: body.email || '',
-      source: body.source || 'phone-inbound', intent: body.intent || '',
-      property_type: body.property_type || '', budget: budgetNum,
-      area_interest: body.area_interest || '', timeline: body.timeline || '',
-      notes: body.notes || '', score_label: scoreLabel,
-      entry_method: 'manual', recording_duration: body.recording_duration || 0,
-      party_size: body.party_size || '', occasion: body.occasion || '',
+      client_id: clientId,
+      wa_number: waNumber,
+      name: body.name,
+      channel: body.channel || 'phone',
+      vertical: activeFlow,
+      language: body.language || 'en',
+      score,
+      pipeline_stage: pipelineStage,
+      status: 'active',
+      data: {
+        phone: body.phone || '', email: body.email || '',
+        source: body.source || 'phone-inbound', intent: body.intent || '',
+        property_type: body.property_type || '', budget: budgetNum,
+        area_interest: body.area_interest || '', timeline: body.timeline || '',
+        notes: body.notes || '', score_label: scoreLabel,
+        entry_method: 'manual', recording_duration: body.recording_duration || 0,
+        party_size: body.party_size || '', occasion: body.occasion || '',
+      }
     };
 
-    const LeadModel = require('./db/models/Lead');
-    // Use upsert to avoid E11000 on duplicate wa_number for this client
-    await LeadModel.findOneAndUpdate(
-      { wa_number: waNumber, client_id: clientId },
-      {
-        $set: {
-          lead_id: leadId, name: body.name,
-          channel: body.channel || 'phone', vertical: activeFlow,
-          language: body.language || 'en', score, pipeline_stage: pipelineStage,
-          status: 'active', data: leadData, updated_at: new Date()
-        },
-        $setOnInsert: { created_at: new Date() }
-      },
-      { upsert: true, new: true }
-    );
+    const Lead = require('./db/models/Lead');
+    const filter = { wa_number: leadData.wa_number };
+    const update = {
+      $setOnInsert: { ...leadData, lead_id: leadId, created_at: new Date() },
+      $set: { updated_at: new Date() }
+    };
+    const options = { upsert: true, returnDocument: 'after', new: true };
+
+    let savedLead;
+    try {
+      savedLead = await Lead.findOneAndUpdate(filter, update, options);
+    } catch(dupErr) {
+      if (dupErr.code === 11000) {
+        // Lead exists — just update it with new manual entry data
+        savedLead = await Lead.findOneAndUpdate(
+          filter,
+          { $set: { ...leadData, lead_id: leadId, updated_at: new Date() } },
+          { returnDocument: 'after', new: true }
+        );
+      } else {
+        throw dupErr;
+      }
+    }
 
     // saveMessage(waNumber, direction, type, content, rawData, clientId)
     await db.saveMessage(
-      waNumber, 'outbound', 'text',
-      `Manual lead captured via ${body.source || 'phone call'}. Notes: ${body.notes || 'None'}`,
-      null, clientId
+      leadData.wa_number,
+      'outbound',
+      'text',
+      'Manual lead captured via ' + (body.source || 'phone') + '. Notes: ' + (body.notes || 'None'),
+      null,
+      clientId
     );
 
     res.json({ success: true, lead_id: leadId, score, score_label: scoreLabel });
   } catch(e) {
-    console.error('[Manual Lead Save Error]', e.message);
-    console.error('[Manual Lead Save Stack]', e.stack);
+    console.error('[Manual Lead]', e.message);
+    if (e.code === 11000) {
+      return res.status(400).json({ error: 'A lead with this phone number already exists.' });
+    }
     res.status(500).json({ error: e.message });
   }
 });
