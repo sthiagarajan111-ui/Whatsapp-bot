@@ -14,6 +14,10 @@ const { processVoiceMessage } = require('./utils/voiceHandler');
 const { generateReport, listReports, REPORTS_DIR } = require('./utils/reportGenerator');
 const { getClientByWhatsAppNumber, getClientById, clearClientCache } = require('./middleware/clientResolver');
 const Client = require('./db/models/Client');
+const multer = require('multer');
+const { getLeadCounterModel } = require('./db/models/LeadCounter');
+const { getRecordingModel } = require('./db/models/Recording');
+const uploadMiddleware = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -564,6 +568,7 @@ app.get('/dashboard/css/:file', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard', 'css', req.params.file));
 });
 app.use('/dashboard', express.static(path.join(__dirname, 'dashboard')));
+app.use('/recordings', express.static(path.join(__dirname, 'public', 'recordings')));
 
 // ── API: conversations ────────────────────────────────────────────────────────
 app.get('/api/conversations', async (req, res) => {
@@ -1986,8 +1991,9 @@ app.get('/client-dashboard/:clientId', async (req, res) => {
 
     // Demo client — bypass DB lookup and serve dashboard directly
     if (clientId === 'demo') {
+      const activeFlow = process.env.ACTIVE_FLOW || 'realEstate';
       const html = fs.readFileSync(path.join(__dirname, 'dashboard', 'index.html'), 'utf8');
-      return res.send(html.replace('</head>', `<script>window.__clientId=${JSON.stringify(clientId)};</script></head>`));
+      return res.send(html.replace('</head>', `<script>window.__clientId=${JSON.stringify(clientId)};window.ACTIVE_FLOW=${JSON.stringify(activeFlow)};</script></head>`));
     }
 
     const ClientModel = require('./db/models/Client');
@@ -2022,9 +2028,10 @@ app.get('/client-dashboard/:clientId', async (req, res) => {
       `);
     }
 
-    // Active client — inject clientId and serve dashboard
+    // Active client — inject clientId and ACTIVE_FLOW, then serve dashboard
+    const activeFlow = process.env.ACTIVE_FLOW || 'realEstate';
     const html = fs.readFileSync(path.join(__dirname, 'dashboard', 'index.html'), 'utf8');
-    res.send(html.replace('</head>', `<script>window.__clientId=${JSON.stringify(clientId)};</script></head>`));
+    res.send(html.replace('</head>', `<script>window.__clientId=${JSON.stringify(clientId)};window.ACTIVE_FLOW=${JSON.stringify(activeFlow)};</script></head>`));
   } catch (e) { res.status(500).send('Error loading dashboard'); }
 });
 
@@ -2043,6 +2050,119 @@ app.get('/client-dashboard/:clientId/pages/:page', (req, res) => {
 // Static JS/CSS assets under the client path
 app.use('/client-dashboard/:clientId/js',  express.static(path.join(__dirname, 'dashboard', 'js')));
 app.use('/client-dashboard/:clientId/css', express.static(path.join(__dirname, 'dashboard', 'css')));
+
+// ── Manual Lead Capture: preview ID ──────────────────────────────────────────
+app.get('/api/leads/preview-id', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const channel = req.query.channel || 'phone';
+    const activeFlow = process.env.ACTIVE_FLOW || 'realEstate';
+
+    const prefixSetting = await db.getSetting('lead_id_prefix', clientId);
+    const prefix = prefixSetting?.value || 'AXY';
+    const year = new Date().getFullYear();
+
+    const Counter = getLeadCounterModel(clientId);
+    const counter = await Counter.findOne({ client_id: clientId }).lean();
+    const nextSeq = String((counter?.current_count || 0) + 1).padStart(4, '0');
+
+    const channelCodes = { phone:'PH', whatsapp:'WA', facebook:'FB', instagram:'IG', web:'WEB', walkin:'WI', referral:'RF' };
+    const verticalCodes = { realEstate:'RE', restaurant:'RS', clinic:'CL', retail:'RT', salon:'SL', carDealer:'CD' };
+
+    const preview = `${prefix}-${year}-${nextSeq}-${channelCodes[channel]||'PH'}-${verticalCodes[activeFlow]||'RE'}`;
+    res.json({ preview });
+  } catch(e) {
+    res.json({ preview: 'AXY-2026-XXXX-PH-RE' });
+  }
+});
+
+// ── Manual Lead Capture: save lead ───────────────────────────────────────────
+app.post('/api/leads/manual', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const activeFlow = process.env.ACTIVE_FLOW || 'realEstate';
+    const body = req.body;
+
+    const leadId = await db.generateLeadId(clientId, body.channel || 'phone', activeFlow);
+
+    const budgetMap = {
+      'under-500k': 400000, '500k---1m': 750000, '1m---2m': 1500000,
+      '2m---5m': 3000000, 'above-5m': 7500000,
+      'under-aed-500': 300, 'aed-500-2000': 1250, 'aed-2000-5000': 3500, 'above-aed-5000': 7500,
+      'under-50k': 40000, '50k-100k': 75000, '100k-200k': 150000, '200k-500k': 350000, 'above-500k': 750000
+    };
+    const budgetNum = budgetMap[body.budget] || 0;
+
+    let score = 3;
+    if (budgetNum > 1000000) score += 2;
+    if (body.timeline && ['immediately','today'].includes(body.timeline)) score += 3;
+    else if (body.timeline && ['this-month','within-1-month'].includes(body.timeline)) score += 1;
+    if (body.intent && ['buy','invest'].includes(body.intent)) score += 1;
+    score = Math.min(score, 10);
+    const scoreLabel = score >= 7 ? 'HOT' : score >= 4 ? 'WARM' : 'COLD';
+    const pipelineStage = score >= 7 ? 'qualified_hot' : score >= 4 ? 'qualified_warm' : 'new_lead';
+
+    const LeadModel = require('./db/models/Lead');
+    await LeadModel.create({
+      client_id: clientId, lead_id: leadId,
+      wa_number: body.wa_number || body.phone?.replace(/\D/g,''),
+      name: body.name, phone: body.phone, email: body.email || '',
+      channel: body.channel || 'phone', source: body.source || 'phone-inbound',
+      vertical: activeFlow, intent: body.intent || '',
+      property_type: body.property_type || '', budget: budgetNum,
+      area_interest: body.area_interest || '', timeline: body.timeline || '',
+      language: body.language || 'English', notes: body.notes || '',
+      score, score_label: scoreLabel, pipeline_stage: pipelineStage,
+      entry_method: 'manual', recording_duration: body.recording_duration || 0,
+      status: 'active', created_at: new Date(), updated_at: new Date()
+    });
+
+    await db.saveMessage({
+      wa_number: body.wa_number || body.phone?.replace(/\D/g,''),
+      body: `Manual lead captured via ${body.source || 'phone call'}. Notes: ${body.notes || 'None'}`,
+      direction: 'outbound', sender: 'agent',
+      client_id: clientId, created_at: new Date()
+    });
+
+    res.json({ success: true, lead_id: leadId, score, score_label: scoreLabel });
+  } catch(e) {
+    console.error('[Manual Lead]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Recording upload ──────────────────────────────────────────────────────────
+app.post('/api/recordings/upload', uploadMiddleware.single('recording'), async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const { lead_id, wa_number, duration, agent } = req.body;
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const recordingsDir = path.join(__dirname, 'public', 'recordings');
+    if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir, { recursive: true });
+
+    const filename = `${lead_id}-${Date.now()}.webm`;
+    const filePath = path.join(recordingsDir, filename);
+    fs.writeFileSync(filePath, file.buffer);
+
+    const fileUrl = `/recordings/${filename}`;
+
+    const Recording = getRecordingModel(clientId);
+    await Recording.create({
+      client_id: clientId, lead_id, wa_number,
+      agent: agent || 'unknown', duration: parseInt(duration) || 0,
+      file_url: fileUrl, file_size: file.size, mime_type: file.mimetype,
+      created_at: new Date()
+    });
+
+    res.json({ success: true, file_url: fileUrl });
+  } catch(e) {
+    console.error('[Recording Upload]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ── Dev: reseed demo data ─────────────────────────────────────────────────────
 app.post('/api/dev/reseed', async (req, res) => {

@@ -360,6 +360,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px">⌕</span>
         <div id="search-results" style="display:none;position:absolute;top:100%;left:0;width:100%;background:#fff;border:1px solid var(--border2);border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.08);z-index:1000;max-height:320px;overflow-y:auto"></div>
       </div>
+      <button onclick="openNewLeadModal()" id="btn-new-lead" style="background:#22c55e;color:#fff;border:none;padding:8px 16px;font-size:13px;font-weight:600;border-radius:4px;cursor:pointer;margin-right:8px;display:flex;align-items:center;gap:6px">+ New Lead</button>
       <div class="rt" id="lastRefreshed">—</div>
       <div class="tok-pill tok-err" id="tokPill"><span class="tok-dot"></span><span id="tokTxt">Token Pending</span></div>
       <a class="btn btn-o" href="/api/leads/export?status=all"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v8M5 6l3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>Export</a>
@@ -1668,6 +1669,269 @@ window.addEventListener('message', function(e) {
     document.title = name + ' — Axyren CRM';
   }
 });
+
+// ── PARTS 2–5: Manual Lead Capture ──────────────────────────────────────────
+function openNewLeadModal() {
+  const modal = document.createElement('div');
+  modal.id = 'new-lead-modal';
+  modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;`;
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:8px;padding:32px;width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#1e293b">New Lead — Manual Entry</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:2px">Phone call / Walk-in / Referral</div>
+        </div>
+        <button onclick="closeNewLeadModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8">×</button>
+      </div>
+      <div id="step-disclaimer">
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:20px;margin-bottom:20px">
+          <div style="font-size:14px;font-weight:700;color:#dc2626;margin-bottom:8px">Recording Notice — Required</div>
+          <div style="font-size:13px;color:#7f1d1d;line-height:1.6">
+            Before proceeding, you must inform the caller:<br><br>
+            <em>"This call will be recorded for quality assurance and training purposes. By continuing the conversation you consent to this recording."</em>
+          </div>
+        </div>
+        <div style="margin-bottom:20px">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:8px">Lead Source</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${['Phone Inbound','Phone Outbound','Walk-in','Referral'].map(s => `
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;border:1px solid #e2e8f0;border-radius:4px;font-size:13px;color:#1e293b">
+                <input type="radio" name="lead-source" value="${s.toLowerCase().replace(/ /g,'-')}" ${s==='Phone Inbound'?'checked':''}> ${s}
+              </label>`).join('')}
+          </div>
+        </div>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;margin-bottom:20px">
+          <input type="checkbox" id="disclaimer-confirmed" onchange="checkDisclaimerConfirm()" style="margin-top:2px;width:16px;height:16px;cursor:pointer;flex-shrink:0">
+          <span style="font-size:13px;color:#166534;font-weight:500">I have informed the caller that this conversation will be recorded for quality and training purposes.</span>
+        </label>
+        <button id="btn-proceed" onclick="proceedToCapture()" disabled style="width:100%;padding:12px;background:#e2e8f0;color:#94a3b8;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:not-allowed;transition:all 0.2s">
+          Confirm and Start Recording →
+        </button>
+      </div>
+      <div id="step-capture" style="display:none">
+        <div id="recording-indicator" style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;margin-bottom:20px">
+          <div style="width:10px;height:10px;background:#ef4444;border-radius:50%;animation:pulse-rec 1.5s infinite"></div>
+          <span style="font-size:12px;font-weight:600;color:#dc2626">RECORDING IN PROGRESS</span>
+          <span id="rec-timer" style="font-size:12px;color:#94a3b8;margin-left:auto">0:00</span>
+        </div>
+        <div style="padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;margin-bottom:20px;font-size:12px;color:#1d4ed8;font-family:monospace">
+          Lead ID will be: <strong id="lead-id-preview-modal">Loading...</strong>
+        </div>
+        <div id="capture-form-fields"></div>
+        <div style="margin-bottom:16px">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:6px">Call Notes</label>
+          <textarea id="field-notes" rows="3" placeholder="Key points from the call..." style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;resize:vertical;font-family:inherit;box-sizing:border-box"></textarea>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button onclick="saveManualLead()" style="flex:1;padding:12px;background:#4F86C6;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer">Save Lead & Stop Recording</button>
+          <button onclick="closeNewLeadModal()" style="padding:12px 20px;background:#fff;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;cursor:pointer">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function checkDisclaimerConfirm() {
+  const cb = document.getElementById('disclaimer-confirmed');
+  const btn = document.getElementById('btn-proceed');
+  if (cb.checked) {
+    btn.disabled = false; btn.style.background = '#22c55e'; btn.style.color = '#fff'; btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true; btn.style.background = '#e2e8f0'; btn.style.color = '#94a3b8'; btn.style.cursor = 'not-allowed';
+  }
+}
+
+let recInterval = null, recSeconds = 0, mediaRecorder = null, audioChunks = [], recordingBlob = null;
+
+function startRecordingTimer() {
+  recSeconds = 0;
+  recInterval = setInterval(() => {
+    recSeconds++;
+    const m = Math.floor(recSeconds / 60), s = String(recSeconds % 60).padStart(2, '0');
+    const el = document.getElementById('rec-timer');
+    if (el) el.textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopRecordingTimer() {
+  if (recInterval) { clearInterval(recInterval); recInterval = null; }
+}
+
+async function startBrowserRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = () => { recordingBlob = new Blob(audioChunks, { type: 'audio/webm' }); stream.getTracks().forEach(t => t.stop()); };
+    mediaRecorder.start();
+  } catch(e) { console.warn('[Recording] Mic not available:', e.message); recordingBlob = null; }
+}
+
+function stopBrowserRecording() {
+  return new Promise(resolve => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.onstop = () => {
+        recordingBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        mediaRecorder.stream?.getTracks().forEach(t => t.stop());
+        resolve(recordingBlob);
+      };
+      mediaRecorder.stop();
+    } else { resolve(null); }
+  });
+}
+
+async function proceedToCapture() {
+  document.getElementById('step-disclaimer').style.display = 'none';
+  document.getElementById('step-capture').style.display = 'block';
+  startRecordingTimer();
+  await startBrowserRecording();
+  loadCaptureFormFields();
+  try {
+    const source = document.querySelector('input[name="lead-source"]:checked')?.value || 'phone-inbound';
+    const channelMap = { 'phone-inbound':'phone', 'phone-outbound':'phone', 'walk-in':'walkin', 'referral':'referral' };
+    const channel = channelMap[source] || 'phone';
+    const res = await apiFetch(`/api/leads/preview-id?channel=${channel}`);
+    if (res.ok) { const data = await res.json(); document.getElementById('lead-id-preview-modal').textContent = data.preview || 'AXY-2026-XXXX-PH-RE'; }
+  } catch(e) { document.getElementById('lead-id-preview-modal').textContent = 'AXY-2026-XXXX-PH-RE'; }
+}
+
+function loadCaptureFormFields() {
+  const activeFlow = window.ACTIVE_FLOW || 'realEstate';
+  const container = document.getElementById('capture-form-fields');
+  const flowFields = {
+    realEstate: [
+      { id:'name', label:'Full Name', type:'text', placeholder:'e.g. Ahmed Al Mansoori', required:true },
+      { id:'phone', label:'Phone / WhatsApp Number', type:'text', placeholder:'+971 5X XXX XXXX', required:true },
+      { id:'email', label:'Email Address', type:'email', placeholder:'optional' },
+      { id:'intent', label:'Intent', type:'select', options:['Buy','Rent','Invest','Sell'], required:true },
+      { id:'property_type', label:'Property Type', type:'select', options:['Apartment','Villa','Townhouse','Penthouse','Studio','Office'] },
+      { id:'budget', label:'Budget (AED)', type:'select', options:['Under 500K','500K - 1M','1M - 2M','2M - 5M','Above 5M'] },
+      { id:'area_interest', label:'Preferred Area', type:'text', placeholder:'e.g. Dubai Marina, JVC' },
+      { id:'timeline', label:'Timeline', type:'select', options:['Immediately','Within 1 month','1-3 months','3-6 months','Just exploring'] },
+      { id:'language', label:'Language', type:'select', options:['English','Arabic'] },
+    ],
+    restaurant: [
+      { id:'name', label:'Guest Name', type:'text', placeholder:'Full name', required:true },
+      { id:'phone', label:'Phone Number', type:'text', placeholder:'+971 5X XXX XXXX', required:true },
+      { id:'party_size', label:'Party Size', type:'select', options:['1-2','3-5','6-10','10-20','20+'] },
+      { id:'date_preference', label:'Preferred Date', type:'date' },
+      { id:'time_preference', label:'Preferred Time', type:'select', options:['Breakfast','Lunch','Dinner','Late Dinner'] },
+      { id:'occasion', label:'Occasion', type:'select', options:['Regular dining','Birthday','Anniversary','Business','Private event','Other'] },
+      { id:'dietary', label:'Dietary Requirements', type:'text', placeholder:'Vegetarian, halal, allergies...' },
+    ],
+    clinic: [
+      { id:'name', label:'Patient Name', type:'text', placeholder:'Full name', required:true },
+      { id:'phone', label:'Phone Number', type:'text', placeholder:'+971 5X XXX XXXX', required:true },
+      { id:'dob', label:'Date of Birth', type:'date' },
+      { id:'symptoms', label:'Symptoms / Reason', type:'text', placeholder:'Brief description' },
+      { id:'doctor_pref', label:'Doctor Preference', type:'text', placeholder:'Specific doctor or specialty' },
+      { id:'insurance', label:'Insurance Provider', type:'text', placeholder:'e.g. Daman, ADNIC or Self-pay' },
+      { id:'urgency', label:'Urgency', type:'select', options:['Emergency','Today','This week','This month','Routine checkup'] },
+    ],
+    retail: [
+      { id:'name', label:'Customer Name', type:'text', placeholder:'Full name', required:true },
+      { id:'phone', label:'Phone Number', type:'text', placeholder:'+971 5X XXX XXXX', required:true },
+      { id:'product_interest', label:'Product Interest', type:'text', placeholder:'What are they looking for?' },
+      { id:'budget', label:'Budget', type:'select', options:['Under AED 500','AED 500-2000','AED 2000-5000','Above AED 5000'] },
+      { id:'timeline', label:'Purchase Timeline', type:'select', options:['Today','This week','This month','Just browsing'] },
+    ],
+    salon: [
+      { id:'name', label:'Client Name', type:'text', placeholder:'Full name', required:true },
+      { id:'phone', label:'Phone Number', type:'text', placeholder:'+971 5X XXX XXXX', required:true },
+      { id:'service', label:'Service Required', type:'text', placeholder:'e.g. Haircut, colour, nails' },
+      { id:'stylist_pref', label:'Stylist Preference', type:'text', placeholder:'Specific stylist or any' },
+      { id:'date_pref', label:'Preferred Date', type:'date' },
+      { id:'time_pref', label:'Preferred Time', type:'select', options:['Morning (9-12)','Afternoon (12-5)','Evening (5-8)'] },
+    ],
+    carDealer: [
+      { id:'name', label:'Customer Name', type:'text', placeholder:'Full name', required:true },
+      { id:'phone', label:'Phone Number', type:'text', placeholder:'+971 5X XXX XXXX', required:true },
+      { id:'intent', label:'Intent', type:'select', options:['Buy new','Buy used','Trade-in','Test drive','Finance enquiry'] },
+      { id:'brand_pref', label:'Brand Preference', type:'text', placeholder:'e.g. Toyota, BMW, any' },
+      { id:'model_pref', label:'Model / Type', type:'text', placeholder:'e.g. SUV, sedan, pickup' },
+      { id:'budget', label:'Budget (AED)', type:'select', options:['Under 50K','50K-100K','100K-200K','200K-500K','Above 500K'] },
+      { id:'timeline', label:'Purchase Timeline', type:'select', options:['Immediately','This month','1-3 months','Just exploring'] },
+    ]
+  };
+  const fields = flowFields[activeFlow] || flowFields.realEstate;
+  container.innerHTML = fields.map(f => `
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:6px">
+        ${f.label}${f.required ? ' <span style="color:#ef4444">*</span>' : ''}
+      </label>
+      ${f.type === 'select' ? `
+        <select id="field-${f.id}" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;background:#fff;font-family:inherit">
+          <option value="">Select...</option>
+          ${f.options.map(o => `<option value="${o.toLowerCase().replace(/[^a-z0-9]/g,'-')}">${o}</option>`).join('')}
+        </select>
+      ` : f.type === 'date' ? `
+        <input type="date" id="field-${f.id}" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;box-sizing:border-box">
+      ` : `
+        <input type="${f.type}" id="field-${f.id}" placeholder="${f.placeholder || ''}" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;box-sizing:border-box">
+      `}
+    </div>
+  `).join('');
+}
+
+async function saveManualLead() {
+  const name = document.getElementById('field-name')?.value?.trim();
+  const phone = document.getElementById('field-phone')?.value?.trim();
+  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!phone) { showToast('Phone number is required', 'error'); return; }
+  const saveBtn = document.querySelector('#step-capture button');
+  saveBtn.textContent = 'Saving...'; saveBtn.disabled = true;
+  stopRecordingTimer();
+  const blob = await stopBrowserRecording();
+  const duration = recSeconds;
+  const source = document.querySelector('input[name="lead-source"]:checked')?.value || 'phone-inbound';
+  const channelMap = { 'phone-inbound':'phone', 'phone-outbound':'phone', 'walk-in':'walkin', 'referral':'referral' };
+  const channel = channelMap[source] || 'phone';
+  const leadData = {
+    name, phone, wa_number: phone.replace(/\D/g, ''), channel, source,
+    intent: document.getElementById('field-intent')?.value || '',
+    property_type: document.getElementById('field-property_type')?.value || document.getElementById('field-service')?.value || '',
+    budget: document.getElementById('field-budget')?.value || '',
+    area_interest: document.getElementById('field-area_interest')?.value || '',
+    timeline: document.getElementById('field-timeline')?.value || '',
+    language: document.getElementById('field-language')?.value || 'English',
+    notes: document.getElementById('field-notes')?.value || '',
+    party_size: document.getElementById('field-party_size')?.value || '',
+    occasion: document.getElementById('field-occasion')?.value || '',
+    recording_duration: duration, entry_method: 'manual'
+  };
+  try {
+    const res = await apiFetch('/api/leads/manual', { method:'POST', body:JSON.stringify(leadData) });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Save failed');
+    if (blob && blob.size > 0) {
+      const formData = new FormData();
+      formData.append('recording', blob, `recording-${data.lead_id}.webm`);
+      formData.append('lead_id', data.lead_id);
+      formData.append('wa_number', leadData.wa_number);
+      formData.append('duration', duration);
+      formData.append('agent', window.__clientId || 'agent');
+      await fetch('/api/recordings/upload', { method:'POST', headers:{ 'x-client-id': window.__clientId || 'default' }, body: formData });
+    }
+    showToast(`Lead saved — ID: ${data.lead_id}`);
+    closeNewLeadModal();
+    if (typeof loadAll === 'function') loadAll();
+  } catch(e) {
+    showToast('Error saving lead: ' + e.message, 'error');
+    saveBtn.textContent = 'Save Lead & Stop Recording'; saveBtn.disabled = false;
+  }
+}
+
+function closeNewLeadModal() {
+  stopRecordingTimer();
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    mediaRecorder.stream?.getTracks().forEach(t => t.stop());
+  }
+  document.getElementById('new-lead-modal')?.remove();
+}
 </script>
 <script src="/dashboard/js/shared.js"></script>
 <script src="/dashboard/js/router.js"></script>
