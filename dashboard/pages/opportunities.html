@@ -18,6 +18,11 @@
 .card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
 .card-time { font-size: 10px; color: var(--text3); margin-top: 6px; }
 
+/* Drag states */
+.kanban-ghost  { opacity: 0.4; background: #eff6ff !important; border: 2px dashed #4F86C6 !important; }
+.kanban-chosen { box-shadow: 0 4px 12px rgba(79,134,198,0.25); }
+.kanban-drag   { opacity: 0.9; }
+
 /* Stage colors */
 .stage-new_lead      { border-left-color: #4F86C6; }
 .stage-ai_contacted  { border-left-color: #06C8E0; }
@@ -150,7 +155,7 @@ if (!window.__clientId) {
       const cards = leads.map(l => {
         const d = l.data || {};
         return `<div class="kanban-card stage-${stage.id}" draggable="true"
-          data-id="${l.id}" ondragstart="onDragStart(event,${l.id})">
+          data-id="${l.id}" ondragstart="onDragStart(event,'${l.id}')">
           <div class="card-name">${l.name||l.wa_number}</div>
           <div class="card-meta">📍 ${d.area||'—'} · 💰 ${d.budget||'—'}</div>
           <div class="card-tags">
