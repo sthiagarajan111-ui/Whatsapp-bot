@@ -364,6 +364,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       </div>
     </div>
     <div class="tb-r">
+      <div style="position:relative;margin-right:4px">
+        <input type="text" id="global-search" placeholder="Search Lead ID, name, phone..."
+          style="width:260px;padding:7px 12px 7px 32px;font-size:12px;border:1px solid var(--border2);border-radius:4px;background:var(--bg);outline:none;font-family:'Inter',sans-serif"
+          oninput="globalSearch(this.value)"
+          onfocus="document.getElementById('search-results').style.display='block'"
+          onblur="setTimeout(()=>{const r=document.getElementById('search-results');if(r)r.style.display='none'},200)">
+        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px">⌕</span>
+        <div id="search-results" style="display:none;position:absolute;top:100%;left:0;width:100%;background:#fff;border:1px solid var(--border2);border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.08);z-index:1000;max-height:320px;overflow-y:auto"></div>
+      </div>
       <div class="rt" id="lastRefreshed">—</div>
       <div class="tok-pill tok-err" id="tokPill"><span class="tok-dot"></span><span id="tokTxt">Token Pending</span></div>
       <a class="btn btn-o" href="/api/leads/export?status=all"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v8M5 6l3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>Export</a>
@@ -581,7 +590,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         </div>
         <div class="lt-wrap">
           <table class="lt">
-            <thead><tr><th>Contact</th><th>Interest</th><th>Budget</th><th>Area</th><th>Score</th><th>Lang</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+            <thead><tr><th>Lead ID</th><th>Contact</th><th>Interest</th><th>Budget</th><th>Area</th><th>Score</th><th>Lang</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
             <tbody id="leadsBody"></tbody>
           </table>
           <div id="emptyLeads" class="empty" style="display:none"><div class="empty-ico">👤</div><div class="empty-t">No leads yet</div><div class="empty-s">Leads appear here once your WhatsApp bot is connected and customers start messaging.</div></div>
@@ -1338,6 +1347,7 @@ function renderTable(){
     const budgetDisplay = budgetNum ? 'AED '+formatBudget(budgetNum) : (budgetMap[d.budget]||d.budget||'—');
     const voiceBadge=d.source==='voice'?' <span style="font-size:9px">🎙</span>':'';
     return`<tr>
+      <td style="font-family:monospace;font-size:11px;color:#4F86C6;white-space:nowrap">${l.lead_id||'—'}</td>
       <td><div class="lt-av"><div class="av ${avColor(l.name)}">${initials(l.name)}</div><div><div class="lt-nm">${l.name||'Unknown'}${voiceBadge}</div><div class="lt-nb">${l.wa_number||'—'}</div></div></div></td>
       <td>${interest}</td>
       <td style="font-size:11px">${budgetDisplay}</td>
@@ -1606,6 +1616,49 @@ async function restoreLayout() {
       if (el && el.parentElement === grid) grid.appendChild(el);
     });
   } catch(e) {}
+}
+
+// ── GLOBAL SEARCH ──────────────────────────────────────────
+let searchTimeout;
+async function globalSearch(query) {
+  clearTimeout(searchTimeout);
+  const resultsEl = document.getElementById('search-results');
+  if (!resultsEl) return;
+  if (query.length < 2) { resultsEl.innerHTML = ''; return; }
+  searchTimeout = setTimeout(async () => {
+    try {
+      const clientId = window.__clientId || 'default';
+      const res = await fetch(`/api/leads/search?q=${encodeURIComponent(query)}`, {
+        headers: { 'x-client-id': clientId }
+      });
+      const data = await res.json();
+      const leads = data.leads || [];
+      if (leads.length === 0) {
+        resultsEl.innerHTML = '<div style="padding:12px;color:#94a3b8;font-size:13px">No leads found</div>';
+        return;
+      }
+      resultsEl.innerHTML = leads.map(l => `
+        <div onclick="openLeadProfile('${l.lead_id || l._id}')"
+          style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center"
+          onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#1e293b">${l.name || l.wa_number}</div>
+            <div style="font-size:11px;font-family:monospace;color:#4F86C6;margin-top:2px">${l.lead_id || 'No ID'}</div>
+          </div>
+          <div style="font-size:11px;color:#94a3b8">${l.score || ''}</div>
+        </div>
+      `).join('');
+    } catch(e) { console.error('[Search]', e); }
+  }, 300);
+}
+
+function openLeadProfile(leadId) {
+  const r = document.getElementById('search-results');
+  const s = document.getElementById('global-search');
+  if (r) r.style.display = 'none';
+  if (s) s.value = '';
+  // Navigate to conversations — full profile view added in Session 4
+  window.location.hash = 'conversations';
 }
 
 // ── INIT ───────────────────────────────────────────────────

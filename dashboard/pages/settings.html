@@ -142,6 +142,16 @@
         <label>Client Name</label>
         <input id="s-client-name" placeholder="My Real Estate Agency">
       </div>
+      <div style="margin-bottom:20px">
+        <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:6px">Lead ID Prefix</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="text" id="setting-lead-id-prefix" maxlength="5" placeholder="AXY"
+            style="width:100px;padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;font-family:monospace;text-transform:uppercase"
+            oninput="this.value=this.value.toUpperCase();updateLeadIdPreview()">
+          <span style="font-size:12px;color:#94a3b8">Preview: <strong id="lead-id-preview">AXY-2026-0001-WA-RE</strong></span>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px">3–5 characters. Used in all Lead IDs for this client.</div>
+      </div>
       <div class="form-group">
         <label>Active Flow</label>
         <select id="s-active-flow">
@@ -478,6 +488,8 @@ if (!window.__clientId) {
   function populateSettings() {
     const s = settings;
     setVal('s-client-name', s.client_name || '');
+    setVal('setting-lead-id-prefix', s.lead_id_prefix || 'AXY');
+    updateLeadIdPreview();
     setVal('s-active-flow', s.active_flow || 'realEstate');
     setVal('s-hours-start', s.hours_start || '09:00');
     setVal('s-hours-end', s.hours_end || '18:00');
@@ -588,6 +600,7 @@ if (!window.__clientId) {
     const days = [...document.querySelectorAll('.bd-check:checked')].map(c => c.value).join(',');
     const obj = {
       client_name:    getVal('s-client-name'),
+      lead_id_prefix: getVal('setting-lead-id-prefix') || 'AXY',
       active_flow:    getVal('s-active-flow'),
       hours_start:    getVal('s-hours-start'),
       hours_end:      getVal('s-hours-end'),
@@ -875,6 +888,14 @@ if (!window.__clientId) {
     shared.showToast('Agent removed');
     await loadAgents();
   };
+
+  function updateLeadIdPreview() {
+    const prefix = getVal('setting-lead-id-prefix') || 'AXY';
+    const year = new Date().getFullYear();
+    const el = document.getElementById('lead-id-preview');
+    if (el) el.textContent = `${prefix}-${year}-0001-WA-RE`;
+  }
+  window.updateLeadIdPreview = updateLeadIdPreview;
 
   await loadSettings();
 })();

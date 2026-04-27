@@ -13,6 +13,9 @@ const leadSchema = new mongoose.Schema({
   followup_sent:  { type: Number, default: 0 },
   assigned_agent: { type: String },
   language:       { type: String, default: 'en' },
+  lead_id:        { type: String, unique: true, sparse: true, index: true },
+  channel:        { type: String, default: 'whatsapp' },
+  vertical:       { type: String, default: 'realEstate' },
   created_at:     { type: Date, default: Date.now },
   updated_at:     { type: Date, default: Date.now },
 });

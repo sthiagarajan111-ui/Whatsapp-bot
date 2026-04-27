@@ -243,6 +243,116 @@ app.get('/dashboard', (_req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard', 'index.html'));
 });
 
+// ── API: Lead ID search ───────────────────────────────────────────────────────
+app.get('/api/leads/search', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const { q } = req.query;
+    if (!q || q.trim().length < 2) return res.json({ leads: [] });
+    const LeadModel = require('./db/models/Lead');
+    const query = q.trim();
+    const leads = await LeadModel.find({
+      client_id: clientId,
+      $or: [
+        { lead_id:  new RegExp(query, 'i') },
+        { name:     new RegExp(query, 'i') },
+        { wa_number:new RegExp(query, 'i') },
+      ]
+    }).limit(10).lean();
+    res.json({ leads });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Lead profile by lead_id ──────────────────────────────────────────────
+app.get('/api/leads/profile/:leadId', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const LeadModel        = require('./db/models/Lead');
+    const MessageModel     = require('./db/models/Message');
+    const AppointmentModel = require('./db/models/Appointment');
+
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(req.params.leadId);
+    const lead = await LeadModel.findOne({
+      client_id: clientId,
+      $or: [
+        { lead_id: req.params.leadId },
+        ...(isObjectId ? [{ _id: req.params.leadId }] : [])
+      ]
+    }).lean();
+
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+    const [messages, appointments] = await Promise.all([
+      MessageModel.find({ client_id: clientId, wa_number: lead.wa_number }).sort({ created_at: 1 }).lean(),
+      AppointmentModel.find({ client_id: clientId, wa_number: lead.wa_number }).sort({ appointment_date: 1 }).lean()
+    ]);
+
+    const timeline = [];
+
+    messages.forEach(m => {
+      timeline.push({
+        type:      m.direction === 'inbound' ? 'message_in' : 'message_out',
+        tag:       m.direction === 'inbound' ? 'MSG' : 'AGENT',
+        text:      m.content || '[media]',
+        timestamp: m.created_at,
+        meta:      { direction: m.direction, type: m.message_type }
+      });
+    });
+
+    appointments.forEach(a => {
+      timeline.push({
+        type:      'appointment',
+        tag:       'APPT',
+        text:      `Appointment — ${a.time_slot || a.slot_time} · ${a.status}`,
+        timestamp: a.created_at || a.appointment_date,
+        meta:      { status: a.status, date: a.appointment_date_display, time_slot: a.time_slot }
+      });
+    });
+
+    if ((lead.score || 0) >= 7) {
+      timeline.push({
+        type:      'score_change',
+        tag:       'HOT',
+        text:      `Score upgraded to HOT ${lead.score}/10`,
+        timestamp: lead.updated_at || lead.created_at,
+        meta:      { score: lead.score }
+      });
+    }
+
+    timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    const stats = {
+      touchpoints:  messages.length,
+      appointments: appointments.length,
+      daysActive:   Math.ceil((new Date() - new Date(lead.created_at)) / (1000 * 60 * 60 * 24)),
+      budget:       lead.budget || 0,
+    };
+
+    res.json({ lead, timeline, appointments, stats });
+  } catch(e) {
+    console.error('[Profile API]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API: Retroactive lead ID assignment (one-time migration) ──────────────────
+app.post('/api/dev/assign-lead-ids', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const LeadModel = require('./db/models/Lead');
+    const leads = await LeadModel.find({ client_id: clientId, lead_id: { $exists: false } }).lean();
+    let assigned = 0;
+    for (const lead of leads) {
+      const channel  = lead.channel  || 'whatsapp';
+      const vertical = lead.vertical || (process.env.ACTIVE_FLOW || 'realEstate');
+      const leadId = await db.generateLeadId(clientId, channel, vertical);
+      await LeadModel.findByIdAndUpdate(lead._id, { lead_id: leadId, channel, vertical });
+      assigned++;
+    }
+    res.json({ success: true, assigned, total: leads.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── API: all leads ────────────────────────────────────────────────────────────
 app.get('/api/leads', async (req, res) => {
   try {

@@ -13,10 +13,12 @@ const path = require('path');
 
 const {
   getSession,
-  saveSession:  dbSaveSession,
+  saveSession:   dbSaveSession,
   clearSession,
-  insertLead,
-  saveMessage:  dbSaveMessage,
+  insertLead:    _insertLead,
+  saveMessage:   dbSaveMessage,
+  getLead,
+  generateLeadId,
 } = require('../db/database');
 const { sendText, sendButtons, sendList } = require('../whatsapp/api');
 const { detectLanguage }  = require('../utils/langDetect');
@@ -48,7 +50,24 @@ fs.readdirSync(flowsDir).forEach((file) => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const API = { sendText, sendButtons, sendList, insertLead };
+// Wrapped insertLead that auto-assigns a lead_id on first creation
+async function insertLeadWithId(params, clientId = 'default') {
+  const existing = await getLead(params.wa_number, clientId);
+  if (!existing || !existing.lead_id) {
+    const activeFlow = process.env.ACTIVE_FLOW || 'realEstate';
+    const channel  = (params.data && params.data.channel) || 'whatsapp';
+    const vertical = params.flow_name || activeFlow;
+    try {
+      const leadId = await generateLeadId(clientId, channel, vertical);
+      params = { ...params, lead_id: leadId, channel, vertical };
+    } catch (e) {
+      console.error('[LeadID] generateLeadId failed:', e.message);
+    }
+  }
+  return _insertLead(params, clientId);
+}
+
+const API = { sendText, sendButtons, sendList, insertLead: insertLeadWithId };
 
 function getDefaultFlow() {
   const name = process.env.ACTIVE_FLOW || 'realEstate';

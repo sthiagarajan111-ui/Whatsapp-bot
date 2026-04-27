@@ -6,6 +6,7 @@
 const mongoose = require('mongoose');
 
 const Lead         = require('./models/Lead');
+const { getLeadCounterModel } = require('./models/LeadCounter');
 const Session      = require('./models/Session');
 const Message      = require('./models/Message');
 const Setting      = require('./models/Setting');
@@ -135,17 +136,27 @@ async function insertLead(params, clientId = 'default') {
   if (typeof data === 'string') {
     try { data = JSON.parse(data); } catch (_) { data = {}; }
   }
-  return saveLead(
-    params.wa_number,
-    params.name           || '',
-    params.status         || 'new',
-    params.score          || 0,
-    data                  || {},
-    params.language       || 'en',
-    params.flow_name      || 'realEstate',
-    params.pipeline_stage || 'new_lead',
-    clientId
+  const setFields = {
+    name:           params.name           || '',
+    status:         params.status         || 'new',
+    score:          params.score          || 0,
+    data:           data                  || {},
+    language:       params.language       || 'en',
+    flow_name:      params.flow_name      || 'realEstate',
+    pipeline_stage: params.pipeline_stage || 'new_lead',
+    client_id:      clientId,
+    updated_at:     new Date(),
+  };
+  if (params.channel)  setFields.channel  = params.channel;
+  if (params.vertical) setFields.vertical = params.vertical;
+  if (params.lead_id)  setFields.lead_id  = params.lead_id;
+
+  const doc = await Lead.findOneAndUpdate(
+    { wa_number: params.wa_number, client_id: clientId },
+    { $set: setFields, $setOnInsert: { created_at: new Date() } },
+    { upsert: true, returnDocument: 'after' }
   );
+  return normalizeLead(doc);
 }
 
 async function updateLeadStatus(id, status) {
@@ -528,6 +539,36 @@ async function saveFlowStep(clientId, vertical, stepId, message) {
   );
 }
 
+// ── Lead ID Generator ─────────────────────────────────────────────────────────
+async function generateLeadId(clientId, channel, vertical) {
+  const Counter = getLeadCounterModel(clientId);
+  const prefixSetting = await getSetting('lead_id_prefix', clientId);
+  const prefix = prefixSetting?.value || 'AXY';
+
+  const counter = await Counter.findOneAndUpdate(
+    { client_id: clientId },
+    { $inc: { current_count: 1 }, $setOnInsert: { prefix } },
+    { upsert: true, returnDocument: 'after' }
+  );
+
+  const year = new Date().getFullYear();
+  const seq  = String(counter.current_count).padStart(4, '0');
+
+  const channelCodes = {
+    whatsapp: 'WA', facebook: 'FB', instagram: 'IG',
+    phone: 'PH', web: 'WEB', walkin: 'WI', referral: 'RF'
+  };
+  const verticalCodes = {
+    realEstate: 'RE', restaurant: 'RS', clinic: 'CL',
+    retail: 'RT', salon: 'SL', carDealer: 'CD'
+  };
+
+  const ch = channelCodes[channel] || 'WA';
+  const vt = verticalCodes[vertical] || 'RE';
+
+  return `${prefix}-${year}-${seq}-${ch}-${vt}`;
+}
+
 // ── Exports ───────────────────────────────────────────────────────────────────
 module.exports = {
   mongoose,
@@ -554,4 +595,6 @@ module.exports = {
   getAvailability,
   // Flow Steps
   getFlowStep, getFlowSteps, saveFlowStep,
+  // Lead ID
+  generateLeadId,
 };
