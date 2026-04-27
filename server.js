@@ -288,6 +288,8 @@ app.get('/api/stats', async (req, res) => {
     const convertedLeads = allLeads.filter(l => l.status === 'converted').length;
     const lostLeads    = allLeads.filter(l => l.status === 'lost').length;
     const wonLeads     = allLeads.filter(l => l.pipeline_stage === 'won' || l.status === 'converted').length;
+    const wonLeadsData = allLeads.filter(l => l.pipeline_stage === 'won' || l.status === 'converted');
+    const wonRevenue   = wonLeadsData.reduce((sum, l) => sum + (l.budget || 0), 0);
     const avgScore     = totalLeads > 0
       ? Math.round(allLeads.reduce((s, l) => s + (l.score || 0), 0) / totalLeads * 10) / 10
       : 0;
@@ -327,6 +329,7 @@ app.get('/api/stats', async (req, res) => {
       totalLeads, hotLeads, wonLeads, avgScore,
       conversionRate: totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0,
       stageGroups,
+      wonRevenue,
       // Legacy aliases (backwards compat with existing dashboard code)
       newLeads, contactedLeads, convertedLeads, lostLeads,
       total: totalLeads, new: newLeads, contacted: contactedLeads,

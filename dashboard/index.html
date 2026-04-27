@@ -422,7 +422,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="w" id="card-opp-status">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-bl"></span>Opportunity Status</div>
-          <select class="w-sel"><option>All Pipelines</option></select>
+          <select class="w-sel pipeline-filter" id="pf-opp-status" onchange="onPipelineChange(this.value)"><option value="all">All Pipelines</option><option value="lead">Lead Pipeline</option><option value="rental">Rental Pipeline</option></select>
         </div>
         <div class="donut-wrap">
           <div class="donut-chart-cont">
@@ -442,7 +442,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="w" id="card-opp-value">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-cy"></span>Opportunity Value</div>
-          <select class="w-sel"><option>All Pipelines</option></select>
+          <select class="w-sel pipeline-filter" id="pf-opp-value" onchange="onPipelineChange(this.value)"><option value="all">All Pipelines</option><option value="lead">Lead Pipeline</option><option value="rental">Rental Pipeline</option></select>
         </div>
         <div class="chart-wrap" style="height:220px">
           <canvas id="valBar" role="img" aria-label="Opportunity value by stage bar chart">No data</canvas>
@@ -453,7 +453,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="w" id="card-conversion">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-gr"></span>Conversion Rate</div>
-          <select class="w-sel"><option>All Pipelines</option></select>
+          <select class="w-sel pipeline-filter" id="pf-conversion" onchange="onPipelineChange(this.value)"><option value="all">All Pipelines</option><option value="lead">Lead Pipeline</option><option value="rental">Rental Pipeline</option></select>
         </div>
         <div class="conv-wrap">
           <div class="conv-ring-cont">
@@ -499,7 +499,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="w" id="card-stage-dist">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-pu"></span>Stage Distribution</div>
-          <select class="w-sel"><option>Lead Pipeline</option></select>
+          <select class="w-sel pipeline-filter" id="pf-stage-dist" onchange="onPipelineChange(this.value)"><option value="all">All Pipelines</option><option value="lead">Lead Pipeline</option><option value="rental">Rental Pipeline</option></select>
         </div>
         <div style="padding:16px 18px">
           <div style="position:relative;height:180px;display:flex;justify-content:center">
@@ -534,7 +534,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="w" id="card-lead-source">
         <div class="w-hd">
           <div class="w-title"><span class="wtd wd-gr"></span>Lead Source Report</div>
-          <select class="w-sel"><option>All Pipelines</option></select>
+          <select class="w-sel pipeline-filter" id="pf-lead-source" onchange="onPipelineChange(this.value)"><option value="all">All Pipelines</option><option value="lead">Lead Pipeline</option><option value="rental">Rental Pipeline</option></select>
         </div>
         <div style="padding:12px 18px;display:flex;align-items:baseline;gap:8px;border-bottom:1px solid var(--border)">
           <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:26px;color:var(--text)" id="lsTotal">0</div>
@@ -594,16 +594,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         <!-- Tasks (GHL style) -->
         <div class="w">
           <div class="w-hd">
-            <div class="w-title"><span class="wtd wd-am"></span>Tasks</div>
+            <div class="w-title"><span class="wtd wd-am"></span><span id="tasks-title">Tasks</span></div>
             <div class="w-acts">
-              <select class="w-sel"><option>Pending</option></select>
-              <select class="w-sel"><option>Due Date</option></select>
+              <button id="tab-pending" onclick="switchTaskTab('pending',this)" style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:#4F86C6;color:#fff">Pending</button>
+              <button id="tab-duedate" onclick="switchTaskTab('duedate',this)" style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:#f1f5f9;color:#64748b">Due Date</button>
+              <button id="tab-overdue" onclick="switchTaskTab('overdue',this)" style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:#f1f5f9;color:#64748b">Overdue</button>
             </div>
           </div>
-          <div class="task-list" id="taskList">
+          <div class="task-list" id="tasks-list">
             <div class="empty" style="padding:20px"><div class="empty-ico">✓</div><div class="empty-t">All caught up</div><div class="empty-s">No pending follow-ups</div></div>
           </div>
-          <a class="ma-link" href="#">Go to Manual Actions →</a>
+          <a class="ma-link" href="#" onclick="document.getElementById('manual-actions-card')?.scrollIntoView({behavior:'smooth'});return false;">Go to Manual Actions →</a>
         </div>
 
         <!-- Top Agents widget -->
@@ -617,17 +618,25 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         </div>
 
         <!-- Manual Actions (GHL widget) -->
-        <div class="w">
+        <div class="w" id="manual-actions-card">
           <div class="w-hd">
             <div class="w-title"><span class="wtd wd-re"></span>Manual Actions</div>
-            <div class="w-acts"><select class="w-sel"><option>All</option></select></div>
+            <div class="w-acts">
+              <select class="w-sel" id="ma-filter" onchange="renderManualActions(this.value, window.dashboardActions||[])">
+                <option value="all">All</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="followed_up">Followed Up</option>
+                <option value="overdue">Overdue</option>
+              </select>
+            </div>
           </div>
           <div class="ma-grid">
             <div class="ma-item"><div class="ma-val" id="maPhone" style="color:var(--blue)">0</div><div class="ma-lbl">WhatsApp</div></div>
             <div class="ma-item"><div class="ma-val" id="maSMS" style="color:var(--green)">0</div><div class="ma-lbl">Followed Up</div></div>
             <div class="ma-item"><div class="ma-val" id="maTotal" style="color:var(--red)">0</div><div class="ma-lbl">Overdue</div></div>
           </div>
-          <a class="ma-link" href="#">Go to Manual Actions →</a>
+          <div id="ma-action-list" style="padding:0 18px 12px"></div>
+          <a class="ma-link" href="#" onclick="this.scrollIntoView({behavior:'smooth'});return false;">Go to Manual Actions →</a>
         </div>
 
         <!-- Broadcast -->
@@ -808,6 +817,229 @@ let allLeads = [];
 let dateFilter = 30;
 let currentFilter = 'all';
 
+// ── PIPELINE FILTER ─────────────────────────────────────────
+const PIPELINES = {
+  'all': null,
+  'lead': ['new_lead','ai_contacted','qualified_hot','qualified_warm','viewing_requested','viewing_confirmed','offer_made','won','lost'],
+  'rental': ['new_lead','ai_contacted','rental_viewing','rental_confirmed','won','lost'],
+};
+let currentPipeline = 'all';
+
+function filterLeadsByPipeline(leads, pipeline) {
+  if (pipeline === 'all' || !PIPELINES[pipeline]) return leads;
+  return leads.filter(l => PIPELINES[pipeline].includes(l.pipeline_stage));
+}
+
+function onPipelineChange(value) {
+  currentPipeline = value;
+  // Sync all pipeline dropdowns
+  document.querySelectorAll('.pipeline-filter').forEach(sel => { sel.value = value; });
+  // Re-render all charts with filtered data
+  const filtered = filterLeadsByDate(allLeads, dateFilter);
+  const pFiltered = filterLeadsByPipeline(filtered, currentPipeline);
+  const total = pFiltered.length;
+  const conv = pFiltered.filter(l => l.status === 'converted' || l.pipeline_stage === 'won').length;
+  const newL = pFiltered.filter(l => l.status === 'new').length;
+  const contacted = pFiltered.filter(l => l.status === 'contacted').length;
+  const lost = pFiltered.filter(l => l.status === 'lost').length;
+  const convRate = total > 0 ? Math.round((conv / total) * 100) : 0;
+  // Opportunity donut
+  const od = [newL, contacted, conv, lost];
+  oppChart.data.datasets[0].data = od;
+  oppChart.update('none');
+  document.getElementById('oppTotal').textContent = total;
+  ['new','con','won','lost'].forEach((k,i) => { const n=od[i]; document.getElementById('dl-'+k).textContent=n; document.getElementById('dlp-'+k).textContent=pct(n,total)+'%'; });
+  // Value bar
+  const stageValueMap = { 'Won':['won'], 'Contacted':['ai_contacted'], 'New':['new_lead'], 'Lost':['lost'] };
+  const chartVals = Object.entries(stageValueMap).map(([,stages]) => pFiltered.filter(l => stages.includes(l.pipeline_stage)).reduce((sum,l) => { const d=parseD(l); return sum+(l.budget||budgetVal[l.budget||d.budget]||0); }, 0));
+  valChart.data.datasets[0].data = chartVals;
+  valChart.update('none');
+  // Conversion ring
+  convChart.data.datasets[0].data = [convRate, Math.max(0, 100-convRate)];
+  convChart.update('none');
+  document.getElementById('convPct').textContent = convRate + '%';
+  document.getElementById('cs-total').textContent = total;
+  document.getElementById('cs-won').textContent = conv;
+  document.getElementById('cs-hot').textContent = pFiltered.filter(l => (l.score||0) >= 8).length;
+  // Funnel
+  const stageKeys = ['new_lead','ai_contacted','qualified_hot','qualified_warm','viewing_requested','viewing_confirmed','offer_made','won','lost'];
+  const stageCounts = {}; stageKeys.forEach(k => stageCounts[k] = 0);
+  pFiltered.forEach(l => { const s = l.pipeline_stage||'new_lead'; if (stageCounts[s]!==undefined) stageCounts[s]++; else stageCounts['new_lead']++; });
+  const fData = stageKeys.map(k => stageCounts[k]);
+  const maxF = fData[0] || 1;
+  document.getElementById('funnelRows').innerHTML = funnelStages.map((s,i) => {
+    const n=fData[i]||0; const cumPct=pct(n,maxF); const nextPct=i<fData.length-1?pct(fData[i+1]||0,n||1):0; const barW=Math.max(cumPct,3);
+    return `<div style="display:grid;grid-template-columns:140px 1fr 70px 70px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)"><div style="font-size:11px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s}</div><div style="flex:1;height:22px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border)"><div style="height:100%;border-radius:4px;background:${funnelColors[i]};width:${barW}%;display:flex;align-items:center;padding-left:7px;min-width:28px"><span style="font-size:10px;font-weight:700;color:white;white-space:nowrap">${n}</span></div></div><div style="font-size:11px;font-weight:700;color:var(--text);text-align:center">${cumPct}%</div><div style="font-size:11px;color:var(--text2);text-align:center">${nextPct}%</div></div>`;
+  }).join('');
+  // Stage distribution
+  stageChart.data.datasets[0].data = [newL, contacted, conv, lost];
+  stageChart.update('none');
+  document.getElementById('sdTotal').textContent = total;
+  // Lead source
+  document.getElementById('lsTotal').textContent = total;
+  const voiceLeads = pFiltered.filter(l => { const d=parseD(l); return d.source==='voice'; });
+  const waLeads = pFiltered.filter(l => { const d=parseD(l); return d.source!=='voice'; });
+  const sources = [{name:'WhatsApp',ico:'WA',cls:'li-wa',leads:waLeads},{name:'Voice Note',ico:'🎙',cls:'li-vc',leads:voiceLeads}].filter(s=>s.leads.length>0);
+  document.getElementById('lsBody').innerHTML = sources.map(s => { const t=s.leads.length; const won=s.leads.filter(l=>l.status==='converted').length; const open=s.leads.filter(l=>l.status==='new').length; const ls=s.leads.filter(l=>l.status==='lost').length; const winP=pct(won,t); const winCls=winP>=30?'win-good':winP>=10?'win-med':'win-low'; return `<tr><td><div class="ls-source"><span class="ls-ico ${s.cls}">${s.ico}</span>${s.name}</div></td><td class="ls-num">${t}</td><td class="ls-num">${open}</td><td class="ls-num">${won}</td><td class="ls-num">${ls}</td><td class="ls-win ${winCls}">${winP}%</td></tr>`; }).join('') || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3);font-size:12px">No source data yet</td></tr>';
+}
+
+// ── TASKS ────────────────────────────────────────────────────
+let currentTaskFilter = 'pending';
+window.dashboardTasks = [];
+
+function generateTasks(leads) {
+  const tasks = [];
+  const now = new Date();
+  leads.forEach(lead => {
+    const lastContact = new Date(lead.updated_at || lead.created_at);
+    const hoursSince = (now - lastContact) / (1000 * 60 * 60);
+    if (hoursSince > 24 && !['won','lost'].includes(lead.pipeline_stage)) {
+      tasks.push({
+        id: lead._id || lead.id,
+        type: 'follow_up',
+        leadName: lead.name || lead.wa_number,
+        waNumber: lead.wa_number,
+        score: lead.score,
+        scoreLabel: lead.score_label,
+        message: `Follow up with ${lead.name||'lead'} — no contact for ${Math.round(hoursSince)}h`,
+        dueDate: new Date(lastContact.getTime() + 24*60*60*1000),
+        priority: (lead.score||0) >= 7 ? 'high' : 'normal',
+        stage: lead.pipeline_stage
+      });
+    }
+    if (lead.pipeline_stage === 'viewing_confirmed') {
+      tasks.push({
+        id: (lead._id||lead.id) + '_view',
+        type: 'viewing',
+        leadName: lead.name || lead.wa_number,
+        waNumber: lead.wa_number,
+        score: lead.score,
+        scoreLabel: lead.score_label,
+        message: `Confirm viewing appointment with ${lead.name||'lead'}`,
+        dueDate: new Date(now.getTime() + 2*60*60*1000),
+        priority: 'high',
+        stage: lead.pipeline_stage
+      });
+    }
+    if (lead.pipeline_stage === 'offer_made') {
+      tasks.push({
+        id: (lead._id||lead.id) + '_offer',
+        type: 'offer',
+        leadName: lead.name || lead.wa_number,
+        waNumber: lead.wa_number,
+        score: lead.score,
+        scoreLabel: lead.score_label,
+        message: `Follow up on offer made to ${lead.name||'lead'}`,
+        dueDate: new Date(now.getTime() + 4*60*60*1000),
+        priority: 'high',
+        stage: lead.pipeline_stage
+      });
+    }
+  });
+  return tasks.sort((a,b) => b.priority === 'high' ? -1 : 1);
+}
+
+function renderTasks(filter) {
+  filter = filter || currentTaskFilter;
+  const tasksEl = document.getElementById('tasks-list');
+  if (!tasksEl) return;
+  let tasks = (window.dashboardTasks || []).filter(t => !t.done);
+  if (filter === 'overdue') tasks = tasks.filter(t => new Date(t.dueDate) < new Date());
+  if (filter === 'duedate') tasks = tasks.sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate));
+  // Update badge
+  const titleEl = document.getElementById('tasks-title');
+  if (titleEl) titleEl.textContent = 'Tasks' + (tasks.length > 0 ? ' (' + tasks.length + ')' : '');
+  if (tasks.length === 0) {
+    tasksEl.innerHTML = `<div style="text-align:center;padding:24px;color:#94a3b8"><div style="font-size:24px;margin-bottom:8px">✓</div><div style="font-weight:600;color:#1e293b">All caught up</div><div style="font-size:12px">No ${filter === 'overdue' ? 'overdue' : 'pending'} follow-ups</div></div>`;
+    return;
+  }
+  const overdueHighlight = filter === 'overdue' ? 'background:#fff5f5;border-left:3px solid #ef4444;' : '';
+  tasksEl.innerHTML = tasks.slice(0,5).map(task => `
+    <div style="padding:10px 0;border-bottom:1px solid #f1f5f9;display:flex;gap:10px;align-items:flex-start;${overdueHighlight}padding-left:${filter==='overdue'?'10px':'0'}">
+      <div style="width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;background:${task.priority==='high'?'#ef4444':'#f59e0b'}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${task.leadName}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">${task.message}</div>
+        <div style="display:flex;gap:6px;margin-top:4px">
+          <span style="font-size:10px;background:#f1f5f9;color:#64748b;padding:2px 6px;border-radius:3px">${task.type.toUpperCase()}</span>
+          ${task.priority==='high'?'<span style="font-size:10px;background:#fef2f2;color:#ef4444;padding:2px 6px;border-radius:3px">URGENT</span>':''}
+        </div>
+      </div>
+      <button onclick="markTaskDone('${task.id}')" style="font-size:10px;padding:3px 8px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;color:#64748b;cursor:pointer;white-space:nowrap">Done</button>
+    </div>`).join('');
+  if (tasks.length > 5) {
+    tasksEl.innerHTML += `<div style="font-size:11px;color:#4F86C6;text-align:center;padding:8px;cursor:pointer" onclick="showAllTasks()">View all ${tasks.length} tasks →</div>`;
+  }
+}
+
+function markTaskDone(taskId) {
+  window.dashboardTasks = (window.dashboardTasks||[]).map(t => t.id === taskId ? {...t, done:true} : t);
+  renderTasks(currentTaskFilter);
+  showToast('Task marked as done');
+}
+
+function showAllTasks() {
+  renderTasks(currentTaskFilter);
+}
+
+function switchTaskTab(filter, btn) {
+  currentTaskFilter = filter;
+  document.querySelectorAll('#tab-pending,#tab-duedate,#tab-overdue').forEach(b => {
+    b.style.background = '#f1f5f9';
+    b.style.color = '#64748b';
+  });
+  btn.style.background = '#4F86C6';
+  btn.style.color = '#fff';
+  renderTasks(filter);
+}
+
+// ── MANUAL ACTIONS ───────────────────────────────────────────
+window.dashboardActions = [];
+
+function generateManualActions(leads) {
+  const now = new Date();
+  const actions = [];
+  leads.forEach(lead => {
+    const lastContact = new Date(lead.updated_at || lead.created_at);
+    const hoursSince = (now - lastContact) / (1000 * 60 * 60);
+    if (!['won','lost'].includes(lead.pipeline_stage)) {
+      actions.push({
+        leadId: lead._id || lead.id,
+        leadName: lead.name || lead.wa_number,
+        waNumber: lead.wa_number,
+        type: 'whatsapp',
+        status: hoursSince > 48 ? 'overdue' : hoursSince > 24 ? 'pending' : 'followed_up',
+        score: lead.score,
+        scoreLabel: lead.score_label,
+        hoursSince: Math.round(hoursSince)
+      });
+    }
+  });
+  return actions;
+}
+
+function renderManualActions(filter, actions) {
+  const el = document.getElementById('ma-action-list');
+  if (!el) return;
+  let list = actions || [];
+  if (filter === 'whatsapp') list = list.filter(a => a.type === 'whatsapp');
+  else if (filter === 'followed_up') list = list.filter(a => a.status === 'followed_up');
+  else if (filter === 'overdue') list = list.filter(a => a.status === 'overdue');
+  if (list.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = list.slice(0,3).map(action => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:#1e293b">${action.leadName}</div>
+        <div style="font-size:11px;color:#94a3b8">${action.hoursSince}h ago${action.scoreLabel?' · '+action.scoreLabel:''}</div>
+      </div>
+      <button onclick="sendWhatsAppAction('${action.waNumber}')" style="font-size:11px;padding:4px 10px;background:#25D366;color:#fff;border:none;border-radius:3px;cursor:pointer">WhatsApp</button>
+    </div>`).join('');
+}
+
+function sendWhatsAppAction(waNumber) {
+  window.open('https://wa.me/' + waNumber.replace(/\D/g,''), '_blank');
+}
+
 function filterLeadsByDate(leads, days) {
   if (days === 0) return leads;
   const cutoff = new Date(Date.now() - days * 86400000);
@@ -946,7 +1178,7 @@ function updateAll(stats,leads){
   document.getElementById('cs-total').textContent=total;
   document.getElementById('cs-won').textContent=conv;
   document.getElementById('cs-hot').textContent=hot;
-  let wonVal=0;leads.filter(l=>l.status==='converted').forEach(l=>{const d=parseD(l);wonVal+=budgetVal[l.budget||d.budget]||0});
+  let wonVal=0;leads.filter(l=>l.pipeline_stage==='won'||l.status==='converted').forEach(l=>{const d=parseD(l);wonVal+=(l.budget||budgetVal[l.budget||d.budget]||0)});
   document.getElementById('cs-rev').textContent='AED '+(wonVal/1000000).toFixed(1)+'M';
 
   // Opportunity donut
@@ -956,10 +1188,10 @@ function updateAll(stats,leads){
   document.getElementById('oppTotal').textContent=total;
   ['new','con','won','lost'].forEach((k,i)=>{const n=od[i];document.getElementById('dl-'+k).textContent=n;document.getElementById('dlp-'+k).textContent=pct(n,total)+'%'});
 
-  // Value bar
-  let vByStage={Won:0,Contacted:0,New:0,Lost:0};
-  leads.forEach(l=>{const d=parseD(l);const v=budgetVal[l.budget||d.budget]||0;const s=l.status==='converted'?'Won':l.status==='contacted'?'Contacted':l.status==='lost'?'Lost':'New';vByStage[s]+=v});
-  valChart.data.datasets[0].data=Object.values(vByStage);
+  // Value bar — group by pipeline_stage
+  const stageValueMap = { 'Won':['won'], 'Contacted':['ai_contacted'], 'New':['new_lead'], 'Lost':['lost'] };
+  const vChartData = Object.entries(stageValueMap).map(([,stages]) => leads.filter(l => stages.includes(l.pipeline_stage)).reduce((sum,l) => { const d=parseD(l); return sum+(l.budget||budgetVal[l.budget||d.budget]||0); }, 0));
+  valChart.data.datasets[0].data=vChartData;
   valChart.update('none');
 
   // Conversion ring
@@ -1036,32 +1268,15 @@ function updateAll(stats,leads){
   }).join('')||'<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3);font-size:12px">No source data yet</td></tr>';
 
   // Manual actions
-  document.getElementById('maPhone').textContent=total;
-  document.getElementById('maSMS').textContent=contacted;
-  const overdue=leads.filter(l=>l.status==='new'&&l.followup_sent==0&&(Date.now()-new Date(l.created_at))/3600000>2).length;
-  document.getElementById('maTotal').textContent=overdue;
+  window.dashboardActions = generateManualActions(leads);
+  document.getElementById('maPhone').textContent = window.dashboardActions.filter(a=>a.type==='whatsapp').length;
+  document.getElementById('maSMS').textContent = window.dashboardActions.filter(a=>a.status==='followed_up').length;
+  document.getElementById('maTotal').textContent = window.dashboardActions.filter(a=>a.status==='overdue').length;
+  renderManualActions(document.getElementById('ma-filter')?.value||'all', window.dashboardActions);
 
   // Tasks
-  const pending=leads.filter(l=>l.status==='new'&&l.followup_sent==0);
-  if(pending.length===0){
-    document.getElementById('taskList').innerHTML='<div class="empty" style="padding:20px"><div class="empty-ico">✓</div><div class="empty-t">All caught up</div><div class="empty-s">No pending follow-ups</div></div>';
-  }else{
-    document.getElementById('taskList').innerHTML=pending.slice(0,5).map(l=>{
-      const d=parseD(l);
-      const hoursOld=Math.floor((Date.now()-new Date(l.created_at))/3600000);
-      const isOverdue=hoursOld>2;
-      const badge=isOverdue?`<span class="ti-ov">Overdue · ${hoursOld}h</span>`:`<span class="ti-due">Due soon</span>`;
-      return `<div class="ti">
-        <div class="ti-cb" onclick="this.classList.toggle('done')"></div>
-        <div class="ti-body">
-          <div class="ti-title">Follow up: ${l.name||'Unknown'} ${badge}</div>
-          <div class="ti-sub">${areaMap[d.area]||'Dubai'} · ${d.interest||'Enquiry'} · ${l.wa_number}</div>
-        </div>
-        <div class="ti-time" style="color:${isOverdue?'var(--red)':'var(--text3)'}">${timeAgo(l.created_at)}</div>
-        <button onclick="takeOver('${l.wa_number}', 0)" style="margin-left:4px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--blue);background:var(--blue-l);color:var(--blue)">Take Over</button>
-      </div>`;
-    }).join('');
-  }
+  window.dashboardTasks = generateTasks(leads);
+  renderTasks(currentTaskFilter);
 }
 
 // ── LEADS TABLE ────────────────────────────────────────────
