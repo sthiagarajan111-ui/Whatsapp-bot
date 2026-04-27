@@ -1662,6 +1662,20 @@ app.get('/api/dev/messages-debug', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── API: dev fix-messages cleanup ─────────────────────────────────────────────
+app.post('/api/dev/fix-messages', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const Message = require('./db/models/Message');
+    const r1 = await Message.deleteMany({ client_id: clientId, content: 'START prompt sent' });
+    const r2 = await Message.deleteMany({ client_id: clientId, body: 'START prompt sent' });
+    const r3 = await Message.deleteMany({ client_id: clientId, content: { $in: ['1','2','3','4','5','6','7','8','9'] }, direction: 'inbound' });
+    res.json({ deleted_start_prompts: r1.deletedCount + r2.deletedCount, deleted_digit_replies: r3.deletedCount });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── API: DB status ────────────────────────────────────────────────────────────
 app.get('/api/db-status', (_req, res) => {
   const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
