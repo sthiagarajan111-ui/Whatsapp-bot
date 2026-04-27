@@ -568,10 +568,36 @@ app.use('/dashboard', express.static(path.join(__dirname, 'dashboard')));
 // ── API: conversations ────────────────────────────────────────────────────────
 app.get('/api/conversations', async (req, res) => {
   try {
-    const clientId = req.headers['x-client-id'] || req.client?.client_id || 'default';
-    const convs = await db.getRecentConversations(50, clientId);
-    res.json(convs);
-  } catch (e) { res.json([]); }
+    const clientId   = req.headers['x-client-id'] || req.client?.client_id || 'default';
+    const LeadModel  = require('./db/models/Lead');
+    const MessageModel = require('./db/models/Message');
+
+    const leads = await LeadModel.find({ client_id: clientId })
+      .sort({ updated_at: -1 })
+      .limit(100)
+      .lean();
+
+    const conversations = await Promise.all(leads.map(async lead => {
+      const lastMsg = await MessageModel.findOne({ wa_number: lead.wa_number, client_id: clientId })
+        .sort({ created_at: -1 })
+        .lean();
+      return {
+        wa_number:         lead.wa_number,
+        name:              lead.name || null,
+        score:             lead.score || 0,
+        pipeline_stage:    lead.pipeline_stage || 'new_lead',
+        status:            lead.status || 'new',
+        last_message:      lastMsg?.content || '',
+        last_body:         lastMsg?.content || '',
+        last_direction:    lastMsg?.direction || '',
+        last_message_time: lastMsg?.created_at || lead.updated_at || lead.created_at,
+        last_at:           lastMsg?.created_at || lead.updated_at || lead.created_at,
+      };
+    }));
+
+    conversations.sort((a, b) => new Date(b.last_message_time) - new Date(a.last_message_time));
+    res.json(conversations);
+  } catch (e) { console.error('[Conversations]', e.message); res.json([]); }
 });
 
 app.get('/api/conversations/:waNumber', async (req, res) => {
@@ -1620,6 +1646,19 @@ app.get('/api/dev/audit', async (req, res) => {
         date: a.date, status: a.status, created_at: a.created_at
       }))
     });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: dev messages debug ───────────────────────────────────────────────────
+app.get('/api/dev/messages-debug', async (req, res) => {
+  try {
+    const Message  = require('./db/models/Message');
+    const clientId = req.headers['x-client-id'] || 'default';
+    const msgs = await Message.find({ client_id: clientId })
+      .sort({ created_at: -1 })
+      .limit(20)
+      .lean();
+    res.json({ count: msgs.length, messages: msgs });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -92,13 +92,13 @@ if (!window.__clientId) {
     if (!convListEl) return; // not on conversations page
     try {
       const fresh = await shared.apiFetch('/api/conversations');
-      // Check for new messages on non-selected leads (for badge)
+      // API returns an array (new format) or object with .conversations
+      const list = Array.isArray(fresh) ? fresh : (fresh.conversations || []);
       const prevNums = new Set(conversations.map(c => c.wa_number));
-      conversations = fresh;
+      conversations = list;
       const convCountEl = document.getElementById('convCount');
       if (convCountEl) convCountEl.textContent = conversations.length + ' chats';
       renderConvList();
-      // Badge: count leads with messages not currently open
       const unread = conversations.filter(c => c.wa_number !== selectedNumber && !prevNums.has(c.wa_number)).length;
       if (unread > 0) {
         const badge = document.querySelector('[data-page="conversations"] .badge');
@@ -112,10 +112,18 @@ if (!window.__clientId) {
 
   function startLeadListPolling() {
     if (leadListInterval) clearInterval(leadListInterval);
-    leadListInterval = setInterval(() => {
+    leadListInterval = setInterval(async () => {
       if (!document.getElementById('convList')) { clearInterval(leadListInterval); return; }
-      loadConversations();
-    }, 10000);
+      try {
+        const fresh = await shared.apiFetch('/api/conversations');
+        const list = Array.isArray(fresh) ? fresh : (fresh.conversations || []);
+        conversations = list;
+        const convCountEl = document.getElementById('convCount');
+        if (convCountEl) convCountEl.textContent = list.length + ' chats';
+        // Re-render list — renderConvList uses conversations variable and selectedNumber for highlight
+        renderConvList();
+      } catch(e) { /* silent */ }
+    }, 5000); // 5s for LIVE detection
   }
 
   function startPolling(waNumber) {
@@ -148,18 +156,43 @@ if (!window.__clientId) {
       el.innerHTML = '<div class="empty-state"><div class="icon">💬</div><p>No conversations yet</p></div>';
       return;
     }
+    const now = new Date();
     el.innerHTML = conversations.map(c => {
+      const lastTime = new Date(c.last_message_time || c.last_at || c.updated_at || 0);
+      const minutesSince = (now - lastTime) / 60000;
+      const isLive   = minutesSince < 2;
       const initials = (c.name || c.wa_number || '?').slice(0,2).toUpperCase();
       const colors = ['avatar-blue','avatar-green','avatar-purple','avatar-amber'];
       const cls = colors[(initials.charCodeAt(0)||0) % colors.length];
-      return `<div class="conv-item${selectedNumber===c.wa_number?' active':''}" onclick="selectConv('${c.wa_number}')">
-        <div class="avatar ${cls}" style="width:40px;height:40px;font-size:14px">${initials}</div>
-        <div class="conv-item-info">
-          <div class="conv-item-name">${c.name || c.wa_number}</div>
-          <div class="conv-item-preview">${c.last_direction==='outbound'?'🤖 ':''}${(c.last_message||'').slice(0,40)}</div>
+      const scoreColor = (c.score||0) >= 7 ? '#ef4444' : (c.score||0) >= 4 ? '#f59e0b' : '#94a3b8';
+      const scoreLabel = (c.score||0) >= 7 ? 'HOT' : (c.score||0) >= 4 ? 'WARM' : 'COLD';
+      const preview = (c.last_message || c.last_body || '').replace(/\n/g,' ').slice(0,45);
+      return `<div class="conv-item${selectedNumber===c.wa_number?' active':''}"
+        onclick="selectConv('${c.wa_number}')" data-wa="${c.wa_number}"
+        style="${isLive ? 'border-left:3px solid #22c55e;background:#f0fdf4;' : 'border-left:3px solid transparent;'}">
+        <div style="position:relative;flex-shrink:0">
+          <div class="avatar ${cls}" style="width:40px;height:40px;font-size:14px">${initials}</div>
+          ${isLive ? `<div style="position:absolute;bottom:0;right:0;width:10px;height:10px;
+            background:#22c55e;border-radius:50%;border:2px solid #fff;
+            animation:pulse-live 1.5s infinite"></div>` : ''}
         </div>
-        <div class="conv-item-meta">
-          <div class="conv-item-time">${shared.timeAgo(c.last_at)}</div>
+        <div class="conv-item-info">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="conv-item-name">${c.name || c.wa_number}</div>
+            <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+              ${isLive ? `<span style="font-size:10px;font-weight:700;color:#22c55e;background:#f0fdf4;
+                padding:1px 5px;border-radius:8px;border:1px solid #bbf7d0">LIVE</span>` : ''}
+              <span class="conv-item-time">${shared.timeAgo(c.last_message_time || c.last_at)}</span>
+            </div>
+          </div>
+          <div class="conv-item-preview">${c.last_direction==='outbound'?'🤖 ':''}${preview}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+            <span style="font-size:10px;font-weight:600;color:${scoreColor};
+              background:${scoreColor}18;padding:1px 5px;border-radius:3px">
+              ${scoreLabel} ${c.score||0}
+            </span>
+            <span style="font-size:10px;color:#94a3b8">${(c.pipeline_stage||'new').replace(/_/g,' ')}</span>
+          </div>
         </div>
       </div>`;
     }).join('');
@@ -182,15 +215,20 @@ if (!window.__clientId) {
       try { d = JSON.parse(lead?.data || '{}'); } catch(_) {}
       const hm = lead?.human_mode || 0;
 
+      // Determine if this conversation is LIVE (message in last 2 min)
+      const conv = conversations.find(c => c.wa_number === waNumber);
+      const convLastTime = conv ? new Date(conv.last_message_time || conv.last_at || 0) : new Date(0);
+      const isLiveConv = (new Date() - convLastTime) / 60000 < 2;
+
       lastMessageCount = messages.length;
       panel.innerHTML = `
         <div class="conv-lead-bar">
           ${shared.avatarInitials(lead?.name || waNumber)}
           <div>
-            <div class="conv-lead-bar-name"><span class="live-dot"></span>${lead?.name || waNumber}</div>
+            <div class="conv-lead-bar-name">${isLiveConv ? '<span class="live-dot"></span>' : ''}${lead?.name || waNumber}</div>
             <div class="conv-lead-bar-num">${waNumber} · ${d.area||''} · ${d.budget||''}</div>
           </div>
-          <span class="live-label">LIVE</span>
+          ${isLiveConv ? '<span class="live-label">LIVE</span>' : ''}
           ${lead ? shared.scoreBadge(lead.score) : ''}
           ${lead ? shared.statusBadge(lead.status) : ''}
           <div class="conv-lead-bar-actions">
@@ -217,20 +255,27 @@ if (!window.__clientId) {
   };
 
   function renderMessages(messages) {
-    if (!messages.length) return '<div class="date-sep">No messages yet</div>';
+    if (!messages || !messages.length) return '<div class="date-sep">No messages yet</div>';
     let html = '';
     let lastDate = '';
     for (const m of messages) {
-      const d = (m.created_at||'').slice(0,10);
-      if (d !== lastDate) { html += `<div class="date-sep">${d}</div>`; lastDate = d; }
+      const dateStr = new Date(m.created_at).toLocaleDateString('en-AE', { day:'2-digit', month:'short', year:'numeric' });
+      const timeStr = new Date(m.created_at).toLocaleTimeString('en-AE', { hour:'2-digit', minute:'2-digit', hour12:true });
+      if (dateStr !== lastDate) {
+        html += `<div class="date-sep">${dateStr}</div>`;
+        lastDate = dateStr;
+      }
       const isOut = m.direction === 'outbound';
-      const icon = isOut ? '<div class="msg-icon">🤖 Bot</div>' : '';
-      const voice = m.message_type === 'audio' ? '🎙️ ' : '';
-      html += `<div class="msg-row ${m.direction}">
+      const bodyText = (m.content || m.body || m.text || '').trim() || '[No content]';
+      const formatted = bodyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      const senderLabel = isOut
+        ? `<div class="msg-icon">${m.message_type === 'audio' ? '🎙️ Voice' : '🤖 Bot'}</div>`
+        : (m.message_type === 'audio' ? '<div class="msg-icon">🎙️ Voice</div>' : '');
+      html += `<div class="msg-row ${m.direction || 'inbound'}">
         <div class="msg-bubble">
-          ${icon}
-          ${voice}${m.content || '[No content]'}
-          <div class="msg-time">${shared.formatDate(m.created_at)}</div>
+          ${senderLabel}
+          ${formatted}
+          <div class="msg-time">${timeStr}</div>
         </div>
       </div>`;
     }
