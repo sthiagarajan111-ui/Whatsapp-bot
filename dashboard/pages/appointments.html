@@ -147,6 +147,7 @@ if (!window.__clientId) {
   let currentRange = 'today';
 
   async function init() {
+    if (!document.getElementById('kToday')) return; // not on appointments page
     const [appts, stats] = await Promise.all([
       shared.apiFetch('/api/appointments').catch(() => []),
       // Use unified stats API — same source as dashboard KPIs
@@ -154,10 +155,10 @@ if (!window.__clientId) {
     ]);
     allAppointments = Array.isArray(appts) ? appts : [];
 
-    document.getElementById('kToday').textContent = stats.todayAppointments ?? stats.today ?? '0';
-    document.getElementById('kWeek').textContent  = stats.weekAppointments  ?? stats.this_week ?? '0';
-    document.getElementById('kRate').textContent  = (stats.completionRate   ?? stats.completion_rate ?? 0) + '%';
-    document.getElementById('kTotal').textContent = stats.totalAppointments ?? stats.total ?? allAppointments.length;
+    const kToday = document.getElementById('kToday'); if (kToday) kToday.textContent = stats.todayAppointments ?? stats.today ?? '0';
+    const kWeek  = document.getElementById('kWeek');  if (kWeek)  kWeek.textContent  = stats.weekAppointments  ?? stats.this_week ?? '0';
+    const kRate  = document.getElementById('kRate');  if (kRate)  kRate.textContent  = (stats.completionRate   ?? stats.completion_rate ?? 0) + '%';
+    const kTotal = document.getElementById('kTotal'); if (kTotal) kTotal.textContent = stats.totalAppointments ?? stats.total ?? allAppointments.length;
 
     const nb = document.getElementById('nbAppts');
     if (nb) nb.textContent = stats.todayAppointments ?? stats.today ?? '0';
@@ -168,7 +169,7 @@ if (!window.__clientId) {
   }
 
   // Fix 5: auto-refresh every 30s
-  setInterval(init, 30000);
+  setInterval(() => { if (document.getElementById('kToday')) init(); }, 30000);
 
   window.apptSetRange = function(range, btn) {
     currentRange = range;

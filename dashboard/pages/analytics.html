@@ -128,6 +128,7 @@ if (!window.__clientId) {
 
   // Fix 5: auto-refresh every 30s
   setInterval(async () => {
+    if (!document.getElementById('kpiRow')) return; // not on analytics page
     try {
       allLeads = await shared.apiFetch('/api/leads?status=all&limit=10000');
       if (!Array.isArray(allLeads)) allLeads = allLeads.leads || allLeads.data || [];
@@ -185,6 +186,8 @@ if (!window.__clientId) {
   }
 
   function renderKPIs(d, apiStats) {
+    const kpiRowEl = document.getElementById('kpiRow');
+    if (!kpiRowEl) return;
     // Use unified stats API for counts that must match the dashboard
     const total = apiStats?.totalLeads ?? d.total ?? 0;
     const convRate = apiStats?.conversionRate ?? d.conversionRate ?? 0;
@@ -196,7 +199,7 @@ if (!window.__clientId) {
       { val: d.bestArea||'—',  lbl: 'Top Area',        color: '#9B7FD4' },
       { val: d.bestDay||'—',   lbl: 'Best Day',        color: '#5BC0DE' },
     ];
-    document.getElementById('kpiRow').innerHTML = kpis.map(k => `
+    kpiRowEl.innerHTML = kpis.map(k => `
       <div class="a-kpi-card">
         <div class="a-kpi-accent" style="background:${k.color}"></div>
         <div class="a-kpi-body">
@@ -229,6 +232,7 @@ if (!window.__clientId) {
 
   function renderCharts(d) {
     const grid = document.getElementById('analyticsGrid');
+    if (!grid) return;
     grid.innerHTML = `
       <!-- Row 1: Leads Trend (2fr) + Leads by Area (1fr) -->
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
@@ -328,6 +332,7 @@ if (!window.__clientId) {
   // Agent Leaderboard
   (async function loadLeaderboard() {
     const el = document.getElementById('agentLeaderboard');
+    if (!el) return;
     try {
       const agents = await shared.apiFetch('/api/agents/performance');
       if (!agents.length) {

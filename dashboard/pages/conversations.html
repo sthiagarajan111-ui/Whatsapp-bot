@@ -88,12 +88,15 @@ if (!window.__clientId) {
   let leadListInterval = null;
 
   async function loadConversations() {
+    const convListEl = document.getElementById('convList');
+    if (!convListEl) return; // not on conversations page
     try {
       const fresh = await shared.apiFetch('/api/conversations');
       // Check for new messages on non-selected leads (for badge)
       const prevNums = new Set(conversations.map(c => c.wa_number));
       conversations = fresh;
-      document.getElementById('convCount').textContent = conversations.length + ' chats';
+      const convCountEl = document.getElementById('convCount');
+      if (convCountEl) convCountEl.textContent = conversations.length + ' chats';
       renderConvList();
       // Badge: count leads with messages not currently open
       const unread = conversations.filter(c => c.wa_number !== selectedNumber && !prevNums.has(c.wa_number)).length;
@@ -102,13 +105,17 @@ if (!window.__clientId) {
         if (badge) badge.textContent = unread;
       }
     } catch(e) {
-      document.getElementById('convList').innerHTML = '<div class="empty-state"><div class="icon">💬</div><p>No conversations yet</p></div>';
+      const convListEl2 = document.getElementById('convList');
+      if (convListEl2) convListEl2.innerHTML = '<div class="empty-state"><div class="icon">💬</div><p>No conversations yet</p></div>';
     }
   }
 
   function startLeadListPolling() {
     if (leadListInterval) clearInterval(leadListInterval);
-    leadListInterval = setInterval(() => { loadConversations(); }, 10000);
+    leadListInterval = setInterval(() => {
+      if (!document.getElementById('convList')) { clearInterval(leadListInterval); return; }
+      loadConversations();
+    }, 10000);
   }
 
   function startPolling(waNumber) {
@@ -136,6 +143,7 @@ if (!window.__clientId) {
 
   function renderConvList() {
     const el = document.getElementById('convList');
+    if (!el) return;
     if (!conversations.length) {
       el.innerHTML = '<div class="empty-state"><div class="icon">💬</div><p>No conversations yet</p></div>';
       return;
