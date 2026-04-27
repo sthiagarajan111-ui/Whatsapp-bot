@@ -1,9 +1,4 @@
 <style>
-.pipeline-bar { display: flex; align-items: center; gap: 12px; background: var(--white); padding: 14px 20px; border-radius: 4px; border: 1px solid var(--border); margin-bottom: 20px; flex-wrap: wrap; }
-.pipeline-bar-stat { display: flex; flex-direction: column; align-items: center; padding: 0 16px; border-right: 1px solid var(--border); }
-.pipeline-bar-stat:last-child { border-right: none; }
-.pipeline-bar-stat .val { font-size: 18px; font-weight: 700; color: var(--text); }
-.pipeline-bar-stat .lbl { font-size: 11px; color: var(--text3); margin-top: 2px; }
 
 .kanban-scroll { overflow-x: auto; padding-bottom: 16px; }
 .kanban-board { display: flex; gap: 14px; min-width: max-content; align-items: flex-start; }
@@ -41,8 +36,36 @@
     <button class="btn btn-secondary" onclick="loadPipeline()">🔄 Refresh</button>
   </div>
 
-  <div class="pipeline-bar" id="pipelineBar">
-    <div class="loading"><div class="spinner"></div> Loading...</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px" id="pipelineBar">
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#4F86C6;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Total Leads</div>
+      <div id="pipe-total-leads" style="font-size:28px;font-weight:700;color:#1e293b">—</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">All time</div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#F5A623;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Pipeline Value</div>
+      <div id="pipe-pipeline-value" style="font-size:28px;font-weight:700;color:#F5A623">—</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">Estimated</div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#62B58F;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Win Rate</div>
+      <div id="pipe-win-rate" style="font-size:28px;font-weight:700;color:#62B58F">—</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">Won / Total</div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#ef4444;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">HOT Leads</div>
+      <div id="pipe-hot-leads" style="font-size:28px;font-weight:700;color:#ef4444">—</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">Score 7+</div>
+    </div>
+
   </div>
 
   <div class="kanban-scroll">
@@ -99,21 +122,20 @@ if (!window.__clientId) {
     }
   };
 
-  function renderBar(stats) {
-    // Pipeline Value: sum budgets from pipeline data (stored as numbers by seeder)
-    const allLeads = Object.values(pipeline).flat();
-    const totalValue = allLeads.reduce((s, l) => {
-      const d = l.data || {};
-      const budget = typeof d.budget === 'number' ? d.budget : (BUDGET_MAP[d.budget] || 0);
-      return s + budget;
-    }, 0);
+  function formatMillions(v) {
+    if (!v) return 'AED 0.0M';
+    if (v >= 1e6) return 'AED ' + (v / 1e6).toFixed(1) + 'M';
+    if (v >= 1e3) return 'AED ' + (v / 1e3).toFixed(0) + 'K';
+    return 'AED ' + v;
+  }
 
-    document.getElementById('pipelineBar').innerHTML = `
-      <div class="pipeline-bar-stat"><div class="val">${stats.totalLeads ?? allLeads.length}</div><div class="lbl">Total Leads</div></div>
-      <div class="pipeline-bar-stat"><div class="val">AED ${(totalValue/1e6).toFixed(1)}M</div><div class="lbl">Pipeline Value</div></div>
-      <div class="pipeline-bar-stat"><div class="val">${stats.conversionRate ?? 0}%</div><div class="lbl">Win Rate</div></div>
-      <div class="pipeline-bar-stat"><div class="val">${stats.hotLeads ?? 0}</div><div class="lbl">HOT Leads</div></div>
-    `;
+  function renderBar(stats) {
+    const el = document.getElementById('pipe-total-leads');
+    if (!el) return;
+    document.getElementById('pipe-total-leads').textContent   = stats.totalLeads ?? 0;
+    document.getElementById('pipe-pipeline-value').textContent = formatMillions(stats.pipelineValue);
+    document.getElementById('pipe-win-rate').textContent      = (stats.conversionRate ?? 0) + '%';
+    document.getElementById('pipe-hot-leads').textContent     = stats.hotLeads ?? 0;
   }
 
   function renderBoard() {

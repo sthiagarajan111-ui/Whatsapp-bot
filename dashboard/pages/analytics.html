@@ -10,13 +10,7 @@
 .date-btn:hover { background: #e2e8f0; }
 .date-btn.active { background: #4F86C6; color: #fff; border-color: #4F86C6; }
 
-/* KPI Row */
-.a-kpi-row { display: flex; gap: 16px; margin-bottom: 24px; }
-.a-kpi-card { flex: 1; min-width: 0; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); border-radius: 4px; overflow: hidden; }
-.a-kpi-accent { height: 3px; border-radius: 2px 2px 0 0; }
-.a-kpi-body { padding: 16px 20px; }
-.a-kpi-val { font-size: 24px; font-weight: 700; color: #1e293b; margin: 4px 0; }
-.a-kpi-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; }
+/* KPI Row — removed, using inline styles now */
 
 /* Chart cards */
 .chart-card { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); border-radius: 4px; padding: 20px; }
@@ -49,8 +43,43 @@
   </div>
 
   <!-- KPI Row -->
-  <div class="a-kpi-row" id="kpiRow">
-    <div style="flex:5;text-align:center;padding:20px"><div class="spinner" style="display:inline-block"></div></div>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:20px" id="kpiRow">
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#4F86C6;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Total Leads</div>
+      <div id="kpi-total-leads" style="font-size:28px;font-weight:700;color:#1e293b">—</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">Selected period</div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#62B58F;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Conversion Rate</div>
+      <div id="kpi-conversion" style="font-size:28px;font-weight:700;color:#62B58F">—</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">Won / Total</div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#F5A623;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Avg Lead Score</div>
+      <div id="kpi-avg-score" style="font-size:28px;font-weight:700;color:#F5A623">—</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">Out of 10</div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#9B7FD4;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Top Area</div>
+      <div id="kpi-top-area" style="font-size:22px;font-weight:700;color:#1e293b;line-height:1.2">—</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">Most leads</div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#5BC0DE;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Best Day</div>
+      <div id="kpi-best-day" style="font-size:28px;font-weight:700;color:#1e293b">—</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">Most active</div>
+    </div>
+
   </div>
 
   <!-- Charts container -->
@@ -186,28 +215,16 @@ if (!window.__clientId) {
   }
 
   function renderKPIs(d, apiStats) {
-    const kpiRowEl = document.getElementById('kpiRow');
-    if (!kpiRowEl) return;
+    if (!document.getElementById('kpiRow')) return;
     // Use unified stats API for counts that must match the dashboard
     const total = apiStats?.totalLeads ?? d.total ?? 0;
     const convRate = apiStats?.conversionRate ?? d.conversionRate ?? 0;
     const avgScore = apiStats?.avgScore ?? d.avgScore ?? 0;
-    const kpis = [
-      { val: total,            lbl: 'Total Leads',     color: '#4F86C6' },
-      { val: convRate + '%',   lbl: 'Conversion Rate', color: '#62B58F' },
-      { val: avgScore,         lbl: 'Avg Lead Score',  color: '#F5A623' },
-      { val: d.bestArea||'—',  lbl: 'Top Area',        color: '#9B7FD4' },
-      { val: d.bestDay||'—',   lbl: 'Best Day',        color: '#5BC0DE' },
-    ];
-    kpiRowEl.innerHTML = kpis.map(k => `
-      <div class="a-kpi-card">
-        <div class="a-kpi-accent" style="background:${k.color}"></div>
-        <div class="a-kpi-body">
-          <div class="a-kpi-lbl">${k.lbl}</div>
-          <div class="a-kpi-val">${k.val}</div>
-        </div>
-      </div>
-    `).join('');
+    document.getElementById('kpi-total-leads').textContent = total;
+    document.getElementById('kpi-conversion').textContent  = convRate + '%';
+    document.getElementById('kpi-avg-score').textContent   = avgScore;
+    document.getElementById('kpi-top-area').textContent    = d.bestArea || '—';
+    document.getElementById('kpi-best-day').textContent    = d.bestDay  || '—';
   }
 
   const CHART_COLORS = ['#4F86C6','#62B58F','#F5A623','#E8605A','#9B7FD4','#5BC0DE','#F0AD4E','#5CB85C'];

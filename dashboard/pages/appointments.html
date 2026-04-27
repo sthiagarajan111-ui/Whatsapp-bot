@@ -6,13 +6,6 @@
   .dr-btn.active{background:#4F86C6;color:#fff;border-color:#4F86C6}
   .status-filter{padding:6px 12px;border:1px solid #e2e8f0;background:#fff;font-size:12px;cursor:pointer;color:#1e293b}
   .export-btn{padding:7px 16px;background:#4F86C6;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer}
-  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-  .kpi-card{background:#fff;padding:16px 20px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04)}
-  .kpi-val{font-size:24px;font-weight:700;color:#1e293b}
-  .kpi-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-top:4px}
-  .kpi-card.blue .kpi-val{color:#4F86C6}
-  .kpi-card.green .kpi-val{color:#62B58F}
-  .kpi-card.purple .kpi-val{color:#9B7FD4}
   .view-toggle{display:flex;gap:6px;margin-bottom:14px}
   .vt-btn{padding:6px 14px;border:1px solid #e2e8f0;background:#fff;font-size:12px;font-weight:500;cursor:pointer;color:#64748b}
   .vt-btn.active{background:#4F86C6;color:#fff;border-color:#4F86C6}
@@ -90,11 +83,36 @@
   </div>
 </div>
 
-<div class="kpi-row">
-  <div class="kpi-card blue"><div class="kpi-val" id="kToday">—</div><div class="kpi-lbl">Today's Appointments</div></div>
-  <div class="kpi-card"><div class="kpi-val" id="kWeek">—</div><div class="kpi-lbl">This Week</div></div>
-  <div class="kpi-card green"><div class="kpi-val" id="kRate">—%</div><div class="kpi-lbl">Completion Rate</div></div>
-  <div class="kpi-card purple"><div class="kpi-val" id="kTotal">—</div><div class="kpi-lbl">Total Booked</div></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px">
+
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#4F86C6;border-radius:2px 2px 0 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Today's Appointments</div>
+    <div id="kToday" style="font-size:28px;font-weight:700;color:#1e293b">—</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:4px">Scheduled today</div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#9B7FD4;border-radius:2px 2px 0 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">This Week</div>
+    <div id="kWeek" style="font-size:28px;font-weight:700;color:#1e293b">—</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:4px">Last 7 days</div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#62B58F;border-radius:2px 2px 0 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Completion Rate</div>
+    <div id="kRate" style="font-size:28px;font-weight:700;color:#62B58F">—</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:4px">Completed / Non-cancelled</div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:16px 20px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#F5A623;border-radius:2px 2px 0 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;margin-bottom:8px">Total Booked</div>
+    <div id="kTotal" style="font-size:28px;font-weight:700;color:#1e293b">—</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:4px">All appointments</div>
+  </div>
+
 </div>
 
 <div class="view-toggle">
