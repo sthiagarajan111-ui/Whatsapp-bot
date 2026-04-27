@@ -2102,31 +2102,47 @@ app.post('/api/leads/manual', async (req, res) => {
     const scoreLabel = score >= 7 ? 'HOT' : score >= 4 ? 'WARM' : 'COLD';
     const pipelineStage = score >= 7 ? 'qualified_hot' : score >= 4 ? 'qualified_warm' : 'new_lead';
 
-    const LeadModel = require('./db/models/Lead');
-    await LeadModel.create({
-      client_id: clientId, lead_id: leadId,
-      wa_number: body.wa_number || body.phone?.replace(/\D/g,''),
-      name: body.name, phone: body.phone, email: body.email || '',
-      channel: body.channel || 'phone', source: body.source || 'phone-inbound',
-      vertical: activeFlow, intent: body.intent || '',
+    const waNumber = body.wa_number || (body.phone || '').replace(/\D/g, '');
+    if (!waNumber) throw new Error('wa_number could not be derived from phone');
+
+    // Store fields not in Lead schema inside the data Mixed field
+    const leadData = {
+      phone: body.phone || '', email: body.email || '',
+      source: body.source || 'phone-inbound', intent: body.intent || '',
       property_type: body.property_type || '', budget: budgetNum,
       area_interest: body.area_interest || '', timeline: body.timeline || '',
-      language: body.language || 'English', notes: body.notes || '',
-      score, score_label: scoreLabel, pipeline_stage: pipelineStage,
+      notes: body.notes || '', score_label: scoreLabel,
       entry_method: 'manual', recording_duration: body.recording_duration || 0,
-      status: 'active', created_at: new Date(), updated_at: new Date()
-    });
+      party_size: body.party_size || '', occasion: body.occasion || '',
+    };
 
-    await db.saveMessage({
-      wa_number: body.wa_number || body.phone?.replace(/\D/g,''),
-      body: `Manual lead captured via ${body.source || 'phone call'}. Notes: ${body.notes || 'None'}`,
-      direction: 'outbound', sender: 'agent',
-      client_id: clientId, created_at: new Date()
-    });
+    const LeadModel = require('./db/models/Lead');
+    // Use upsert to avoid E11000 on duplicate wa_number for this client
+    await LeadModel.findOneAndUpdate(
+      { wa_number: waNumber, client_id: clientId },
+      {
+        $set: {
+          lead_id: leadId, name: body.name,
+          channel: body.channel || 'phone', vertical: activeFlow,
+          language: body.language || 'en', score, pipeline_stage: pipelineStage,
+          status: 'active', data: leadData, updated_at: new Date()
+        },
+        $setOnInsert: { created_at: new Date() }
+      },
+      { upsert: true, new: true }
+    );
+
+    // saveMessage(waNumber, direction, type, content, rawData, clientId)
+    await db.saveMessage(
+      waNumber, 'outbound', 'text',
+      `Manual lead captured via ${body.source || 'phone call'}. Notes: ${body.notes || 'None'}`,
+      null, clientId
+    );
 
     res.json({ success: true, lead_id: leadId, score, score_label: scoreLabel });
   } catch(e) {
-    console.error('[Manual Lead]', e.message);
+    console.error('[Manual Lead Save Error]', e.message);
+    console.error('[Manual Lead Save Stack]', e.stack);
     res.status(500).json({ error: e.message });
   }
 });
