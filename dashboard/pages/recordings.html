@@ -36,6 +36,8 @@
 .audio-player-bar.visible { transform:translateY(0); }
 </style>
 
+<div style="padding: 20px 24px">
+
 <!-- PAGE HEADER -->
 <div style="margin-bottom:20px">
   <div style="font-size:18px;font-weight:700;color:#1e293b">Call Recordings</div>
@@ -73,7 +75,7 @@
 </div>
 
 <!-- SEARCH AND FILTERS -->
-<div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;padding:16px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;padding:16px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
   <div style="flex:1;min-width:200px">
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:5px">Search</div>
     <input type="text" id="rec-search" placeholder="Lead ID, agent name, notes..."
@@ -183,6 +185,8 @@
     style="padding:6px 14px;background:#22c55e;color:#fff;border-radius:4px;font-size:12px;font-weight:600;text-decoration:none">↓ Download</a>
 </div>
 
+</div><!-- end padding wrapper -->
+
 <script>
 let allRecordings = [];
 let currentScoreFilter = 'all';
@@ -273,7 +277,7 @@ function renderRecordingsTable(recordings) {
       <td style="text-align:center">
         <button onclick="toggleStar('${r._id}', ${r.starred || false})"
           id="star-${r._id}"
-          style="font-size:16px;background:none;border:none;cursor:pointer;color:${r.starred ? '#f59e0b' : '#e2e8f0'};transition:color 0.15s">★</button>
+          style="font-size:16px;background:none;border:none;cursor:pointer;color:${r.starred === true ? '#f59e0b' : '#e2e8f0'};transition:color 0.15s">★</button>
       </td>
       <td><span style="font-family:monospace;font-size:11px;color:#4F86C6">${r.lead_id || '—'}</span></td>
       <td>
@@ -339,7 +343,7 @@ function filterRecordings() {
   if (currentScoreFilter === 'hot')  filtered = filtered.filter(r => r.score >= 7);
   if (currentScoreFilter === 'warm') filtered = filtered.filter(r => r.score >= 4 && r.score < 7);
   if (currentScoreFilter === 'cold') filtered = filtered.filter(r => r.score < 4);
-  if (showingStarred) filtered = filtered.filter(r => r.starred);
+  if (showingStarred) filtered = filtered.filter(r => r.starred === true);
 
   renderRecordingsTable(filtered);
 }
@@ -410,8 +414,24 @@ function toggleStar(recordingId, currentlyStarred) {
 function filterStarred() {
   showingStarred = !showingStarred;
   const btn = document.getElementById('btn-starred');
-  if (btn) btn.style.background = showingStarred ? '#fef3c7' : '#fff';
-  filterRecordings();
+  if (btn) {
+    btn.style.background    = showingStarred ? '#fef3c7' : '#fff';
+    btn.style.borderColor   = showingStarred ? '#f59e0b' : '#fde68a';
+  }
+  if (showingStarred) {
+    const starred = allRecordings.filter(r => r.starred === true);
+    if (starred.length === 0) {
+      const tbody = document.getElementById('rec-table-body');
+      if (tbody) tbody.innerHTML = `<tr><td colspan="10"
+        style="text-align:center;padding:40px;color:#94a3b8">
+        No starred recordings yet. Click ★ on any recording to add it to the Training Library.
+      </td></tr>`;
+    } else {
+      renderRecordingsTable(starred);
+    }
+  } else {
+    filterRecordings();
+  }
 }
 
 // Feature 4: Score filter
