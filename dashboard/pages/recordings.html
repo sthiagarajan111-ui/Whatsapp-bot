@@ -193,7 +193,10 @@ async function initRecordings() {
   if (!tbody) return;
 
   try {
+    console.log('[Recordings] Fetching stats...');
     const statsRes = await apiFetch('/api/recordings/stats');
+    console.log('[Recordings] Stats response:', statsRes);
+
     if (statsRes && statsRes.total !== undefined) {
       document.getElementById('rec-stat-total').textContent    = statsRes.total;
       document.getElementById('rec-stat-duration').textContent = statsRes.total_duration_formatted || '0s';
@@ -209,8 +212,12 @@ async function initRecordings() {
       }
     }
 
+    console.log('[Recordings] Fetching recordings...');
     const data = await apiFetch('/api/recordings');
+    console.log('[Recordings] Data response:', data);
+
     allRecordings = (data && data.recordings) ? data.recordings : [];
+    console.log('[Recordings] Count:', allRecordings.length);
 
     const today = new Date().toDateString();
     const todayCount = allRecordings.filter(r =>
@@ -221,10 +228,10 @@ async function initRecordings() {
     renderRecordingsTable(allRecordings);
 
   } catch(e) {
-    console.error('[Recordings]', e.message);
+    console.error('[Recordings] Error:', e.message, e);
     if (tbody) tbody.innerHTML = `<tr><td colspan="10"
       style="text-align:center;padding:40px;color:#ef4444">
-      Error loading recordings: ${e.message}</td></tr>`;
+      Error: ${e.message}. Check browser console for details.</td></tr>`;
   }
 }
 

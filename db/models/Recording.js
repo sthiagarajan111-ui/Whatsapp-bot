@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 function getRecordingModel(clientId) {
   const modelName = `${clientId}_Recording`;
-  if (mongoose.models[modelName]) return mongoose.models[modelName];
 
   const schema = new mongoose.Schema({
     client_id:  { type: String, required: true },
@@ -19,6 +18,8 @@ function getRecordingModel(clientId) {
     created_at: { type: Date, default: Date.now }
   }, { collection: `${clientId}_recordings` });
 
+  // Only create if not already registered
+  if (mongoose.models[modelName]) return mongoose.models[modelName];
   return mongoose.model(modelName, schema);
 }
 
