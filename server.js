@@ -2203,6 +2203,93 @@ app.post('/api/recordings/upload', uploadMiddleware.single('recording'), async (
   }
 });
 
+// ── Helper: format seconds to human duration ─────────────────────────────────
+function formatDuration(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+// ── Recordings: list with filters ────────────────────────────────────────────
+app.get('/api/recordings', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const { getRecordingModel } = require('./db/models/Recording');
+    const Recording = getRecordingModel(clientId);
+
+    const { lead_id, agent, from, to, q } = req.query;
+
+    let filter = { client_id: clientId };
+    if (lead_id) filter.lead_id = new RegExp(lead_id, 'i');
+    if (agent)   filter.agent   = new RegExp(agent, 'i');
+    if (from || to) {
+      filter.created_at = {};
+      if (from) filter.created_at.$gte = new Date(from);
+      if (to)   filter.created_at.$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
+    }
+    if (q) {
+      filter.$or = [
+        { lead_id: new RegExp(q, 'i') },
+        { agent:   new RegExp(q, 'i') },
+        { notes:   new RegExp(q, 'i') }
+      ];
+    }
+
+    const recordings = await Recording.find(filter)
+      .sort({ created_at: -1 })
+      .limit(200)
+      .lean();
+
+    // Enrich with lead name + score
+    const LeadModel = require('./db/models/Lead');
+    const enriched = await Promise.all(recordings.map(async r => {
+      let leadName  = r.wa_number || 'Unknown';
+      let score     = 0;
+      let scoreLabel = 'COLD';
+      try {
+        const lead = await LeadModel.findOne({ wa_number: r.wa_number }).lean();
+        if (lead) {
+          leadName   = lead.name || lead.wa_number;
+          score      = lead.score || 0;
+          scoreLabel = lead.data?.score_label || (score >= 7 ? 'HOT' : score >= 4 ? 'WARM' : 'COLD');
+        }
+      } catch(_) {}
+      return { ...r, lead_name: leadName, score, score_label: scoreLabel };
+    }));
+
+    res.json({ recordings: enriched, total: enriched.length });
+  } catch(e) {
+    console.error('[Recordings API]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Recordings: stats for report header ──────────────────────────────────────
+app.get('/api/recordings/stats', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const { getRecordingModel } = require('./db/models/Recording');
+    const Recording = getRecordingModel(clientId);
+
+    const all = await Recording.find({ client_id: clientId }).lean();
+    const totalDuration = all.reduce((sum, r) => sum + (r.duration || 0), 0);
+    const agents = [...new Set(all.map(r => r.agent).filter(Boolean))];
+
+    res.json({
+      total:                    all.length,
+      total_duration_seconds:   totalDuration,
+      total_duration_formatted: formatDuration(totalDuration),
+      unique_agents:            agents.length,
+      agents
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Dev: reseed demo data ─────────────────────────────────────────────────────
 app.post('/api/dev/reseed', async (req, res) => {
   try {

@@ -1,0 +1,338 @@
+<style>
+.rec-table { width:100%; border-collapse:collapse; font-size:13px; }
+.rec-table th {
+  font-size:11px; font-weight:600; text-transform:uppercase;
+  letter-spacing:0.5px; color:#94a3b8; border-bottom:2px solid #e2e8f0;
+  padding:10px 14px; text-align:left; background:#fff;
+}
+.rec-table td {
+  padding:12px 14px; border-bottom:1px solid #f1f5f9;
+  color:#1e293b; vertical-align:middle;
+}
+.rec-table tr:hover td { background:#f8fafc; }
+.rec-table tr:last-child td { border-bottom:none; }
+.rec-play-btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 12px; background:#eff6ff; color:#4F86C6;
+  border:1px solid #bfdbfe; border-radius:4px;
+  font-size:12px; font-weight:600; cursor:pointer;
+  transition:background 0.15s;
+}
+.rec-play-btn:hover { background:#dbeafe; }
+.rec-dl-btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 12px; background:#f0fdf4; color:#16a34a;
+  border:1px solid #bbf7d0; border-radius:4px;
+  font-size:12px; font-weight:600; cursor:pointer;
+  text-decoration:none;
+}
+.audio-player-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  background:#1e293b; color:#fff; padding:12px 24px;
+  display:flex; align-items:center; gap:16px;
+  z-index:9000; transform:translateY(100%);
+  transition:transform 0.25s ease; font-size:13px;
+}
+.audio-player-bar.visible { transform:translateY(0); }
+</style>
+
+<!-- PAGE HEADER -->
+<div style="margin-bottom:20px">
+  <div style="font-size:18px;font-weight:700;color:#1e293b">Call Recordings</div>
+  <div style="font-size:12px;color:#94a3b8;margin-top:2px">
+    All recorded calls linked to leads — search, play and download
+  </div>
+</div>
+
+<!-- KPI CARDS -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px" id="rec-kpi-row">
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:14px 16px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#4F86C6;border-radius:2px 2px 0 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:6px">Total Recordings</div>
+    <div id="rec-stat-total" style="font-size:24px;font-weight:700;color:#1e293b">—</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:3px">All time</div>
+  </div>
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:14px 16px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#62B58F;border-radius:2px 2px 0 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:6px">Total Duration</div>
+    <div id="rec-stat-duration" style="font-size:24px;font-weight:700;color:#62B58F">—</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:3px">Combined</div>
+  </div>
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:14px 16px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#F5A623;border-radius:2px 2px 0 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:6px">Unique Agents</div>
+    <div id="rec-stat-agents" style="font-size:24px;font-weight:700;color:#F5A623">—</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:3px">Who recorded</div>
+  </div>
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:14px 16px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#9B7FD4;border-radius:2px 2px 0 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:6px">Today</div>
+    <div id="rec-stat-today" style="font-size:24px;font-weight:700;color:#9B7FD4">—</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:3px">Recordings today</div>
+  </div>
+</div>
+
+<!-- SEARCH AND FILTERS -->
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;padding:16px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+  <div style="flex:1;min-width:200px">
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:5px">Search</div>
+    <input type="text" id="rec-search" placeholder="Lead ID, agent name, notes..."
+      oninput="filterRecordings()"
+      style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;outline:none;font-family:inherit">
+  </div>
+  <div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:5px">From Date</div>
+    <input type="date" id="rec-from" style="padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px">
+  </div>
+  <div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:5px">To Date</div>
+    <input type="date" id="rec-to" style="padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px">
+  </div>
+  <div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:5px">Agent</div>
+    <select id="rec-agent" onchange="filterRecordings()"
+      style="padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;background:#fff;font-family:inherit">
+      <option value="">All agents</option>
+    </select>
+  </div>
+  <button onclick="filterRecordings()"
+    style="padding:8px 20px;background:#4F86C6;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
+    Apply
+  </button>
+  <button onclick="clearRecFilters()"
+    style="padding:8px 16px;background:#fff;color:#64748b;border:1px solid #e2e8f0;border-radius:4px;font-size:13px;cursor:pointer">
+    Clear
+  </button>
+  <button onclick="exportRecordingsCSV()"
+    style="padding:8px 16px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;margin-left:auto">
+    Export CSV
+  </button>
+</div>
+
+<!-- RECORDINGS TABLE -->
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);overflow:hidden">
+  <table class="rec-table">
+    <thead>
+      <tr>
+        <th>Lead ID</th>
+        <th>Lead Name</th>
+        <th>Agent</th>
+        <th>Date &amp; Time</th>
+        <th>Duration</th>
+        <th>Score</th>
+        <th>Source</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="rec-table-body">
+      <tr><td colspan="8" style="text-align:center;padding:40px;color:#94a3b8">Loading recordings...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- FLOATING AUDIO PLAYER -->
+<div class="audio-player-bar" id="audio-player-bar">
+  <button onclick="closeAudioPlayer()"
+    style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:18px;padding:0;line-height:1">×</button>
+  <div id="audio-player-lead" style="font-size:12px;color:#94a3b8;min-width:160px"></div>
+  <audio id="audio-player-el" controls style="flex:1;height:36px;accent-color:#4F86C6"></audio>
+  <a id="audio-dl-link" download
+    style="padding:6px 14px;background:#22c55e;color:#fff;border-radius:4px;font-size:12px;font-weight:600;text-decoration:none">↓ Download</a>
+</div>
+
+<script>
+let allRecordings = [];
+
+async function initRecordings() {
+  const tbody = document.getElementById('rec-table-body');
+  if (!tbody) return;
+
+  try {
+    // Load stats
+    const statsRes = await apiFetch('/api/recordings/stats');
+    if (statsRes && statsRes.total !== undefined) {
+      document.getElementById('rec-stat-total').textContent    = statsRes.total;
+      document.getElementById('rec-stat-duration').textContent = statsRes.total_duration_formatted || '0s';
+      document.getElementById('rec-stat-agents').textContent   = statsRes.unique_agents || 0;
+
+      // Populate agent dropdown
+      const agentSel = document.getElementById('rec-agent');
+      if (agentSel && statsRes.agents) {
+        statsRes.agents.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a; opt.textContent = a;
+          agentSel.appendChild(opt);
+        });
+      }
+    }
+
+    // Load recordings
+    const data = await apiFetch('/api/recordings');
+    allRecordings = (data && data.recordings) ? data.recordings : [];
+
+    // Count today
+    const today = new Date().toDateString();
+    const todayCount = allRecordings.filter(r =>
+      new Date(r.created_at).toDateString() === today
+    ).length;
+    document.getElementById('rec-stat-today').textContent = todayCount;
+
+    renderRecordingsTable(allRecordings);
+
+  } catch(e) {
+    console.error('[Recordings]', e.message);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8"
+      style="text-align:center;padding:40px;color:#ef4444">
+      Error loading recordings: ${e.message}</td></tr>`;
+  }
+}
+
+function renderRecordingsTable(recordings) {
+  const tbody = document.getElementById('rec-table-body');
+  if (!tbody) return;
+
+  if (!recordings || recordings.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8"
+      style="text-align:center;padding:40px;color:#94a3b8">
+      No recordings found. Recordings are created when using the + New Lead form.
+    </td></tr>`;
+    return;
+  }
+
+  const scoreColor = s => s >= 7 ? '#ef4444' : s >= 4 ? '#f59e0b' : '#94a3b8';
+  const scoreLbl   = s => s >= 7 ? 'HOT' : s >= 4 ? 'WARM' : 'COLD';
+  const fmtDur = s => {
+    if (!s) return '—';
+    const m = Math.floor(s / 60), sec = s % 60;
+    return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+  };
+  const fmtDate = d => {
+    if (!d) return '—';
+    return new Date(d).toLocaleString('en-AE', {
+      timeZone: 'Asia/Dubai', day: '2-digit', month: 'short',
+      year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
+    });
+  };
+  const srcLabel = s => ({
+    'phone-inbound':  '📞 Phone In',
+    'phone-outbound': '📞 Phone Out',
+    'walkin':         '🚶 Walk-in',
+    'referral':       '👥 Referral'
+  })[s] || s || '—';
+
+  tbody.innerHTML = recordings.map(r => `
+    <tr>
+      <td><span style="font-family:monospace;font-size:11px;color:#4F86C6">${r.lead_id || '—'}</span></td>
+      <td>
+        <div style="font-weight:600;color:#1e293b">${r.lead_name || '—'}</div>
+        <div style="font-size:11px;color:#94a3b8">${r.wa_number || ''}</div>
+      </td>
+      <td style="color:#64748b">${r.agent || '—'}</td>
+      <td style="color:#64748b;font-size:12px">${fmtDate(r.created_at)}</td>
+      <td><span style="font-weight:600;color:#1e293b">${fmtDur(r.duration)}</span></td>
+      <td>
+        <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;
+          background:${scoreColor(r.score)}18;color:${scoreColor(r.score)}">
+          ${scoreLbl(r.score)} ${r.score || 0}
+        </span>
+      </td>
+      <td style="font-size:12px;color:#64748b">${srcLabel(r.source)}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          ${r.file_url ? `
+            <button class="rec-play-btn"
+              onclick="playRecording('${r.file_url}','${(r.lead_name||'').replace(/'/g,"\\'")}','${r.lead_id||''}')">
+              ▶ Play
+            </button>
+            <a href="${r.file_url}" download class="rec-dl-btn">↓</a>
+          ` : '<span style="font-size:12px;color:#94a3b8">No audio</span>'}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterRecordings() {
+  const q     = (document.getElementById('rec-search')?.value || '').toLowerCase();
+  const agent = document.getElementById('rec-agent')?.value || '';
+  const from  = document.getElementById('rec-from')?.value;
+  const to    = document.getElementById('rec-to')?.value;
+
+  const filtered = allRecordings.filter(r => {
+    if (q && !(
+      (r.lead_id   || '').toLowerCase().includes(q) ||
+      (r.lead_name || '').toLowerCase().includes(q) ||
+      (r.agent     || '').toLowerCase().includes(q) ||
+      (r.notes     || '').toLowerCase().includes(q) ||
+      (r.wa_number || '').includes(q)
+    )) return false;
+    if (agent && r.agent !== agent) return false;
+    if (from  && new Date(r.created_at) < new Date(from)) return false;
+    if (to    && new Date(r.created_at) > new Date(new Date(to).setHours(23, 59, 59, 999))) return false;
+    return true;
+  });
+
+  renderRecordingsTable(filtered);
+}
+
+function clearRecFilters() {
+  ['rec-search', 'rec-from', 'rec-to'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const agentSel = document.getElementById('rec-agent');
+  if (agentSel) agentSel.value = '';
+  renderRecordingsTable(allRecordings);
+}
+
+function playRecording(url, leadName, leadId) {
+  const bar    = document.getElementById('audio-player-bar');
+  const audio  = document.getElementById('audio-player-el');
+  const label  = document.getElementById('audio-player-lead');
+  const dlLink = document.getElementById('audio-dl-link');
+
+  if (!bar || !audio) return;
+
+  audio.src = url;
+  if (label)  label.textContent = `${leadName || 'Unknown'} — ${leadId || ''}`;
+  if (dlLink) { dlLink.href = url; dlLink.download = `recording-${leadId}.webm`; }
+
+  bar.classList.add('visible');
+  audio.play();
+}
+
+function closeAudioPlayer() {
+  const bar   = document.getElementById('audio-player-bar');
+  const audio = document.getElementById('audio-player-el');
+  if (audio) { audio.pause(); audio.src = ''; }
+  if (bar)   bar.classList.remove('visible');
+}
+
+function exportRecordingsCSV() {
+  const headers = ['Lead ID', 'Lead Name', 'Agent', 'Date', 'Duration (s)', 'Score', 'Source'];
+  const rows = allRecordings.map(r => [
+    r.lead_id   || '',
+    r.lead_name || '',
+    r.agent     || '',
+    new Date(r.created_at).toISOString(),
+    r.duration  || 0,
+    r.score     || 0,
+    r.source    || ''
+  ]);
+  const csv = [headers, ...rows]
+    .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'call-recordings.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Init on load
+if (document.readyState !== 'loading') {
+  initRecordings();
+} else {
+  document.addEventListener('DOMContentLoaded', initRecordings);
+}
+</script>

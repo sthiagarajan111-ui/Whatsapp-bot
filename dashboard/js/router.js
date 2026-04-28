@@ -33,6 +33,7 @@
       analytics:     `${base}/analytics.html`,
       appointments:  `${base}/appointments.html`,
       settings:      `${base}/settings.html`,
+      recordings:    `${base}/recordings.html`,
     };
 
     const url = PAGE_URLS[page];
