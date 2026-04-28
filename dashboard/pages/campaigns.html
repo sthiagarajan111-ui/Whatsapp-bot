@@ -1,0 +1,412 @@
+<style>
+.camp-wrap        { padding: 20px 24px 40px; }
+.camp-section     { background:#fff; border:1px solid #e2e8f0; border-radius:4px;
+                    box-shadow:0 1px 3px rgba(0,0,0,0.04); padding:20px; margin-bottom:16px; }
+.camp-section-title { font-size:12px; font-weight:700; text-transform:uppercase;
+                    letter-spacing:0.8px; color:#94a3b8; margin-bottom:16px;
+                    border-bottom:1px solid #f1f5f9; padding-bottom:8px; }
+.seg-grid         { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+.seg-field label  { font-size:10px; font-weight:600; text-transform:uppercase;
+                    letter-spacing:0.5px; color:#94a3b8; display:block; margin-bottom:4px; }
+.seg-field select,
+.seg-field input  { width:100%; padding:8px 10px; font-size:13px; border:1px solid #e2e8f0;
+                    border-radius:4px; background:#fff; font-family:inherit; outline:none; }
+.seg-field select:focus,
+.seg-field input:focus { border-color:#4F86C6; }
+.lead-count-bar   { display:flex; align-items:center; gap:12px; margin-top:14px;
+                    padding:12px 16px; background:#eff6ff; border-radius:4px;
+                    border:1px solid #bfdbfe; }
+.lead-count-num   { font-size:22px; font-weight:700; color:#4F86C6; }
+.composer-row     { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.var-pills        { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.var-pill         { padding:3px 10px; background:#eff6ff; color:#4F86C6; border:1px solid #bfdbfe;
+                    border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; }
+.var-pill:hover   { background:#dbeafe; }
+.msg-preview      { background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;
+                    padding:14px; font-size:13px; color:#475569; line-height:1.6;
+                    min-height:120px; white-space:pre-wrap; word-break:break-word; }
+.char-counter     { font-size:11px; color:#94a3b8; text-align:right; margin-top:4px; }
+.history-table    { width:100%; border-collapse:collapse; font-size:13px; }
+.history-table th { font-size:11px; font-weight:600; text-transform:uppercase;
+                    letter-spacing:0.5px; color:#94a3b8; border-bottom:2px solid #e2e8f0;
+                    padding:10px 12px; text-align:left; }
+.history-table td { padding:11px 12px; border-bottom:1px solid #f1f5f9; color:#1e293b;
+                    vertical-align:middle; }
+.history-table tr:last-child td { border-bottom:none; }
+.history-table tr:hover td { background:#f8fafc; }
+.status-pill      { display:inline-block; padding:2px 8px; border-radius:3px;
+                    font-size:10px; font-weight:700; }
+</style>
+
+<div class="camp-wrap">
+  <!-- PAGE HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:#1e293b">Campaign Manager</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:2px">Send targeted WhatsApp messages to segmented lead groups</div>
+    </div>
+    <button onclick="scrollTo(0,0)"
+      style="padding:8px 18px;background:#16a34a;color:#fff;border:none;border-radius:4px;
+             font-size:13px;font-weight:600;cursor:pointer">
+      + New Campaign
+    </button>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px">
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:14px 16px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#4F86C6;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:6px">Campaigns Sent</div>
+      <div id="camp-stat-total" style="font-size:24px;font-weight:700;color:#1e293b">—</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px">All time</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:14px 16px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#62B58F;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:6px">Messages Sent</div>
+      <div id="camp-stat-msgs" style="font-size:24px;font-weight:700;color:#62B58F">—</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px">Total reach</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:14px 16px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#F5A623;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:6px">Avg Open Rate</div>
+      <div style="font-size:24px;font-weight:700;color:#F5A623">—</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px">WhatsApp delivered</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:14px 16px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#9B7FD4;border-radius:2px 2px 0 0"></div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:6px">Active Leads</div>
+      <div id="camp-stat-leads" style="font-size:24px;font-weight:700;color:#9B7FD4">—</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px">Available for broadcast</div>
+    </div>
+  </div>
+
+  <!-- SEGMENT BUILDER -->
+  <div class="camp-section">
+    <div class="camp-section-title">Segment Builder — Who to Send To</div>
+    <div class="seg-grid">
+      <div class="seg-field">
+        <label>Score</label>
+        <select id="seg-score" onchange="updateLeadCount()">
+          <option value="all">All scores</option>
+          <option value="hot">HOT only (7–10)</option>
+          <option value="warm">WARM only (4–6)</option>
+          <option value="cold">COLD only (0–3)</option>
+        </select>
+      </div>
+      <div class="seg-field">
+        <label>Pipeline Stage</label>
+        <select id="seg-stage" onchange="updateLeadCount()">
+          <option value="all">All stages</option>
+          <option value="new_lead">New Lead</option>
+          <option value="ai_contacted">AI Contacted</option>
+          <option value="qualified_hot">Qualified HOT</option>
+          <option value="qualified_warm">Qualified WARM</option>
+          <option value="viewing_requested">Viewing Requested</option>
+          <option value="viewing_confirmed">Viewing Confirmed</option>
+          <option value="offer_made">Offer Made</option>
+        </select>
+      </div>
+      <div class="seg-field">
+        <label>Channel</label>
+        <select id="seg-channel" onchange="updateLeadCount()">
+          <option value="all">All channels</option>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="phone">Phone</option>
+          <option value="walkin">Walk-in</option>
+          <option value="referral">Referral</option>
+        </select>
+      </div>
+      <div class="seg-field">
+        <label>Language</label>
+        <select id="seg-lang" onchange="updateLeadCount()">
+          <option value="all">All languages</option>
+          <option value="en">English</option>
+          <option value="ar">Arabic</option>
+        </select>
+      </div>
+      <div class="seg-field">
+        <label>Entry Method</label>
+        <select id="seg-entry" onchange="updateLeadCount()">
+          <option value="all">All methods</option>
+          <option value="bot">Bot only</option>
+          <option value="manual">Manual only</option>
+        </select>
+      </div>
+      <div class="seg-field">
+        <label>Days Since Contact</label>
+        <select id="seg-days" onchange="updateLeadCount()">
+          <option value="">Any</option>
+          <option value="7">7+ days inactive</option>
+          <option value="30">30+ days inactive</option>
+          <option value="60">60+ days inactive</option>
+        </select>
+      </div>
+      <div class="seg-field">
+        <label>Area Interest</label>
+        <input type="text" id="seg-area" placeholder="e.g. Dubai Marina" oninput="updateLeadCount()">
+      </div>
+    </div>
+    <div class="lead-count-bar">
+      <div class="lead-count-num" id="seg-count">—</div>
+      <div style="font-size:13px;color:#4F86C6;font-weight:600">leads match these filters</div>
+      <div id="seg-preview" style="font-size:12px;color:#94a3b8;margin-left:8px"></div>
+    </div>
+  </div>
+
+  <!-- MESSAGE COMPOSER -->
+  <div class="camp-section">
+    <div class="camp-section-title">Message Composer</div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:4px">Campaign Name *</label>
+      <input type="text" id="camp-name" placeholder="e.g. April Follow-up Blast"
+        style="width:100%;padding:9px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;outline:none;font-family:inherit;box-sizing:border-box"
+        oninput="updatePreview()">
+    </div>
+    <div class="composer-row">
+      <div>
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:4px">Message *</label>
+        <textarea id="camp-msg" rows="6" maxlength="1000" placeholder="Hi {name}, we have great new listings in {area} within {budget}. Interested?"
+          oninput="updatePreview();updateCharCount()"
+          style="width:100%;padding:9px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;outline:none;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+        <div class="char-counter"><span id="char-count">0</span> / 1000</div>
+        <div class="var-pills" style="margin-top:10px">
+          <span style="font-size:11px;color:#94a3b8;align-self:center">Insert:</span>
+          <span class="var-pill" onclick="insertVar('{name}')">👤 {name}</span>
+          <span class="var-pill" onclick="insertVar('{area}')">📍 {area}</span>
+          <span class="var-pill" onclick="insertVar('{budget}')">💰 {budget}</span>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:4px">Preview (sample data)</label>
+        <div class="msg-preview" id="camp-preview">Your message preview will appear here...</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px">
+          Sample: name=Ahmed · area=Dubai Marina · budget=AED 2.0M
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEND CONTROLS -->
+  <div class="camp-section">
+    <div class="camp-section-title">Send Campaign</div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button onclick="confirmSend()"
+        style="padding:10px 28px;background:#16a34a;color:#fff;border:none;border-radius:4px;
+               font-size:14px;font-weight:700;cursor:pointer">
+        Send Now
+      </button>
+      <button onclick="showToast('Campaign scheduling — coming soon','error')"
+        style="padding:10px 20px;background:#fff;color:#64748b;border:1px solid #e2e8f0;
+               border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
+        Schedule (Coming Soon)
+      </button>
+      <div id="send-status" style="font-size:13px;color:#94a3b8;margin-left:8px"></div>
+    </div>
+  </div>
+
+  <!-- CAMPAIGN HISTORY -->
+  <div class="camp-section">
+    <div class="camp-section-title">Campaign History</div>
+    <div id="history-wrap">
+      <div style="text-align:center;padding:32px;color:#94a3b8;font-size:13px">Loading history...</div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div id="camp-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);
+  z-index:9999;display:none;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:8px;padding:28px;width:420px;max-width:90vw;
+              box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:8px">Confirm Campaign Send</div>
+    <div id="modal-body" style="font-size:13px;color:#64748b;margin-bottom:20px;line-height:1.6"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeModal()"
+        style="padding:8px 18px;background:#fff;color:#64748b;border:1px solid #e2e8f0;
+               border-radius:4px;font-size:13px;cursor:pointer">Cancel</button>
+      <button id="modal-confirm-btn" onclick="executeSend()"
+        style="padding:8px 18px;background:#16a34a;color:#fff;border:none;
+               border-radius:4px;font-size:13px;font-weight:700;cursor:pointer">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  let currentCount = 0;
+
+  function getFilters() {
+    const score = document.getElementById('seg-score')?.value || 'all';
+    const stage = document.getElementById('seg-stage')?.value || 'all';
+    const lang  = document.getElementById('seg-lang')?.value  || 'all';
+    const chan   = document.getElementById('seg-channel')?.value || 'all';
+    const days   = document.getElementById('seg-days')?.value  || '';
+    const params = new URLSearchParams();
+    if (score === 'hot')  { params.set('score_min', '7'); }
+    if (score === 'warm') { params.set('score_min', '4'); params.set('score_max', '6'); }
+    if (score === 'cold') { params.set('score_max', '3'); }
+    if (stage !== 'all') params.set('stage', stage);
+    if (lang  !== 'all') params.set('language', lang);
+    if (chan  !== 'all') params.set('channel', chan);
+    if (days)            params.set('days_inactive', days);
+    return { params, score, stage, lang, chan, days };
+  }
+
+  async function updateLeadCount() {
+    const { params } = getFilters();
+    try {
+      const data = await apiFetch('/api/campaigns/leads-count?' + params.toString());
+      currentCount = data.count || 0;
+      const el = document.getElementById('seg-count');
+      if (el) el.textContent = currentCount;
+      const prev = document.getElementById('seg-preview');
+      if (prev && data.leads?.length) {
+        prev.textContent = '(e.g. ' + data.leads.slice(0,3).map(l => l.name || l.wa_number).join(', ') + ')';
+      }
+      const stat = document.getElementById('camp-stat-leads');
+      if (stat && stat.textContent === '—') stat.textContent = currentCount;
+    } catch(e) {
+      const el = document.getElementById('seg-count');
+      if (el) el.textContent = '?';
+    }
+  }
+
+  function insertVar(v) {
+    const ta = document.getElementById('camp-msg');
+    if (!ta) return;
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    ta.value = ta.value.substring(0, start) + v + ta.value.substring(end);
+    ta.selectionStart = ta.selectionEnd = start + v.length;
+    ta.focus();
+    updatePreview();
+    updateCharCount();
+  }
+  window.insertVar = insertVar;
+
+  function updatePreview() {
+    const msg = (document.getElementById('camp-msg')?.value || '').trim();
+    const preview = document.getElementById('camp-preview');
+    if (!preview) return;
+    if (!msg) { preview.textContent = 'Your message preview will appear here...'; return; }
+    preview.textContent = msg
+      .replace(/\{name\}/g, 'Ahmed')
+      .replace(/\{area\}/g, 'Dubai Marina')
+      .replace(/\{budget\}/g, 'AED 2.0M');
+  }
+
+  function updateCharCount() {
+    const len = document.getElementById('camp-msg')?.value?.length || 0;
+    const el  = document.getElementById('char-count');
+    if (el) el.textContent = len;
+  }
+
+  function confirmSend() {
+    const name = (document.getElementById('camp-name')?.value || '').trim();
+    const msg  = (document.getElementById('camp-msg')?.value  || '').trim();
+    if (!name) { showToast('Please enter a campaign name', 'error'); return; }
+    if (!msg)  { showToast('Please enter a message', 'error'); return; }
+    if (currentCount === 0) { showToast('No leads match the current filters', 'error'); return; }
+    const body = document.getElementById('modal-body');
+    if (body) body.innerHTML = `You are about to send <strong>${name}</strong> to <strong>${currentCount} leads</strong>.<br><br>
+      <em style="color:#64748b">"${msg.substring(0,100)}${msg.length>100?'...':''}"</em>`;
+    const modal = document.getElementById('camp-modal');
+    if (modal) { modal.style.display = 'flex'; }
+  }
+  window.confirmSend = confirmSend;
+
+  function closeModal() {
+    const modal = document.getElementById('camp-modal');
+    if (modal) modal.style.display = 'none';
+  }
+  window.closeModal = closeModal;
+
+  async function executeSend() {
+    const name    = (document.getElementById('camp-name')?.value || '').trim();
+    const msg     = (document.getElementById('camp-msg')?.value  || '').trim();
+    const { params, score, stage, lang } = getFilters();
+    const confirmBtn = document.getElementById('modal-confirm-btn');
+    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Sending...'; }
+    try {
+      const filters = {};
+      if (score === 'hot')  filters.score_min = '7';
+      if (score === 'warm') { filters.score_min = '4'; filters.score_max = '6'; }
+      if (score === 'cold') filters.score_max = '3';
+      if (stage !== 'all') filters.stage = stage;
+      if (lang  !== 'all') filters.language = lang;
+      const result = await apiFetch('/api/campaigns/send', {
+        method: 'POST',
+        body: JSON.stringify({ campaign_name: name, message: msg, filters })
+      });
+      closeModal();
+      showToast(`Sent to ${result.sent} leads! (${result.failed} failed)`);
+      const status = document.getElementById('send-status');
+      if (status) status.textContent = `Last send: ${name} → ${result.sent} delivered`;
+      loadHistory();
+    } catch(e) {
+      showToast('Send failed: ' + e.message, 'error');
+    } finally {
+      if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Send'; }
+    }
+  }
+  window.executeSend = executeSend;
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-AE', {
+      timeZone:'Asia/Dubai', day:'2-digit', month:'short', year:'numeric'
+    });
+  }
+
+  async function loadHistory() {
+    const wrap = document.getElementById('history-wrap');
+    try {
+      const data = await apiFetch('/api/campaigns/history');
+      const camps = data.campaigns || [];
+      if (!camps.length) {
+        if (wrap) wrap.innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8;font-size:13px">No campaigns sent yet. Create your first campaign above.</div>';
+        document.getElementById('camp-stat-total').textContent = '0';
+        document.getElementById('camp-stat-msgs').textContent  = '0';
+        return;
+      }
+      const totalMsgs = camps.reduce((s, c) => s + (c.count || 0), 0);
+      document.getElementById('camp-stat-total').textContent = camps.length;
+      document.getElementById('camp-stat-msgs').textContent  = totalMsgs;
+      if (wrap) wrap.innerHTML = `
+        <table class="history-table">
+          <thead><tr>
+            <th>Message Preview</th>
+            <th>Recipients</th>
+            <th>First Sent</th>
+            <th>Last Sent</th>
+            <th>Status</th>
+          </tr></thead>
+          <tbody>
+            ${camps.map(c => `
+              <tr>
+                <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                  ${(c._id || '').substring(0, 80)}${(c._id||'').length>80?'...':''}
+                </td>
+                <td style="font-weight:600;color:#4F86C6">${c.count}</td>
+                <td style="font-size:12px;color:#64748b">${fmtDate(c.first_sent)}</td>
+                <td style="font-size:12px;color:#64748b">${fmtDate(c.last_sent)}</td>
+                <td><span class="status-pill" style="background:#f0fdf4;color:#16a34a">Sent</span></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch(e) {
+      if (wrap) wrap.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:13px">No campaign history yet.</div>';
+    }
+  }
+
+  async function init() {
+    await updateLeadCount();
+    await loadHistory();
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
+
+})();
+</script>

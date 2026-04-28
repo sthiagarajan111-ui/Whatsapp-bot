@@ -52,7 +52,7 @@
                        align-items: center; }
 .timeline            { position: relative; }
 .timeline::before    { content:''; position:absolute; left:20px; top:0; bottom:0;
-                       width: 1px; background: #e2e8f0; }
+                       width: 1px; background: #cbd5e1; }
 .tl-item             { display: flex; gap: 14px; margin-bottom: 20px; position: relative; }
 .tl-dot              { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
                        margin-top: 4px; margin-left: 16px; border: 2px solid #fff;
@@ -183,6 +183,24 @@ const stageLabel = s => ({
   viewing_confirmed:'Viewing Confirmed', offer_made:'Offer Made', won:'Won', lost:'Lost'
 })[s] || s || 'New Lead';
 
+function formatLabel(val) {
+  if (!val || val === '—') return '—';
+  const map = {
+    'buy':'Buy', 'rent':'Rent', 'invest':'Invest', 'sell':'Sell',
+    'arabic':'Arabic', 'english':'English',
+    'phone':'Phone', 'phone-inbound':'Phone Inbound',
+    'phone-outbound':'Phone Outbound',
+    'walkin':'Walk-in', 'referral':'Referral',
+    'within-1-month':'Within 1 Month',
+    '1-3-months':'1–3 Months', '3-6-months':'3–6 Months',
+    'immediately':'Immediately', 'just-exploring':'Just Exploring',
+    'apartment':'Apartment', 'villa':'Villa', 'townhouse':'Townhouse',
+    'penthouse':'Penthouse', 'studio':'Studio', 'office':'Office'
+  };
+  return map[String(val).toLowerCase()] ||
+    String(val).replace(/-/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 async function loadProfile() {
   const wrap = document.getElementById('profile-page-wrap');
   if (!wrap) return;
@@ -303,11 +321,14 @@ async function loadProfile() {
       recording:    { dot:'#9B7FD4', tag:'#fdf4ff',   tagText:'#9333ea',   label:'REC' },
       note:         { dot:'#64748b', tag:'#f1f5f9',   tagText:'#475569',   label:'NOTE' },
       listing:      { dot:'#5BC0DE', tag:'#ecfeff',   tagText:'#0891b2',   label:'LISTING' },
-      campaign:     { dot:'#F5A623', tag:'#fffbeb',   tagText:'#b45309',   label:'CAMP' }
+      campaign:     { dot:'#F5A623', tag:'#fffbeb',   tagText:'#b45309',   label:'CAMP' },
+      manual:       { dot:'#F5A623', tag:'#fffbeb',   tagText:'#b45309',   label:'MANUAL' }
     };
 
     const tlItems = (timeline || []).slice(0, 50).map(item => {
-      const c = tlColors[item.type] || tlColors.message_in;
+      const itemType = item.type === 'message_out' &&
+                       (item.text || '').includes('Manual lead') ? 'manual' : item.type;
+      const c = tlColors[itemType] || tlColors.message_in;
       const text = item.text || item.body || '';
       const preview = text.length > 200 ? text.substring(0,200) + '...' : text;
       return `
@@ -343,11 +364,11 @@ async function loadProfile() {
         <div class="detail-grid">
           <div class="detail-item">
             <label>Intent</label>
-            <span>${lead.intent || lead.data?.intent || '—'}</span>
+            <span>${formatLabel(lead.intent || lead.data?.intent)}</span>
           </div>
           <div class="detail-item">
             <label>Property Type</label>
-            <span>${lead.property_type || lead.data?.property_type || '—'}</span>
+            <span>${formatLabel(lead.property_type || lead.data?.property_type)}</span>
           </div>
           <div class="detail-item">
             <label>Area Interest</label>
@@ -355,15 +376,15 @@ async function loadProfile() {
           </div>
           <div class="detail-item">
             <label>Timeline</label>
-            <span>${lead.timeline || lead.data?.timeline || '—'}</span>
+            <span>${formatLabel(lead.timeline || lead.data?.timeline)}</span>
           </div>
           <div class="detail-item">
             <label>Language</label>
-            <span>${lead.language || lead.data?.language || '—'}</span>
+            <span>${formatLabel(lead.language || lead.data?.language)}</span>
           </div>
           <div class="detail-item">
             <label>Source</label>
-            <span>${lead.source || lead.channel || '—'}</span>
+            <span>${formatLabel(lead.source || lead.channel)}</span>
           </div>
           <div class="detail-item">
             <label>Entry Method</label>

@@ -35,6 +35,7 @@
       settings:       `${base}/settings.html`,
       recordings:     `${base}/recordings.html`,
       'lead-profile': `${base}/lead-profile.html`,
+      campaigns:      `${base}/campaigns.html`,
     };
 
     const url = PAGE_URLS[page];

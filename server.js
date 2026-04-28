@@ -323,9 +323,10 @@ app.get('/api/leads/profile/:leadId', async (req, res) => {
     const timeline = [];
 
     messages.forEach(m => {
+      const isManual = m.direction !== 'inbound' && (m.content || '').includes('Manual lead captured');
       timeline.push({
-        type:      m.direction === 'inbound' ? 'message_in' : 'message_out',
-        tag:       m.direction === 'inbound' ? 'MSG' : 'AGENT',
+        type:      m.direction === 'inbound' ? 'message_in' : isManual ? 'manual' : 'message_out',
+        tag:       m.direction === 'inbound' ? 'MSG' : isManual ? 'MANUAL' : 'AGENT',
         text:      m.content || '[media]',
         timestamp: m.created_at,
         meta:      { direction: m.direction, type: m.message_type }
@@ -367,6 +368,93 @@ app.get('/api/leads/profile/:leadId', async (req, res) => {
   } catch(e) {
     clearTimeout(routeTimeout);
     console.error('[Profile API]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Campaign Manager routes ───────────────────────────────────────────────────
+app.get('/api/campaigns/leads-count', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const Lead = require('./db/models/Lead');
+    const { score_min, score_max, stage, language, channel, days_inactive } = req.query;
+    let filter = { client_id: clientId };
+    if (score_min || score_max) {
+      filter.score = {};
+      if (score_min) filter.score.$gte = parseInt(score_min);
+      if (score_max) filter.score.$lte = parseInt(score_max);
+    }
+    if (stage && stage !== 'all') filter.pipeline_stage = stage;
+    if (language && language !== 'all') filter.language = new RegExp(language, 'i');
+    if (channel && channel !== 'all') filter.channel = channel;
+    if (days_inactive) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - parseInt(days_inactive));
+      filter.updated_at = { $lte: cutoff };
+    }
+    const leads = await Lead.find(filter, 'wa_number name').lean();
+    res.json({ count: leads.length, leads: leads.slice(0, 5) });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/campaigns/send', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const Lead = require('./db/models/Lead');
+    const { campaign_name, message, filters } = req.body;
+    if (!campaign_name || !message) {
+      return res.status(400).json({ error: 'Campaign name and message are required' });
+    }
+    let filter = { client_id: clientId };
+    if (filters?.score_min) filter.score = { $gte: parseInt(filters.score_min) };
+    if (filters?.stage && filters.stage !== 'all') filter.pipeline_stage = filters.stage;
+    if (filters?.language && filters.language !== 'all') {
+      filter.language = new RegExp(filters.language, 'i');
+    }
+    const leads = await Lead.find(filter, 'wa_number name area_interest budget').lean();
+    const api = require('./whatsapp/api');
+    let sent = 0, failed = 0;
+    const results = [];
+    for (const lead of leads) {
+      try {
+        const personalised = message
+          .replace(/\{name\}/g, lead.name || 'there')
+          .replace(/\{area\}/g, lead.area_interest || 'your area')
+          .replace(/\{budget\}/g, lead.budget ? 'AED ' + (lead.budget / 1000000).toFixed(1) + 'M' : 'your budget');
+        await api.sendText(`whatsapp:+${lead.wa_number}`, personalised);
+        await db.saveMessage(lead.wa_number, 'outbound', 'campaign', personalised, null, clientId);
+        sent++;
+        results.push({ wa_number: lead.wa_number, status: 'sent' });
+      } catch(e) {
+        failed++;
+        results.push({ wa_number: lead.wa_number, status: 'failed', error: e.message });
+      }
+    }
+    res.json({ success: true, campaign_name, sent, failed, total: leads.length, results });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/campaigns/history', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const MessageModel = require('./db/models/Message');
+    const campaigns = await MessageModel.aggregate([
+      { $match: { client_id: clientId, message_type: 'campaign' } },
+      { $group: {
+        _id: '$content',
+        count: { $sum: 1 },
+        first_sent: { $min: '$created_at' },
+        last_sent:  { $max: '$created_at' }
+      }},
+      { $sort: { first_sent: -1 } },
+      { $limit: 20 }
+    ]);
+    res.json({ campaigns });
+  } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
@@ -2236,7 +2324,9 @@ app.post('/api/leads/manual', async (req, res) => {
       leadData.wa_number,
       'outbound',
       'text',
-      'Manual lead captured via ' + (body.source || 'phone') + '. Notes: ' + (body.notes || 'None'),
+      (body.notes && body.notes.trim()
+        ? 'Manual lead captured via ' + (body.source || 'phone') + '. Notes: ' + body.notes
+        : 'Manual lead captured via ' + (body.source || 'phone')),
       null,
       clientId
     );
