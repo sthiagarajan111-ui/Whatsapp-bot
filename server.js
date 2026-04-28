@@ -304,7 +304,15 @@ app.get('/api/leads/profile/:leadId', async (req, res) => {
         try {
           const { getRecordingModel } = require('./db/models/Recording');
           const Rec = getRecordingModel(clientId);
-          return await Rec.find({ wa_number: lead.wa_number }).lean();
+          const waClean = lead.wa_number?.replace(/\D/g, '') || '';
+          return await Rec.find({
+            $or: [
+              { wa_number: lead.wa_number },
+              { wa_number: waClean },
+              { wa_number: '+' + waClean },
+              { lead_id: lead.lead_id }
+            ]
+          }).lean();
         } catch(e) {
           console.error('[Profile] recordings error:', e.message);
           return [];

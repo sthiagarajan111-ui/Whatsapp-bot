@@ -31,7 +31,7 @@
                        margin-bottom: 16px; }
 .kpi-strip-card      { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px;
                        box-shadow: 0 1px 3px rgba(0,0,0,0.04); padding: 14px 16px;
-                       position: relative; overflow: hidden; }
+                       position: relative; overflow: hidden; min-height: 90px; }
 .kpi-strip-card::before { content:''; position:absolute; top:0; left:0; right:0;
                        height: 3px; background: var(--accent, #4F86C6);
                        border-radius: 2px 2px 0 0; }
@@ -56,11 +56,11 @@
 .tl-item             { display: flex; gap: 14px; margin-bottom: 20px; position: relative; }
 .tl-dot              { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
                        margin-top: 4px; margin-left: 16px; border: 2px solid #fff;
-                       box-shadow: 0 0 0 1px #e2e8f0; z-index: 1; }
+                       box-shadow: 0 0 0 1px #e2e8f0; z-index: 1; position: relative; }
 .tl-content          { flex: 1; min-width: 0; }
 .tl-tag              { display: inline-block; font-size: 10px; font-weight: 700;
                        padding: 2px 7px; border-radius: 3px; margin-bottom: 4px;
-                       letter-spacing: 0.5px; }
+                       letter-spacing: 0.5px; min-width: 48px; text-align: center; }
 .tl-text             { font-size: 13px; color: #1e293b; line-height: 1.5;
                        word-break: break-word; }
 .tl-time             { font-size: 11px; color: #94a3b8; margin-top: 3px; }
@@ -120,7 +120,7 @@
 </style>
 
 <!-- ── PAGE ── -->
-<div class="profile-wrap" id="profile-page-wrap">
+<div class="profile-wrap" id="profile-page-wrap" style="padding: 0 24px 40px;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
     <div>
       <div style="font-size:18px;font-weight:700;color:#1e293b">Lead 360° Profile</div>
@@ -153,10 +153,20 @@ const fmtDate = d => d ? new Date(d).toLocaleString('en-AE', {
 const fmtDateShort = d => d ? new Date(d).toLocaleDateString('en-AE', {
   timeZone:'Asia/Dubai', day:'2-digit', month:'short', year:'numeric' }) : '—';
 const fmtBudget = b => {
-  if (!b) return '—';
-  if (b >= 1000000) return 'AED ' + (b/1000000).toFixed(1) + 'M';
-  if (b >= 1000) return 'AED ' + (b/1000).toFixed(0) + 'K';
-  return 'AED ' + b;
+  if (!b || b === 0) return '—';
+  if (typeof b === 'number') {
+    if (b >= 1000000) return 'AED ' + (b/1000000).toFixed(1) + 'M';
+    if (b >= 1000) return 'AED ' + (b/1000).toFixed(0) + 'K';
+    return 'AED ' + b;
+  }
+  const budgetLabels = {
+    'under-500k': 'Under AED 500K',
+    '500k-1m': 'AED 500K – 1M',
+    '1m-2m': 'AED 1M – 2M',
+    '2m-5m': 'AED 2M – 5M',
+    'above-5m': 'Above AED 5M'
+  };
+  return budgetLabels[String(b).toLowerCase()] || String(b);
 };
 const fmtDur = s => {
   if (!s) return '—';
@@ -212,6 +222,19 @@ async function loadProfile() {
     const score = lead.score || 0;
 
     // Build hero section
+    const verticalDisplay = {
+      realEstate: 'Real Estate', restaurant: 'Restaurant',
+      clinic: 'Clinic', retail: 'Retail',
+      salon: 'Salon', carDealer: 'Car Dealer'
+    }[lead.vertical] || lead.vertical || 'Real Estate';
+
+    const entryDisplay =
+      lead.entry_method === 'manual' ? '📞 Manual entry' :
+      lead.channel === 'phone'       ? '📞 Phone' :
+      lead.channel === 'walkin'      ? '🚶 Walk-in' :
+      lead.channel === 'referral'    ? '👥 Referral' :
+      '🤖 WhatsApp Bot';
+
     const initials = (lead.name || lead.wa_number || 'U').substring(0,2).toUpperCase();
     const heroHTML = `
       <div class="profile-hero">
@@ -232,7 +255,7 @@ async function loadProfile() {
             ${SCORE_LABEL(score)} ${score}/10
           </span>
           <span class="stage-badge">${stageLabel(lead.pipeline_stage)}</span>
-          <span class="channel-badge">${(lead.vertical||'realEstate').replace(/([A-Z])/g,' $1').trim()}</span>
+          <span class="channel-badge">${verticalDisplay}</span>
         </div>
       </div>`;
 
@@ -261,7 +284,7 @@ async function loadProfile() {
         </div>
         <div class="kpi-strip-card" style="--accent:#5BC0DE">
           <div class="kpi-strip-lbl">Budget</div>
-          <div class="kpi-strip-val" style="font-size:16px">${fmtBudget(lead.budget)}</div>
+          <div class="kpi-strip-val" style="font-size:16px">${fmtBudget(lead.budget || lead.data?.budget)}</div>
           <div style="font-size:11px;color:#94a3b8">Stated</div>
         </div>
         <div class="kpi-strip-card" style="--accent:${SCORE_COLOR(score)}">
@@ -320,7 +343,7 @@ async function loadProfile() {
         <div class="detail-grid">
           <div class="detail-item">
             <label>Intent</label>
-            <span>${lead.intent || '—'}</span>
+            <span>${lead.intent || lead.data?.intent || '—'}</span>
           </div>
           <div class="detail-item">
             <label>Property Type</label>
@@ -336,7 +359,7 @@ async function loadProfile() {
           </div>
           <div class="detail-item">
             <label>Language</label>
-            <span>${lead.language || '—'}</span>
+            <span>${lead.language || lead.data?.language || '—'}</span>
           </div>
           <div class="detail-item">
             <label>Source</label>
@@ -344,7 +367,7 @@ async function loadProfile() {
           </div>
           <div class="detail-item">
             <label>Entry Method</label>
-            <span>${lead.entry_method === 'manual' ? '📞 Manual' : '🤖 Bot'}</span>
+            <span>${entryDisplay}</span>
           </div>
           <div class="detail-item">
             <label>Last Updated</label>
