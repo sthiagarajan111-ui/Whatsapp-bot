@@ -95,6 +95,32 @@
       <option value="">All agents</option>
     </select>
   </div>
+  <!-- Feature 4: Score filter -->
+  <div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:5px">Score</div>
+    <div style="display:flex;gap:4px">
+      <button onclick="filterByScore('all')" id="score-all"
+        style="padding:6px 12px;font-size:12px;border-radius:3px;border:1px solid #1e293b;background:#1e293b;color:#fff;cursor:pointer;font-weight:600">All</button>
+      <button onclick="filterByScore('hot')" id="score-hot"
+        style="padding:6px 12px;font-size:12px;border-radius:3px;border:1px solid #fecaca;background:#fff;color:#ef4444;cursor:pointer;font-weight:600">HOT</button>
+      <button onclick="filterByScore('warm')" id="score-warm"
+        style="padding:6px 12px;font-size:12px;border-radius:3px;border:1px solid #fde68a;background:#fff;color:#f59e0b;cursor:pointer;font-weight:600">WARM</button>
+      <button onclick="filterByScore('cold')" id="score-cold"
+        style="padding:6px 12px;font-size:12px;border-radius:3px;border:1px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer;font-weight:600">COLD</button>
+    </div>
+  </div>
+  <!-- Feature 5: Duration filter -->
+  <div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:5px">Min Duration</div>
+    <select id="rec-min-duration" onchange="filterRecordings()"
+      style="padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;background:#fff;font-family:inherit">
+      <option value="0">Any</option>
+      <option value="30">30s+</option>
+      <option value="60">1 min+</option>
+      <option value="180">3 min+</option>
+      <option value="300">5 min+</option>
+    </select>
+  </div>
   <button onclick="filterRecordings()"
     style="padding:8px 20px;background:#4F86C6;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
     Apply
@@ -102,6 +128,11 @@
   <button onclick="clearRecFilters()"
     style="padding:8px 16px;background:#fff;color:#64748b;border:1px solid #e2e8f0;border-radius:4px;font-size:13px;cursor:pointer">
     Clear
+  </button>
+  <!-- Feature 3D: Training Library filter -->
+  <button onclick="filterStarred()" id="btn-starred"
+    style="padding:8px 16px;background:#fff;color:#f59e0b;border:1px solid #fde68a;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
+    ★ Training Library
   </button>
   <button onclick="exportRecordingsCSV()"
     style="padding:8px 16px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;margin-left:auto">
@@ -114,6 +145,7 @@
   <table class="rec-table">
     <thead>
       <tr>
+        <th style="text-align:center;width:36px">★</th>
         <th>Lead ID</th>
         <th>Lead Name</th>
         <th>Agent</th>
@@ -121,11 +153,12 @@
         <th>Duration</th>
         <th>Score</th>
         <th>Source</th>
+        <th>Notes</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody id="rec-table-body">
-      <tr><td colspan="8" style="text-align:center;padding:40px;color:#94a3b8">Loading recordings...</td></tr>
+      <tr><td colspan="10" style="text-align:center;padding:40px;color:#94a3b8">Loading recordings...</td></tr>
     </tbody>
   </table>
 </div>
@@ -136,26 +169,36 @@
     style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:18px;padding:0;line-height:1">×</button>
   <div id="audio-player-lead" style="font-size:12px;color:#94a3b8;min-width:160px"></div>
   <audio id="audio-player-el" controls style="flex:1;height:36px;accent-color:#4F86C6"></audio>
+  <!-- Feature 1: Playback speed -->
+  <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+    <span style="font-size:11px;color:#94a3b8;margin-right:2px">Speed:</span>
+    <button onclick="setPlaybackSpeed(1)"   id="speed-1x"
+      style="padding:3px 8px;font-size:11px;border-radius:3px;border:1px solid #475569;background:#334155;color:#fff;cursor:pointer">1x</button>
+    <button onclick="setPlaybackSpeed(1.5)" id="speed-1-5x"
+      style="padding:3px 8px;font-size:11px;border-radius:3px;border:1px solid #475569;background:#1e293b;color:#94a3b8;cursor:pointer">1.5x</button>
+    <button onclick="setPlaybackSpeed(2)"   id="speed-2x"
+      style="padding:3px 8px;font-size:11px;border-radius:3px;border:1px solid #475569;background:#1e293b;color:#94a3b8;cursor:pointer">2x</button>
+  </div>
   <a id="audio-dl-link" download
     style="padding:6px 14px;background:#22c55e;color:#fff;border-radius:4px;font-size:12px;font-weight:600;text-decoration:none">↓ Download</a>
 </div>
 
 <script>
 let allRecordings = [];
+let currentScoreFilter = 'all';
+let showingStarred = false;
 
 async function initRecordings() {
   const tbody = document.getElementById('rec-table-body');
   if (!tbody) return;
 
   try {
-    // Load stats
     const statsRes = await apiFetch('/api/recordings/stats');
     if (statsRes && statsRes.total !== undefined) {
       document.getElementById('rec-stat-total').textContent    = statsRes.total;
       document.getElementById('rec-stat-duration').textContent = statsRes.total_duration_formatted || '0s';
       document.getElementById('rec-stat-agents').textContent   = statsRes.unique_agents || 0;
 
-      // Populate agent dropdown
       const agentSel = document.getElementById('rec-agent');
       if (agentSel && statsRes.agents) {
         statsRes.agents.forEach(a => {
@@ -166,11 +209,9 @@ async function initRecordings() {
       }
     }
 
-    // Load recordings
     const data = await apiFetch('/api/recordings');
     allRecordings = (data && data.recordings) ? data.recordings : [];
 
-    // Count today
     const today = new Date().toDateString();
     const todayCount = allRecordings.filter(r =>
       new Date(r.created_at).toDateString() === today
@@ -181,7 +222,7 @@ async function initRecordings() {
 
   } catch(e) {
     console.error('[Recordings]', e.message);
-    if (tbody) tbody.innerHTML = `<tr><td colspan="8"
+    if (tbody) tbody.innerHTML = `<tr><td colspan="10"
       style="text-align:center;padding:40px;color:#ef4444">
       Error loading recordings: ${e.message}</td></tr>`;
   }
@@ -192,7 +233,7 @@ function renderRecordingsTable(recordings) {
   if (!tbody) return;
 
   if (!recordings || recordings.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8"
+    tbody.innerHTML = `<tr><td colspan="10"
       style="text-align:center;padding:40px;color:#94a3b8">
       No recordings found. Recordings are created when using the + New Lead form.
     </td></tr>`;
@@ -222,6 +263,11 @@ function renderRecordingsTable(recordings) {
 
   tbody.innerHTML = recordings.map(r => `
     <tr>
+      <td style="text-align:center">
+        <button onclick="toggleStar('${r._id}', ${r.starred || false})"
+          id="star-${r._id}"
+          style="font-size:16px;background:none;border:none;cursor:pointer;color:${r.starred ? '#f59e0b' : '#e2e8f0'};transition:color 0.15s">★</button>
+      </td>
       <td><span style="font-family:monospace;font-size:11px;color:#4F86C6">${r.lead_id || '—'}</span></td>
       <td>
         <div style="font-weight:600;color:#1e293b">${r.lead_name || '—'}</div>
@@ -238,6 +284,15 @@ function renderRecordingsTable(recordings) {
       </td>
       <td style="font-size:12px;color:#64748b">${srcLabel(r.source)}</td>
       <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span id="note-text-${r._id}" style="font-size:12px;color:#64748b;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            ${r.notes || '—'}
+          </span>
+          <button onclick="editNote('${r._id}','${(r.notes||'').replace(/'/g,"\\'")}')"
+            style="font-size:10px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;color:#94a3b8;cursor:pointer;flex-shrink:0">✏️</button>
+        </div>
+      </td>
+      <td>
         <div style="display:flex;gap:6px">
           ${r.file_url ? `
             <button class="rec-play-btn"
@@ -253,12 +308,13 @@ function renderRecordingsTable(recordings) {
 }
 
 function filterRecordings() {
-  const q     = (document.getElementById('rec-search')?.value || '').toLowerCase();
-  const agent = document.getElementById('rec-agent')?.value || '';
-  const from  = document.getElementById('rec-from')?.value;
-  const to    = document.getElementById('rec-to')?.value;
+  const q       = (document.getElementById('rec-search')?.value || '').toLowerCase();
+  const agent   = document.getElementById('rec-agent')?.value || '';
+  const from    = document.getElementById('rec-from')?.value;
+  const to      = document.getElementById('rec-to')?.value;
+  const minDur  = parseInt(document.getElementById('rec-min-duration')?.value || '0');
 
-  const filtered = allRecordings.filter(r => {
+  let filtered = allRecordings.filter(r => {
     if (q && !(
       (r.lead_id   || '').toLowerCase().includes(q) ||
       (r.lead_name || '').toLowerCase().includes(q) ||
@@ -269,8 +325,14 @@ function filterRecordings() {
     if (agent && r.agent !== agent) return false;
     if (from  && new Date(r.created_at) < new Date(from)) return false;
     if (to    && new Date(r.created_at) > new Date(new Date(to).setHours(23, 59, 59, 999))) return false;
+    if (minDur > 0 && (r.duration || 0) < minDur) return false;
     return true;
   });
+
+  if (currentScoreFilter === 'hot')  filtered = filtered.filter(r => r.score >= 7);
+  if (currentScoreFilter === 'warm') filtered = filtered.filter(r => r.score >= 4 && r.score < 7);
+  if (currentScoreFilter === 'cold') filtered = filtered.filter(r => r.score < 4);
+  if (showingStarred) filtered = filtered.filter(r => r.starred);
 
   renderRecordingsTable(filtered);
 }
@@ -282,7 +344,87 @@ function clearRecFilters() {
   });
   const agentSel = document.getElementById('rec-agent');
   if (agentSel) agentSel.value = '';
-  renderRecordingsTable(allRecordings);
+  const minDurSel = document.getElementById('rec-min-duration');
+  if (minDurSel) minDurSel.value = '0';
+  currentScoreFilter = 'all';
+  showingStarred = false;
+  const starBtn = document.getElementById('btn-starred');
+  if (starBtn) starBtn.style.background = '#fff';
+  filterByScore('all');
+}
+
+// Feature 1: Playback speed
+function setPlaybackSpeed(speed) {
+  const audio = document.getElementById('audio-player-el');
+  if (audio) audio.playbackRate = speed;
+  [1, 1.5, 2].forEach(s => {
+    const btn = document.getElementById(`speed-${String(s).replace('.', '-')}x`);
+    if (btn) {
+      btn.style.background = s === speed ? '#334155' : '#1e293b';
+      btn.style.color      = s === speed ? '#fff'    : '#94a3b8';
+    }
+  });
+}
+
+// Feature 2: Edit note
+function editNote(recordingId, currentNote) {
+  const newNote = prompt('Add/edit note for this recording:', currentNote || '');
+  if (newNote === null) return;
+  apiFetch(`/api/recordings/${recordingId}/note`, {
+    method: 'POST',
+    body: JSON.stringify({ note: newNote })
+  }).then(() => {
+    const el = document.getElementById(`note-text-${recordingId}`);
+    if (el) el.textContent = newNote || '—';
+    showToast('Note saved');
+  }).catch(e => showToast('Error saving note', 'error'));
+}
+
+// Feature 3: Toggle star
+function toggleStar(recordingId, currentlyStarred) {
+  const newState = !currentlyStarred;
+  apiFetch(`/api/recordings/${recordingId}/star`, {
+    method: 'POST',
+    body: JSON.stringify({ starred: newState })
+  }).then(() => {
+    const btn = document.getElementById(`star-${recordingId}`);
+    if (btn) {
+      btn.style.color = newState ? '#f59e0b' : '#e2e8f0';
+      btn.onclick = () => toggleStar(recordingId, newState);
+    }
+    // Update in-memory data
+    const rec = allRecordings.find(r => r._id === recordingId);
+    if (rec) rec.starred = newState;
+    showToast(newState ? '★ Starred for training' : 'Unstarred');
+  }).catch(() => showToast('Error', 'error'));
+}
+
+// Feature 3D: Filter starred
+function filterStarred() {
+  showingStarred = !showingStarred;
+  const btn = document.getElementById('btn-starred');
+  if (btn) btn.style.background = showingStarred ? '#fef3c7' : '#fff';
+  filterRecordings();
+}
+
+// Feature 4: Score filter
+function filterByScore(level) {
+  currentScoreFilter = level;
+  ['all', 'hot', 'warm', 'cold'].forEach(l => {
+    const btn = document.getElementById(`score-${l}`);
+    if (!btn) return;
+    const isActive = l === level;
+    const colors = {
+      all:  { bg: '#1e293b', color: '#fff',     border: '#1e293b' },
+      hot:  { bg: '#fef2f2', color: '#ef4444',  border: '#fecaca' },
+      warm: { bg: '#fffbeb', color: '#f59e0b',  border: '#fde68a' },
+      cold: { bg: '#f1f5f9', color: '#64748b',  border: '#e2e8f0' }
+    };
+    btn.style.background   = isActive ? colors[l].bg    : '#fff';
+    btn.style.color        = isActive ? colors[l].color : '#94a3b8';
+    btn.style.borderColor  = isActive ? colors[l].border : '#e2e8f0';
+  });
+  filterRecordings();
 }
 
 function playRecording(url, leadName, leadId) {
@@ -294,6 +436,7 @@ function playRecording(url, leadName, leadId) {
   if (!bar || !audio) return;
 
   audio.src = url;
+  setPlaybackSpeed(1); // reset speed on new play
   if (label)  label.textContent = `${leadName || 'Unknown'} — ${leadId || ''}`;
   if (dlLink) { dlLink.href = url; dlLink.download = `recording-${leadId}.webm`; }
 
@@ -309,7 +452,7 @@ function closeAudioPlayer() {
 }
 
 function exportRecordingsCSV() {
-  const headers = ['Lead ID', 'Lead Name', 'Agent', 'Date', 'Duration (s)', 'Score', 'Source'];
+  const headers = ['Lead ID', 'Lead Name', 'Agent', 'Date', 'Duration (s)', 'Score', 'Source', 'Notes', 'Starred'];
   const rows = allRecordings.map(r => [
     r.lead_id   || '',
     r.lead_name || '',
@@ -317,7 +460,9 @@ function exportRecordingsCSV() {
     new Date(r.created_at).toISOString(),
     r.duration  || 0,
     r.score     || 0,
-    r.source    || ''
+    r.source    || '',
+    r.notes     || '',
+    r.starred   ? 'Yes' : 'No'
   ]);
   const csv = [headers, ...rows]
     .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
@@ -329,7 +474,6 @@ function exportRecordingsCSV() {
   URL.revokeObjectURL(url);
 }
 
-// Init on load
 if (document.readyState !== 'loading') {
   initRecordings();
 } else {

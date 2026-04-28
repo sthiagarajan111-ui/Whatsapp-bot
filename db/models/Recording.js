@@ -15,6 +15,7 @@ function getRecordingModel(clientId) {
     mime_type:  { type: String, default: 'audio/webm' },
     source:     { type: String, default: 'phone-inbound' },
     notes:      { type: String, default: '' },
+    starred:    { type: Boolean, default: false },
     created_at: { type: Date, default: Date.now }
   }, { collection: `${clientId}_recordings` });
 

@@ -2188,11 +2188,15 @@ app.post('/api/recordings/upload', uploadMiddleware.single('recording'), async (
 
     const fileUrl = `/recordings/${filename}`;
 
+    const { source, notes, agent_name } = req.body;
     const Recording = getRecordingModel(clientId);
     await Recording.create({
       client_id: clientId, lead_id, wa_number,
-      agent: agent || 'unknown', duration: parseInt(duration) || 0,
-      file_url: fileUrl, file_size: file.size, mime_type: file.mimetype,
+      agent:     agent_name || agent || 'Agent',
+      duration:  parseInt(duration) || 0,
+      file_url:  fileUrl, file_size: file.size, mime_type: file.mimetype,
+      source:    source || 'phone-inbound',
+      notes:     notes  || '',
       created_at: new Date()
     });
 
@@ -2285,6 +2289,32 @@ app.get('/api/recordings/stats', async (req, res) => {
       unique_agents:            agents.length,
       agents
     });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Recording: save post-call note ───────────────────────────────────────────
+app.post('/api/recordings/:id/note', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const { getRecordingModel } = require('./db/models/Recording');
+    const Recording = getRecordingModel(clientId);
+    await Recording.findByIdAndUpdate(req.params.id, { notes: req.body.note || '' });
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Recording: toggle star ────────────────────────────────────────────────────
+app.post('/api/recordings/:id/star', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const { getRecordingModel } = require('./db/models/Recording');
+    const Recording = getRecordingModel(clientId);
+    await Recording.findByIdAndUpdate(req.params.id, { starred: req.body.starred });
+    res.json({ success: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }

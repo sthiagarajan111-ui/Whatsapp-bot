@@ -1656,6 +1656,7 @@ loadAll();
 restoreLayout();
 loadTopAgents();
 checkToken();
+window.__agentName = localStorage.getItem('axyren_agent_name') || 'Agent';
 setInterval(loadAll,30000);
 setInterval(checkToken,60000);
 
@@ -1912,7 +1913,11 @@ async function saveManualLead() {
       formData.append('lead_id', data.lead_id);
       formData.append('wa_number', leadData.wa_number);
       formData.append('duration', duration);
-      formData.append('agent', window.__clientId || 'agent');
+      formData.append('source', leadData.source || 'phone-inbound');
+      formData.append('notes', leadData.notes || '');
+      const agentName = window.__agentName || localStorage.getItem('axyren_agent_name') || window.__clientId || 'Agent';
+      formData.append('agent', agentName);
+      formData.append('agent_name', agentName);
       await fetch('/api/recordings/upload', { method:'POST', headers:{ 'x-client-id': window.__clientId || 'default' }, body: formData });
     }
     showToast(`Lead saved — ID: ${data.lead_id}`);

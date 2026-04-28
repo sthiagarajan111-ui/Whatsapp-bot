@@ -373,6 +373,15 @@
       <div class="stg-page-title">Team Agents</div>
       <div class="stg-page-sub">Manage agents who handle leads</div>
 
+      <div class="stg-divider">YOUR IDENTITY</div>
+      <div style="margin-bottom:20px">
+        <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:6px">Your Agent Name</label>
+        <input type="text" id="agent-name-input" placeholder="e.g. Thiagu"
+          style="width:100%;max-width:300px;padding:8px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;font-family:inherit"
+          oninput="updateAgentName(this.value)">
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px">This name appears in call recordings and lead assignments.</div>
+      </div>
+
       <div id="agentsTable" style="margin-bottom:16px"><div class="loading"><div class="spinner"></div></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:16px;border-top:1px solid #f1f5f9">
         <input id="ag-name" placeholder="Agent Name" style="flex:1;min-width:140px;max-width:none">
@@ -898,5 +907,17 @@ if (!window.__clientId) {
   window.updateLeadIdPreview = updateLeadIdPreview;
 
   await loadSettings();
+
+  // Agent name — restore from localStorage
+  window.updateAgentName = function(name) {
+    window.__agentName = name;
+    localStorage.setItem('axyren_agent_name', name);
+  };
+  const savedAgentName = localStorage.getItem('axyren_agent_name');
+  if (savedAgentName) {
+    const inp = document.getElementById('agent-name-input');
+    if (inp) inp.value = savedAgentName;
+    window.__agentName = savedAgentName;
+  }
 })();
 </script>
