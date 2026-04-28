@@ -1337,7 +1337,7 @@ function renderTable(){
     const voiceBadge=d.source==='voice'?' <span style="font-size:9px">🎙</span>':'';
     return`<tr>
       <td style="font-family:monospace;font-size:11px;color:#4F86C6;white-space:nowrap">${l.lead_id||'—'}</td>
-      <td><div class="lt-av"><div class="av ${avColor(l.name)}">${initials(l.name)}</div><div><div class="lt-nm">${l.name||'Unknown'}${voiceBadge}</div><div class="lt-nb">${l.wa_number||'—'}</div></div></div></td>
+      <td><div class="lt-av"><div class="av ${avColor(l.name)}">${initials(l.name)}</div><div><div class="lt-nm" onclick="openLeadProfile('${l.lead_id||l._id||l.id}')" style="cursor:pointer;color:#4F86C6">${l.name||'Unknown'}${voiceBadge}</div><div class="lt-nb">${l.wa_number||'—'}</div></div></div></td>
       <td>${interest}</td>
       <td style="font-size:11px">${budgetDisplay}</td>
       <td style="font-size:11px;text-transform:capitalize">${area}</td>
@@ -1646,8 +1646,8 @@ function openLeadProfile(leadId) {
   const s = document.getElementById('global-search');
   if (r) r.style.display = 'none';
   if (s) s.value = '';
-  // Navigate to conversations — full profile view added in Session 4
-  window.location.hash = 'conversations';
+  window.currentProfileLeadId = leadId;
+  if (window.navigateTo) window.navigateTo('lead-profile');
 }
 
 // ── INIT ───────────────────────────────────────────────────

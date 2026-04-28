@@ -1,0 +1,453 @@
+<!-- ── STYLES ── -->
+<style>
+/* Profile layout */
+.profile-wrap        { padding: 0 0 40px; }
+.profile-hero        { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px;
+                       box-shadow: 0 1px 3px rgba(0,0,0,0.04); padding: 24px 28px;
+                       margin-bottom: 16px; display: flex; gap: 24px; align-items: flex-start; }
+.profile-avatar      { width: 64px; height: 64px; border-radius: 50%; background: #4F86C6;
+                       color: #fff; font-size: 22px; font-weight: 700; display: flex;
+                       align-items: center; justify-content: center; flex-shrink: 0; }
+.profile-identity    { flex: 1; min-width: 0; }
+.profile-name        { font-size: 20px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+.profile-id          { font-family: 'SF Mono','Fira Code',monospace; font-size: 13px;
+                       color: #4F86C6; background: #eff6ff; padding: 3px 10px;
+                       border-radius: 3px; display: inline-block; margin-bottom: 8px; }
+.profile-meta        { font-size: 12px; color: #64748b; display: flex; gap: 16px;
+                       flex-wrap: wrap; margin-top: 4px; }
+.profile-meta span   { display: flex; align-items: center; gap: 5px; }
+.profile-badges      { display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+                       flex-shrink: 0; }
+.score-badge-lg      { padding: 6px 16px; border-radius: 4px; font-size: 13px;
+                       font-weight: 700; letter-spacing: 0.3px; }
+.stage-badge         { padding: 4px 12px; border-radius: 3px; font-size: 11px;
+                       font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+                       background: #f1f5f9; color: #64748b; }
+.channel-badge       { padding: 3px 10px; border-radius: 3px; font-size: 11px;
+                       font-weight: 600; background: #eff6ff; color: #4F86C6; }
+
+/* KPI strip */
+.kpi-strip           { display: grid; grid-template-columns: repeat(6,1fr); gap: 12px;
+                       margin-bottom: 16px; }
+.kpi-strip-card      { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px;
+                       box-shadow: 0 1px 3px rgba(0,0,0,0.04); padding: 14px 16px;
+                       position: relative; overflow: hidden; }
+.kpi-strip-card::before { content:''; position:absolute; top:0; left:0; right:0;
+                       height: 3px; background: var(--accent, #4F86C6);
+                       border-radius: 2px 2px 0 0; }
+.kpi-strip-val       { font-size: 22px; font-weight: 700; color: #1e293b; margin: 4px 0; }
+.kpi-strip-lbl       { font-size: 10px; font-weight: 600; text-transform: uppercase;
+                       letter-spacing: 0.8px; color: #94a3b8; }
+
+/* Two-column layout */
+.profile-cols        { display: grid; grid-template-columns: 1fr 340px; gap: 16px;
+                       align-items: start; }
+
+/* Timeline */
+.timeline-card       { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px;
+                       box-shadow: 0 1px 3px rgba(0,0,0,0.04); padding: 20px; }
+.timeline-header     { font-size: 13px; font-weight: 600; color: #1e293b;
+                       border-left: 3px solid #4F86C6; padding-left: 10px;
+                       margin-bottom: 20px; display: flex; justify-content: space-between;
+                       align-items: center; }
+.timeline            { position: relative; }
+.timeline::before    { content:''; position:absolute; left:20px; top:0; bottom:0;
+                       width: 1px; background: #e2e8f0; }
+.tl-item             { display: flex; gap: 14px; margin-bottom: 20px; position: relative; }
+.tl-dot              { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+                       margin-top: 4px; margin-left: 16px; border: 2px solid #fff;
+                       box-shadow: 0 0 0 1px #e2e8f0; z-index: 1; }
+.tl-content          { flex: 1; min-width: 0; }
+.tl-tag              { display: inline-block; font-size: 10px; font-weight: 700;
+                       padding: 2px 7px; border-radius: 3px; margin-bottom: 4px;
+                       letter-spacing: 0.5px; }
+.tl-text             { font-size: 13px; color: #1e293b; line-height: 1.5;
+                       word-break: break-word; }
+.tl-time             { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+.tl-msg-bubble       { background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 4px;
+                       padding: 8px 12px; margin-top: 6px; font-size: 12px;
+                       color: #475569; line-height: 1.5; }
+
+/* Right panel */
+.right-panel         { display: flex; flex-direction: column; gap: 12px; }
+.panel-card          { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px;
+                       box-shadow: 0 1px 3px rgba(0,0,0,0.04); padding: 18px; }
+.panel-title         { font-size: 12px; font-weight: 700; text-transform: uppercase;
+                       letter-spacing: 0.8px; color: #94a3b8; margin-bottom: 14px;
+                       border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
+
+/* Lead details grid */
+.detail-grid         { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.detail-item label   { font-size: 10px; font-weight: 600; text-transform: uppercase;
+                       letter-spacing: 0.5px; color: #94a3b8; display: block;
+                       margin-bottom: 2px; }
+.detail-item span    { font-size: 13px; color: #1e293b; font-weight: 500; }
+
+/* Action buttons */
+.action-btn          { display: flex; align-items: center; gap: 8px; width: 100%;
+                       padding: 10px 14px; border-radius: 4px; border: 1px solid;
+                       font-size: 13px; font-weight: 600; cursor: pointer;
+                       transition: all 0.15s; margin-bottom: 8px; }
+.action-btn:last-child { margin-bottom: 0; }
+.action-btn.wa       { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; }
+.action-btn.listing  { background: #eff6ff; color: #4F86C6; border-color: #bfdbfe; }
+.action-btn.appt     { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+.action-btn.note     { background: #f8fafc; color: #64748b; border-color: #e2e8f0; }
+.action-btn.vip      { background: #fdf4ff; color: #9333ea; border-color: #e9d5ff; }
+.action-btn.reengage { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+
+/* Notes list */
+.note-item           { padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+.note-item:last-child { border-bottom: none; }
+.note-text           { font-size: 13px; color: #1e293b; line-height: 1.5; }
+.note-meta           { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+
+/* Appointment mini list */
+.appt-item           { padding: 10px 12px; background: #f8fafc; border-radius: 4px;
+                       margin-bottom: 8px; border-left: 3px solid #4F86C6; }
+.appt-item:last-child { margin-bottom: 0; }
+
+/* Recording mini list */
+.rec-item            { padding: 10px 12px; background: #f8fafc; border-radius: 4px;
+                       margin-bottom: 8px; display: flex; justify-content: space-between;
+                       align-items: center; }
+.rec-item:last-child { margin-bottom: 0; }
+
+@media (max-width: 900px) {
+  .profile-cols { grid-template-columns: 1fr; }
+  .kpi-strip    { grid-template-columns: repeat(3,1fr); }
+}
+</style>
+
+<!-- ── PAGE ── -->
+<div class="profile-wrap" id="profile-page-wrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:#1e293b">Lead 360° Profile</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:2px">Complete client history and lifecycle</div>
+    </div>
+    <button onclick="history.back()" style="padding:7px 16px;background:#fff;color:#64748b;
+      border:1px solid #e2e8f0;border-radius:4px;font-size:13px;cursor:pointer">
+      ← Back
+    </button>
+  </div>
+
+  <div id="profile-loading" style="text-align:center;padding:60px;color:#94a3b8">
+    <div style="font-size:32px;margin-bottom:12px">⏳</div>
+    Loading profile...
+  </div>
+  <div id="profile-content" style="display:none"></div>
+</div>
+
+<!-- ── SCRIPT ── -->
+<script>
+const SCORE_COLOR  = s => s >= 7 ? '#ef4444' : s >= 4 ? '#f59e0b' : '#94a3b8';
+const SCORE_BG     = s => s >= 7 ? '#fef2f2' : s >= 4 ? '#fffbeb' : '#f1f5f9';
+const SCORE_LABEL  = s => s >= 7 ? 'HOT' : s >= 4 ? 'WARM' : 'COLD';
+const fmtDate = d => d ? new Date(d).toLocaleString('en-AE', {
+  timeZone:'Asia/Dubai', day:'2-digit', month:'short', year:'numeric',
+  hour:'2-digit', minute:'2-digit', hour12:true }) : '—';
+const fmtDateShort = d => d ? new Date(d).toLocaleDateString('en-AE', {
+  timeZone:'Asia/Dubai', day:'2-digit', month:'short', year:'numeric' }) : '—';
+const fmtBudget = b => {
+  if (!b) return '—';
+  if (b >= 1000000) return 'AED ' + (b/1000000).toFixed(1) + 'M';
+  if (b >= 1000) return 'AED ' + (b/1000).toFixed(0) + 'K';
+  return 'AED ' + b;
+};
+const fmtDur = s => {
+  if (!s) return '—';
+  const m = Math.floor(s/60), sec = s%60;
+  return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+};
+const channelLabel = c => ({
+  whatsapp:'💬 WhatsApp', phone:'📞 Phone', facebook:'👥 Facebook',
+  instagram:'📸 Instagram', web:'🌐 Web', walkin:'🚶 Walk-in', referral:'👥 Referral'
+})[c] || c || 'WhatsApp';
+const stageLabel = s => ({
+  new_lead:'New Lead', ai_contacted:'AI Contacted', qualified_hot:'Qualified HOT',
+  qualified_warm:'Qualified WARM', viewing_requested:'Viewing Requested',
+  viewing_confirmed:'Viewing Confirmed', offer_made:'Offer Made', won:'Won', lost:'Lost'
+})[s] || s || 'New Lead';
+
+async function loadProfile() {
+  const wrap = document.getElementById('profile-page-wrap');
+  if (!wrap) return;
+  const loading = document.getElementById('profile-loading');
+  const content = document.getElementById('profile-content');
+
+  const leadId = window.currentProfileLeadId;
+  if (!leadId) {
+    if (loading) loading.innerHTML = '<div style="color:#ef4444">No lead ID specified.</div>';
+    return;
+  }
+
+  try {
+    const data = await apiFetch(`/api/leads/profile/${encodeURIComponent(leadId)}`);
+    if (!data || !data.lead) throw new Error('Lead not found');
+
+    const { lead, timeline, appointments, stats } = data;
+    const score = lead.score || 0;
+
+    // Build hero section
+    const initials = (lead.name || lead.wa_number || 'U').substring(0,2).toUpperCase();
+    const heroHTML = `
+      <div class="profile-hero">
+        <div class="profile-avatar" style="background:${SCORE_COLOR(score)}">${initials}</div>
+        <div class="profile-identity">
+          <div class="profile-name">${lead.name || lead.wa_number || 'Unknown'}</div>
+          <div class="profile-id">${lead.lead_id || '—'}</div>
+          <div class="profile-meta">
+            ${lead.wa_number ? `<span>📱 ${lead.wa_number}</span>` : ''}
+            ${lead.email    ? `<span>✉️ ${lead.email}</span>` : ''}
+            ${lead.phone    ? `<span>☎️ ${lead.phone}</span>` : ''}
+            <span>📅 First contact: ${fmtDateShort(lead.created_at)}</span>
+            <span>${channelLabel(lead.channel)}</span>
+          </div>
+        </div>
+        <div class="profile-badges">
+          <span class="score-badge-lg" style="background:${SCORE_BG(score)};color:${SCORE_COLOR(score)}">
+            ${SCORE_LABEL(score)} ${score}/10
+          </span>
+          <span class="stage-badge">${stageLabel(lead.pipeline_stage)}</span>
+          <span class="channel-badge">${(lead.vertical||'realEstate').replace(/([A-Z])/g,' $1').trim()}</span>
+        </div>
+      </div>`;
+
+    // KPI strip
+    const kpiHTML = `
+      <div class="kpi-strip">
+        <div class="kpi-strip-card" style="--accent:#4F86C6">
+          <div class="kpi-strip-lbl">Touchpoints</div>
+          <div class="kpi-strip-val">${stats.touchpoints || 0}</div>
+          <div style="font-size:11px;color:#94a3b8">Messages</div>
+        </div>
+        <div class="kpi-strip-card" style="--accent:#62B58F">
+          <div class="kpi-strip-lbl">Appointments</div>
+          <div class="kpi-strip-val">${stats.appointments || 0}</div>
+          <div style="font-size:11px;color:#94a3b8">Booked</div>
+        </div>
+        <div class="kpi-strip-card" style="--accent:#F5A623">
+          <div class="kpi-strip-lbl">Recordings</div>
+          <div class="kpi-strip-val">${stats.recordingsCount || 0}</div>
+          <div style="font-size:11px;color:#94a3b8">Calls</div>
+        </div>
+        <div class="kpi-strip-card" style="--accent:#9B7FD4">
+          <div class="kpi-strip-lbl">Days Active</div>
+          <div class="kpi-strip-val">${stats.daysActive || 0}</div>
+          <div style="font-size:11px;color:#94a3b8">Since first contact</div>
+        </div>
+        <div class="kpi-strip-card" style="--accent:#5BC0DE">
+          <div class="kpi-strip-lbl">Budget</div>
+          <div class="kpi-strip-val" style="font-size:16px">${fmtBudget(lead.budget)}</div>
+          <div style="font-size:11px;color:#94a3b8">Stated</div>
+        </div>
+        <div class="kpi-strip-card" style="--accent:${SCORE_COLOR(score)}">
+          <div class="kpi-strip-lbl">Lead Score</div>
+          <div class="kpi-strip-val" style="color:${SCORE_COLOR(score)}">${score}</div>
+          <div style="font-size:11px;color:#94a3b8">${SCORE_LABEL(score)}</div>
+        </div>
+      </div>`;
+
+    // Timeline
+    const tlColors = {
+      message_in:   { dot:'#4F86C6', tag:'#eff6ff',   tagText:'#4F86C6',   label:'MSG' },
+      message_out:  { dot:'#22c55e', tag:'#f0fdf4',   tagText:'#16a34a',   label:'BOT' },
+      appointment:  { dot:'#f59e0b', tag:'#fffbeb',   tagText:'#b45309',   label:'APPT' },
+      score_change: { dot:'#ef4444', tag:'#fef2f2',   tagText:'#dc2626',   label:'SCORE' },
+      recording:    { dot:'#9B7FD4', tag:'#fdf4ff',   tagText:'#9333ea',   label:'REC' },
+      note:         { dot:'#64748b', tag:'#f1f5f9',   tagText:'#475569',   label:'NOTE' },
+      listing:      { dot:'#5BC0DE', tag:'#ecfeff',   tagText:'#0891b2',   label:'LISTING' },
+      campaign:     { dot:'#F5A623', tag:'#fffbeb',   tagText:'#b45309',   label:'CAMP' }
+    };
+
+    const tlItems = (timeline || []).slice(0, 50).map(item => {
+      const c = tlColors[item.type] || tlColors.message_in;
+      const text = item.text || item.body || '';
+      const preview = text.length > 200 ? text.substring(0,200) + '...' : text;
+      return `
+        <div class="tl-item">
+          <div class="tl-dot" style="background:${c.dot}"></div>
+          <div class="tl-content">
+            <span class="tl-tag" style="background:${c.tag};color:${c.tagText}">${c.label}</span>
+            <div class="tl-text">${preview || '—'}</div>
+            ${item.meta?.status ? `<div style="font-size:11px;color:#94a3b8;margin-top:2px">
+              Status: ${item.meta.status}</div>` : ''}
+            <div class="tl-time">${fmtDate(item.timestamp)}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    const timelineHTML = `
+      <div class="timeline-card">
+        <div class="timeline-header">
+          <span>Complete Timeline</span>
+          <span style="font-size:12px;color:#94a3b8;font-weight:400">
+            ${(timeline||[]).length} events
+          </span>
+        </div>
+        <div class="timeline">
+          ${tlItems || '<div style="text-align:center;padding:32px;color:#94a3b8">No events yet</div>'}
+        </div>
+      </div>`;
+
+    // Lead details panel
+    const detailsHTML = `
+      <div class="panel-card">
+        <div class="panel-title">Lead Details</div>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>Intent</label>
+            <span>${lead.intent || '—'}</span>
+          </div>
+          <div class="detail-item">
+            <label>Property Type</label>
+            <span>${lead.property_type || lead.data?.property_type || '—'}</span>
+          </div>
+          <div class="detail-item">
+            <label>Area Interest</label>
+            <span>${lead.area_interest || lead.data?.area_interest || '—'}</span>
+          </div>
+          <div class="detail-item">
+            <label>Timeline</label>
+            <span>${lead.timeline || lead.data?.timeline || '—'}</span>
+          </div>
+          <div class="detail-item">
+            <label>Language</label>
+            <span>${lead.language || '—'}</span>
+          </div>
+          <div class="detail-item">
+            <label>Source</label>
+            <span>${lead.source || lead.channel || '—'}</span>
+          </div>
+          <div class="detail-item">
+            <label>Entry Method</label>
+            <span>${lead.entry_method === 'manual' ? '📞 Manual' : '🤖 Bot'}</span>
+          </div>
+          <div class="detail-item">
+            <label>Last Updated</label>
+            <span>${fmtDateShort(lead.updated_at)}</span>
+          </div>
+        </div>
+        ${lead.notes ? `<div style="margin-top:14px;padding:10px 12px;background:#f8fafc;
+          border-radius:4px;font-size:12px;color:#475569;line-height:1.5;
+          border-left:3px solid #e2e8f0">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;
+            letter-spacing:0.5px;color:#94a3b8;margin-bottom:4px">Call Notes</div>
+          ${lead.notes}
+        </div>` : ''}
+      </div>`;
+
+    // Appointments panel
+    const apptsHTML = `
+      <div class="panel-card">
+        <div class="panel-title">Appointments (${(appointments||[]).length})</div>
+        ${(appointments||[]).length === 0
+          ? '<div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px">No appointments yet</div>'
+          : (appointments||[]).map(a => `
+            <div class="appt-item">
+              <div style="font-size:13px;font-weight:600;color:#1e293b">${fmtDateShort(a.date)}</div>
+              <div style="font-size:12px;color:#64748b;margin-top:2px">${a.time_slot || '—'}</div>
+              <div style="display:flex;justify-content:space-between;margin-top:4px">
+                <span style="font-size:11px;font-weight:600;color:${
+                  a.status==='confirmed'?'#16a34a':a.status==='completed'?'#4F86C6':'#f59e0b'}">
+                  ${(a.status||'pending').toUpperCase()}</span>
+                <span style="font-size:11px;color:#94a3b8">${a.industry||''}</span>
+              </div>
+            </div>`).join('')}
+      </div>`;
+
+    // Actions panel
+    const actionsHTML = `
+      <div class="panel-card">
+        <div class="panel-title">Actions</div>
+        <button class="action-btn wa"
+          onclick="window.open('https://wa.me/${lead.wa_number}','_blank')">
+          💬 WhatsApp Lead
+        </button>
+        <button class="action-btn listing"
+          onclick="showListingSelector && showListingSelector('${lead.wa_number}','${(lead.name||'').replace(/'/g,"\\'")}')">
+          🏠 Send Listing
+        </button>
+        <button class="action-btn appt"
+          onclick="alert('Appointment booking — coming soon')">
+          📅 Book Appointment
+        </button>
+        <button class="action-btn note"
+          onclick="addProfileNote('${lead.wa_number}','${lead.lead_id||''}')">
+          📝 Add Note
+        </button>
+        <button class="action-btn vip"
+          onclick="flagVIP('${lead.wa_number}','${lead.lead_id||''}')">
+          ⭐ Flag as VIP
+        </button>
+        <button class="action-btn reengage"
+          onclick="reengageLead('${lead.wa_number}','${lead.lead_id||''}')">
+          🔄 Re-engage Lead
+        </button>
+      </div>`;
+
+    // Assemble full page
+    if (loading) loading.style.display = 'none';
+    if (content) {
+      content.style.display = 'block';
+      content.innerHTML = heroHTML + kpiHTML +
+        `<div class="profile-cols">${timelineHTML}
+          <div class="right-panel">${detailsHTML}${apptsHTML}${actionsHTML}</div>
+        </div>`;
+    }
+
+  } catch(e) {
+    console.error('[Profile]', e.message);
+    if (document.getElementById('profile-loading')) {
+      document.getElementById('profile-loading').innerHTML = `
+        <div style="color:#ef4444;font-size:14px">
+          Error loading profile: ${e.message}
+        </div>`;
+    }
+  }
+}
+
+async function addProfileNote(waNumber, leadId) {
+  const note = prompt('Add a note for this lead:');
+  if (!note || !note.trim()) return;
+  try {
+    await apiFetch('/api/leads/note', {
+      method: 'POST',
+      body: JSON.stringify({ wa_number: waNumber, lead_id: leadId, note: note.trim() })
+    });
+    showToast('Note added — reload to see in timeline');
+  } catch(e) {
+    showToast('Error adding note', 'error');
+  }
+}
+
+async function flagVIP(waNumber, leadId) {
+  try {
+    await apiFetch('/api/leads/flag-vip', {
+      method: 'POST',
+      body: JSON.stringify({ wa_number: waNumber, lead_id: leadId })
+    });
+    showToast('⭐ Lead flagged as VIP');
+  } catch(e) {
+    showToast('Error', 'error');
+  }
+}
+
+async function reengageLead(waNumber, leadId) {
+  if (!confirm('Send a re-engagement message to this lead?')) return;
+  try {
+    await apiFetch('/api/leads/reengage', {
+      method: 'POST',
+      body: JSON.stringify({ wa_number: waNumber, lead_id: leadId })
+    });
+    showToast('Re-engagement message sent');
+  } catch(e) {
+    showToast('Error sending message', 'error');
+  }
+}
+
+// Init
+if (document.readyState !== 'loading') loadProfile();
+else document.addEventListener('DOMContentLoaded', loadProfile);
+</script>

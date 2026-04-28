@@ -28,12 +28,13 @@
       ? `/client-dashboard/${window.__clientId}/pages`
       : '/dashboard/pages';
     const PAGE_URLS = {
-      conversations: `${base}/conversations.html`,
-      opportunities: `${base}/opportunities.html`,
-      analytics:     `${base}/analytics.html`,
-      appointments:  `${base}/appointments.html`,
-      settings:      `${base}/settings.html`,
-      recordings:    `${base}/recordings.html`,
+      conversations:  `${base}/conversations.html`,
+      opportunities:  `${base}/opportunities.html`,
+      analytics:      `${base}/analytics.html`,
+      appointments:   `${base}/appointments.html`,
+      settings:       `${base}/settings.html`,
+      recordings:     `${base}/recordings.html`,
+      'lead-profile': `${base}/lead-profile.html`,
     };
 
     const url = PAGE_URLS[page];

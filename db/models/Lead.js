@@ -16,6 +16,9 @@ const leadSchema = new mongoose.Schema({
   lead_id:        { type: String, unique: true, sparse: true, index: true },
   channel:        { type: String, default: 'whatsapp' },
   vertical:       { type: String, default: 'realEstate' },
+  agent_notes:    [{ text: String, agent: String, created_at: { type: Date, default: Date.now } }],
+  is_vip:         { type: Boolean, default: false },
+  vip_flagged_at: { type: Date },
   created_at:     { type: Date, default: Date.now },
   updated_at:     { type: Date, default: Date.now },
 });

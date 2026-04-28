@@ -225,7 +225,7 @@ if (!window.__clientId) {
         <div class="conv-lead-bar">
           ${shared.avatarInitials(lead?.name || waNumber)}
           <div>
-            <div class="conv-lead-bar-name">${isLiveConv ? '<span class="live-dot"></span>' : ''}${lead?.name || waNumber}</div>
+            <div class="conv-lead-bar-name" onclick="openLeadProfile('${lead?.lead_id || lead?._id || ''}')" style="cursor:pointer;color:#4F86C6">${isLiveConv ? '<span class="live-dot"></span>' : ''}${lead?.name || waNumber}</div>
             <div class="conv-lead-bar-num">${waNumber} · ${d.area||''} · ${d.budget||''}</div>
           </div>
           ${isLiveConv ? '<span class="live-label">LIVE</span>' : ''}

@@ -286,9 +286,10 @@ app.get('/api/leads/profile/:leadId', async (req, res) => {
 
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
 
-    const [messages, appointments] = await Promise.all([
+    const [messages, appointments, recordings] = await Promise.all([
       MessageModel.find({ client_id: clientId, wa_number: lead.wa_number }).sort({ created_at: 1 }).lean(),
-      AppointmentModel.find({ client_id: clientId, wa_number: lead.wa_number }).sort({ appointment_date: 1 }).lean()
+      AppointmentModel.find({ client_id: clientId, wa_number: lead.wa_number }).sort({ appointment_date: 1 }).lean(),
+      (async () => { try { const { getRecordingModel } = require('./db/models/Recording'); const Rec = getRecordingModel(clientId); return await Rec.find({ wa_number: lead.wa_number }).lean(); } catch(e) { return []; } })()
     ]);
 
     const timeline = [];
@@ -326,15 +327,65 @@ app.get('/api/leads/profile/:leadId', async (req, res) => {
     timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     const stats = {
-      touchpoints:  messages.length,
-      appointments: appointments.length,
-      daysActive:   Math.ceil((new Date() - new Date(lead.created_at)) / (1000 * 60 * 60 * 24)),
-      budget:       lead.budget || 0,
+      touchpoints:     messages.length,
+      appointments:    appointments.length,
+      recordingsCount: recordings.length,
+      daysActive:      Math.ceil((new Date() - new Date(lead.created_at)) / (1000 * 60 * 60 * 24)),
+      budget:          lead.budget || 0,
     };
 
     res.json({ lead, timeline, appointments, stats });
   } catch(e) {
     console.error('[Profile API]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API: Add note to lead ─────────────────────────────────────────────────────
+app.post('/api/leads/note', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const Lead = require('./db/models/Lead');
+    const { wa_number, lead_id, note } = req.body;
+    const agentName = req.headers['x-agent-name'] || 'Agent';
+    const noteEntry = { text: note, agent: agentName, created_at: new Date() };
+    await Lead.findOneAndUpdate(
+      { wa_number },
+      { $push: { agent_notes: noteEntry }, $set: { updated_at: new Date() } }
+    );
+    await db.saveMessage(wa_number, 'outbound', 'note', `📝 Agent note: ${note}`, null, clientId);
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API: Flag lead as VIP ─────────────────────────────────────────────────────
+app.post('/api/leads/flag-vip', async (req, res) => {
+  try {
+    const { wa_number } = req.body;
+    const Lead = require('./db/models/Lead');
+    await Lead.findOneAndUpdate(
+      { wa_number },
+      { $set: { is_vip: true, vip_flagged_at: new Date(), updated_at: new Date() } }
+    );
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API: Re-engage lead ───────────────────────────────────────────────────────
+app.post('/api/leads/reengage', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || 'default';
+    const { wa_number } = req.body;
+    const msg = "Hi! We wanted to follow up and see if you're still interested. We have some great new options available. Would you like to know more?";
+    const api = require('./whatsapp/api');
+    await api.sendText(`whatsapp:+${wa_number}`, msg);
+    await db.saveMessage(wa_number, 'outbound', 'text', msg, null, clientId);
+    res.json({ success: true });
+  } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });

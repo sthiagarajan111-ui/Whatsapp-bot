@@ -156,7 +156,7 @@ if (!window.__clientId) {
         const d = l.data || {};
         return `<div class="kanban-card stage-${stage.id}" draggable="true"
           data-id="${l.id}" ondragstart="onDragStart(event,'${l.id}')">
-          <div class="card-name">${l.name||l.wa_number}</div>
+          <div class="card-name" onclick="openLeadProfile('${l.lead_id||l.id||l._id}')" style="cursor:pointer;color:#4F86C6">${l.name||l.wa_number}</div>
           <div class="card-meta">📍 ${d.area||'—'} · 💰 ${d.budget||'—'}</div>
           <div class="card-tags">
             ${shared.scoreBadge(l.score)}
