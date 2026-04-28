@@ -269,27 +269,47 @@ app.get('/api/leads/search', async (req, res) => {
 
 // ── API: Lead profile by lead_id ──────────────────────────────────────────────
 app.get('/api/leads/profile/:leadId', async (req, res) => {
+  const routeTimeout = setTimeout(() => {
+    if (!res.headersSent) {
+      console.error('[Profile] Route timeout for leadId:', req.params.leadId);
+      res.status(504).json({ error: 'Profile load timeout — please try again' });
+    }
+  }, 10000);
+
   try {
     const clientId = req.headers['x-client-id'] || 'default';
     const LeadModel        = require('./db/models/Lead');
     const MessageModel     = require('./db/models/Message');
     const AppointmentModel = require('./db/models/Appointment');
 
-    const isObjectId = /^[0-9a-fA-F]{24}$/.test(req.params.leadId);
     const lead = await LeadModel.findOne({
       client_id: clientId,
       $or: [
         { lead_id: req.params.leadId },
-        ...(isObjectId ? [{ _id: req.params.leadId }] : [])
+        ...(mongoose.Types.ObjectId.isValid(req.params.leadId)
+          ? [{ _id: req.params.leadId }] : [])
       ]
     }).lean();
 
-    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if (!lead) { clearTimeout(routeTimeout); return res.status(404).json({ error: 'Lead not found' }); }
 
     const [messages, appointments, recordings] = await Promise.all([
-      MessageModel.find({ client_id: clientId, wa_number: lead.wa_number }).sort({ created_at: 1 }).lean(),
-      AppointmentModel.find({ client_id: clientId, wa_number: lead.wa_number }).sort({ appointment_date: 1 }).lean(),
-      (async () => { try { const { getRecordingModel } = require('./db/models/Recording'); const Rec = getRecordingModel(clientId); return await Rec.find({ wa_number: lead.wa_number }).lean(); } catch(e) { return []; } })()
+      MessageModel.find({ client_id: clientId, wa_number: lead.wa_number })
+        .sort({ created_at: 1 }).lean()
+        .catch(e => { console.error('[Profile] messages error:', e.message); return []; }),
+      AppointmentModel.find({ client_id: clientId, wa_number: lead.wa_number })
+        .sort({ appointment_date: 1 }).lean()
+        .catch(e => { console.error('[Profile] appointments error:', e.message); return []; }),
+      (async () => {
+        try {
+          const { getRecordingModel } = require('./db/models/Recording');
+          const Rec = getRecordingModel(clientId);
+          return await Rec.find({ wa_number: lead.wa_number }).lean();
+        } catch(e) {
+          console.error('[Profile] recordings error:', e.message);
+          return [];
+        }
+      })()
     ]);
 
     const timeline = [];
@@ -334,8 +354,10 @@ app.get('/api/leads/profile/:leadId', async (req, res) => {
       budget:          lead.budget || 0,
     };
 
+    clearTimeout(routeTimeout);
     res.json({ lead, timeline, appointments, stats });
   } catch(e) {
+    clearTimeout(routeTimeout);
     console.error('[Profile API]', e.message);
     res.status(500).json({ error: e.message });
   }

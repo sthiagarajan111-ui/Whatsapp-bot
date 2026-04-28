@@ -1642,6 +1642,11 @@ async function globalSearch(query) {
 }
 
 function openLeadProfile(leadId) {
+  if (!leadId || leadId === 'undefined' || leadId === 'null') {
+    showToast('No Lead ID available for this lead', 'error');
+    return;
+  }
+  console.log('[Profile] Opening profile for:', leadId);
   const r = document.getElementById('search-results');
   const s = document.getElementById('global-search');
   if (r) r.style.display = 'none';
