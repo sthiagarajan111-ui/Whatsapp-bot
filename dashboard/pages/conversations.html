@@ -149,6 +149,20 @@ if (!window.__clientId) {
     if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
   }
 
+  function getSourceBadge(channel) {
+    const map = {
+      'whatsapp':  { icon: '💬', label: 'WhatsApp',  color: '#25D366', bg: '#f0fdf4' },
+      'facebook':  { icon: '📘', label: 'Facebook',  color: '#1877F2', bg: '#eff3ff' },
+      'instagram': { icon: '📸', label: 'Instagram', color: '#E1306C', bg: '#fdf0f5' },
+      'web':       { icon: '🌐', label: 'Website',   color: '#4F86C6', bg: '#eff6ff' },
+      'phone':     { icon: '📞', label: 'Phone',     color: '#f59e0b', bg: '#fffbeb' },
+      'walkin':    { icon: '🚶', label: 'Walk-in',   color: '#64748b', bg: '#f1f5f9' },
+      'referral':  { icon: '👥', label: 'Referral',  color: '#9B7FD4', bg: '#fdf4ff' },
+    };
+    const b = map[channel] || map['whatsapp'];
+    return `<span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px;background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>`;
+  }
+
   function renderConvList() {
     const el = document.getElementById('convList');
     if (!el) return;
@@ -191,7 +205,7 @@ if (!window.__clientId) {
               background:${scoreColor}18;padding:1px 5px;border-radius:3px">
               ${scoreLabel} ${c.score||0}
             </span>
-            <span style="font-size:10px;color:#94a3b8">${(c.pipeline_stage||'new').replace(/_/g,' ')}</span>
+            ${getSourceBadge(c.channel)}
           </div>
         </div>
       </div>`;

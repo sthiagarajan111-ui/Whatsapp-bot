@@ -166,12 +166,16 @@ async function handleMessage(message) {
   }
 
   // Re-engagement: YES/SHOW ME → clear session and restart flow
+  // (skip if user is in a web form follow-up — they're expected to reply YES)
   if (['yes','show me','نعم','أرني'].includes(rawText.toLowerCase())) {
     try {
       const lead = await require('../db/database').getLead(from);
       if (lead && lead.status !== 'converted') {
-        await clearSession(from);
-        // Fall through to normal flow start (session will be null)
+        const sess = parseSession(await getSession(from));
+        if (!sess?.collectedData?._webFormComplete) {
+          await clearSession(from);
+          // Fall through to normal flow start (session will be null)
+        }
       }
     } catch(_) {}
   }
@@ -259,6 +263,49 @@ async function handleMessage(message) {
     await effectiveApi.sendText(from, language === 'ar'
       ? 'عذراً، حدث خطأ. يرجى المحاولة مرة أخرى أو كتابة "menu".'
       : 'Sorry, something went wrong. Please try again or type "menu".');
+    return;
+  }
+
+  // ── Web form follow-up: handle YES/INFO replies ─────────────────────────────
+  if (currentStep === 'web_followup' && collectedData._webFormComplete) {
+    const reply = rawText.toUpperCase().trim();
+    if (reply === 'YES' || reply === '1') {
+      const msg = `Great ${collectedData.name || 'there'}! 🙏 Let's book your viewing.\n\nPlease choose a preferred time:\n1. Morning (9am – 12pm)\n2. Afternoon (12pm – 5pm)\n3. Evening (5pm – 8pm)`;
+      await effectiveApi.sendText(from, msg);
+      await saveOutbound(from, 'text', msg);
+      await persistSession(from, 'web_book_time', collectedData, savedLang, false, []);
+    } else if (reply === 'INFO' || reply === '2') {
+      const area   = collectedData.area_interest || 'your preferred area';
+      const budget = collectedData.budget        || 'your stated budget';
+      const msg = `Of course! 🏠 Based on your interest in *${area}* with a budget of *${budget}*, our agents will share matching properties shortly.\n\nWhen is the best time for us to call you?\n1. Right now\n2. This afternoon\n3. Tomorrow morning`;
+      await effectiveApi.sendText(from, msg);
+      await saveOutbound(from, 'text', msg);
+      await persistSession(from, 'schedule_call', collectedData, savedLang, false, []);
+    } else {
+      await effectiveApi.sendText(from, `Please reply:\n*1* or *YES* — to book a viewing appointment\n*2* or *INFO* — to receive property details`);
+    }
+    return;
+  }
+
+  // ── web_book_time: user selected viewing time ────────────────────────────────
+  if (currentStep === 'web_book_time') {
+    const timeMap = { '1': 'Morning (9am–12pm)', '2': 'Afternoon (12pm–5pm)', '3': 'Evening (5pm–8pm)' };
+    const slot = timeMap[rawText.trim()] || rawText.trim();
+    const msg = `✅ Viewing booked for *${slot}*!\n\nOne of our agents will confirm the exact date and call you at your registered number.\n\nWe look forward to meeting you, ${collectedData.name || 'there'}! 🏠`;
+    await effectiveApi.sendText(from, msg);
+    await saveOutbound(from, 'text', msg);
+    await clearSession(from);
+    return;
+  }
+
+  // ── schedule_call: user selected preferred call time ─────────────────────────
+  if (currentStep === 'schedule_call') {
+    const timeMap = { '1': 'right away', '2': 'this afternoon', '3': 'tomorrow morning' };
+    const when = timeMap[rawText.trim()] || rawText.trim();
+    const msg = `✅ Our agent will call you *${when}*.\n\nThank you for your interest, ${collectedData.name || 'there'}! We look forward to helping you find your perfect property. 🏠`;
+    await effectiveApi.sendText(from, msg);
+    await saveOutbound(from, 'text', msg);
+    await clearSession(from);
     return;
   }
 

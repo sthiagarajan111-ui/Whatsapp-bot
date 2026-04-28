@@ -2723,6 +2723,43 @@ app.post('/api/leads/web-form', async (req, res) => {
     await db.saveMessage(waNumber, 'inbound', 'text',
       `Website enquiry — ${name}. ${message || ''}`.trim(), null, clientId);
     console.log('[WebForm] Lead saved:', leadId);
+
+    // Send follow-up WhatsApp message
+    try {
+      const wa = require('./whatsapp/api');
+      const followUpMsg =
+        `Hi ${name}! 👋 Thanks for your enquiry on our website.\n\n` +
+        `We've received your details and our team will be in touch very shortly.\n\n` +
+        `Would you like to:\n*1.* Book a viewing appointment now\n*2.* Receive more property details`;
+      await wa.sendText(waNumber, followUpMsg);
+      await db.saveMessage(waNumber, 'outbound', 'text', followUpMsg, null, clientId);
+      console.log(`[WebForm] Follow-up sent to ${waNumber}`);
+    } catch(e) {
+      console.warn('[WebForm] Follow-up send failed (non-critical):', e.message);
+    }
+
+    // Save session so if lead replies on WhatsApp the bot knows their context
+    try {
+      await db.saveSession(waNumber, {
+        step: 'web_followup',
+        data: {
+          _flowName:        activeFlow,
+          _channel:         'web',
+          _webFormComplete: true,
+          name:             name           || '',
+          intent:           intent         || '',
+          budget:           String(budget  || ''),
+          area_interest:    area_interest  || '',
+          property_type:    property_type  || '',
+        },
+        language:   'en',
+        ai_mode:    false,
+        ai_history: [],
+      }, clientId);
+    } catch(e) {
+      console.warn('[WebForm] Session save failed:', e.message);
+    }
+
     res.json({ success: true, lead_id: leadId, score, score_label: scoreLabel });
   } catch(e) {
     console.error('[WebForm]', e.message);

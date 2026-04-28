@@ -352,6 +352,10 @@
           style="padding:9px 18px;background:#eff6ff;color:#4F86C6;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
           🌐 Simulate Website Lead
         </button>
+        <button onclick="simulateWebConversation()"
+          style="width:100%;padding:10px 14px;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;margin-top:8px">
+          🌐 Simulate Full Web → WhatsApp Conversation
+        </button>
       </div>
       <div id="sim-result" style="font-size:12px;color:#64748b"></div>
     </div>
@@ -1115,6 +1119,57 @@ if (!window.__clientId) {
     } catch(e) {
       console.error('[SimWeb] Error:', e);
       shared.showToast('Simulation failed: ' + e.message, 'error');
+    }
+  };
+
+  window.simulateWebConversation = async function() {
+    try {
+      const phone = '971504' + String(Math.floor(Math.random()*9000000) + 1000000);
+      shared.showToast('Simulating web form submission...');
+
+      // Step 1: Submit web form
+      const formRes = await fetch('/api/leads/web-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-client-id': window.__clientId || 'default' },
+        body: JSON.stringify({
+          name: 'Sarah Hassan', phone, wa_number: phone,
+          email: 'sarah@example.com',
+          message: 'Looking for a 2BR apartment in Dubai Marina',
+          channel: 'web', source: 'website-form',
+          intent: 'buy', budget: '1m-2m',
+          area_interest: 'Dubai Marina', property_type: 'apartment',
+          vertical: window.ACTIVE_FLOW || 'realEstate'
+        })
+      });
+      const formData = await formRes.json();
+      if (!formData.success) {
+        shared.showToast('Form submission failed: ' + (formData.error || 'Unknown'), 'error');
+        return;
+      }
+      shared.showToast('Web form submitted — Lead ID: ' + formData.lead_id);
+
+      // Step 2: Simulate WhatsApp reply YES after 2 seconds
+      setTimeout(async () => {
+        await fetch('/webhook/meta/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel: 'whatsapp', message: 'YES', phone })
+        });
+        shared.showToast('Lead replied YES — check Conversations!');
+      }, 2000);
+
+      // Step 3: Select appointment time slot after 4 seconds
+      setTimeout(async () => {
+        await fetch('/webhook/meta/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel: 'whatsapp', message: '1', phone })
+        });
+        shared.showToast('Appointment time selected — check Pipeline!');
+      }, 4000);
+
+    } catch(e) {
+      shared.showToast('Simulation error: ' + e.message, 'error');
     }
   };
 
