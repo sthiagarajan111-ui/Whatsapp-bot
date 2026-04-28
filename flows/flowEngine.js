@@ -52,19 +52,24 @@ fs.readdirSync(flowsDir).forEach((file) => {
 
 // Wrapped insertLead that auto-assigns a lead_id on first creation
 async function insertLeadWithId(params, clientId = 'default') {
-  const existing = await getLead(params.wa_number, clientId);
-  if (!existing || !existing.lead_id) {
-    const activeFlow = process.env.ACTIVE_FLOW || 'realEstate';
-    const channel  = (params.data && params.data.channel) || 'whatsapp';
-    const vertical = params.flow_name || activeFlow;
-    try {
-      const leadId = await generateLeadId(clientId, channel, vertical);
-      params = { ...params, lead_id: leadId, channel, vertical };
-    } catch (e) {
-      console.error('[LeadID] generateLeadId failed:', e.message);
+  try {
+    const existing = await getLead(params.wa_number, clientId);
+    if (!existing || !existing.lead_id) {
+      const activeFlow = process.env.ACTIVE_FLOW || 'realEstate';
+      const channel  = (params.data && (params.data.channel || params.data._channel)) || params.channel || 'whatsapp';
+      const vertical = params.flow_name || activeFlow;
+      try {
+        const leadId = await generateLeadId(clientId, channel, vertical);
+        params = { ...params, lead_id: leadId, channel, vertical };
+      } catch (e) {
+        console.error('[LeadID] generateLeadId failed:', e.message);
+      }
     }
+    return await _insertLead(params, clientId);
+  } catch (e) {
+    console.error('[InsertLead] Failed for', params.wa_number, ':', e.message);
+    throw e;
   }
-  return _insertLead(params, clientId);
 }
 
 const API = { sendText, sendButtons, sendList, insertLead: insertLeadWithId };
@@ -114,24 +119,25 @@ async function saveOutbound(waNumber, type, content) {
 }
 
 // Wrap the real API to capture the text that gets sent, for accurate message logging
-function makeCaptureAPI() {
+function makeCaptureAPI(baseApi) {
+  const base = baseApi || API;
   let captured = '';
   const api = {
     sendText: async (to, text, ...rest) => {
       captured = text;
-      return API.sendText(to, text, ...rest);
+      return base.sendText(to, text, ...rest);
     },
     sendButtons: async (to, text, buttons, ...rest) => {
       const opts = (buttons || []).map((b, i) => `${i + 1}. ${b.title || b.body || b}`).join('\n');
       captured = `${text}\n\n${opts}`;
-      return API.sendButtons(to, text, buttons, ...rest);
+      return base.sendButtons(to, text, buttons, ...rest);
     },
     // sendList real signature: (to, headerText, bodyText, buttonText, sections)
     sendList: async (to, headerText, bodyText, buttonText, sections, ...rest) => {
       const allRows = (sections || []).flatMap(s => s.rows || []);
       const opts = allRows.map((r, i) => `${i + 1}. ${r.title}`).join('\n');
       captured = `${headerText}\n\n${bodyText}\n\n${opts}`;
-      return API.sendList(to, headerText, bodyText, buttonText, sections, ...rest);
+      return base.sendList(to, headerText, bodyText, buttonText, sections, ...rest);
     },
   };
   return { api, getText: () => captured };
@@ -141,6 +147,14 @@ function makeCaptureAPI() {
 
 async function handleMessage(message) {
   const { from, text, buttonId, listId } = message;
+  const incomingChannel = message.channel || 'whatsapp';
+
+  // Use channel-specific API adapter if provided (e.g. metaApi for FB/IG),
+  // otherwise fall back to the global Twilio API.
+  // Always include insertLead from the global API — it's DB logic, not transport.
+  const effectiveApi = message.api
+    ? { ...message.api, insertLead: API.insertLead }
+    : API;
 
   const rawText = (text || '').trim();
   const inputId = buttonId || listId || null;
@@ -169,10 +183,10 @@ async function handleMessage(message) {
     const existingRow = await getSession(from);
     const lang = existingRow?.language || 'en';
     await clearSession(from);
-    const capMenu = makeCaptureAPI();
+    const capMenu = makeCaptureAPI(effectiveApi);
     await flow.STEPS.START.send(from, {}, capMenu.api, lang);
     await saveOutbound(from, 'text', capMenu.getText() || 'Welcome message');
-    await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
+    await persistSession(from, 'START', { _flowName: flow.FLOW_NAME, _channel: incomingChannel }, lang, false, []);
     return;
   }
 
@@ -189,9 +203,9 @@ async function handleMessage(message) {
       const welcomeMsg = lang === 'ar'
         ? `مرحباً! 👋 شكراً لتواصلك معنا. كيف يمكنني مساعدتك اليوم؟`
         : `Hello! 👋 Welcome! I'm your AI property assistant. How can I help you today?`;
-      await sendText(from, welcomeMsg);
-      await persistSession(from, 'START', { _flowName: flow.FLOW_NAME, referral_agent: agentId, source: 'Referral Link' }, lang, false, []);
-      await flow.STEPS.START.send(from, { referral_agent: agentId }, API, lang);
+      await effectiveApi.sendText(from, welcomeMsg);
+      await persistSession(from, 'START', { _flowName: flow.FLOW_NAME, _channel: incomingChannel, referral_agent: agentId, source: 'Referral Link' }, lang, false, []);
+      await flow.STEPS.START.send(from, { referral_agent: agentId }, effectiveApi, lang);
       return;
     }
 
@@ -205,7 +219,7 @@ async function handleMessage(message) {
       const agency = process.env.CLIENT_NAME || 'Our Agency';
       const startH = process.env.BUSINESS_HOURS_START || '9';
       const endH   = process.env.BUSINESS_HOURS_END   || '18';
-      await sendText(
+      await effectiveApi.sendText(
         from,
         `Thank you for reaching out to ${agency}! 🌙 ` +
         `Our team is available ${startH}am–${endH === '18' ? '6' : endH}pm UAE time (Mon–Sat). ` +
@@ -214,10 +228,10 @@ async function handleMessage(message) {
       );
     }
 
-    const capStart = makeCaptureAPI();
+    const capStart = makeCaptureAPI(effectiveApi);
     await flow.STEPS.START.send(from, {}, capStart.api, lang);
     await saveOutbound(from, 'text', capStart.getText() || 'Welcome message');
-    await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
+    await persistSession(from, 'START', { _flowName: flow.FLOW_NAME, _channel: incomingChannel }, lang, false, []);
     return;
   }
 
@@ -233,7 +247,7 @@ async function handleMessage(message) {
     try {
       const aiReply = await getAIResponse(from, rawText, collectedData, updatedHistory, language);
       if (aiReply) {
-        await sendText(from, aiReply);
+        await effectiveApi.sendText(from, aiReply);
         await saveOutbound(from, 'text', aiReply);
         updatedHistory.push({ role: 'assistant', content: aiReply });
         await persistSession(from, currentStep, collectedData, language, true, updatedHistory.slice(-20));
@@ -242,7 +256,7 @@ async function handleMessage(message) {
     } catch (err) {
       console.error('[AI Mode] Error:', err.message);
     }
-    await sendText(from, language === 'ar'
+    await effectiveApi.sendText(from, language === 'ar'
       ? 'عذراً، حدث خطأ. يرجى المحاولة مرة أخرى أو كتابة "menu".'
       : 'Sorry, something went wrong. Please try again or type "menu".');
     return;
@@ -258,7 +272,7 @@ async function handleMessage(message) {
     // Corrupted session — reset
     await clearSession(from);
     const lang = language || 'en';
-    await flow.STEPS.START.send(from, {}, API, lang);
+    await flow.STEPS.START.send(from, {}, effectiveApi, lang);
     await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, lang, false, []);
     return;
   }
@@ -290,7 +304,7 @@ async function handleMessage(message) {
   }
 
   if (!inputValid) {
-    await stepDef.send(from, collectedData, API, language);
+    await stepDef.send(from, collectedData, effectiveApi, language);
     if (language !== savedLang) {
       await persistSession(from, currentStep, collectedData, language, aiMode, aiHistory);
     }
@@ -343,7 +357,7 @@ async function handleMessage(message) {
     const confirmMsg = language === 'ar'
       ? `✅ *تم تأكيد الموعد!*\n\n📅 التاريخ: ${dateDisplay}\n⏰ الوقت: ${timeSlot}\n👤 سيتصل بك خبيرنا على: +${from}\n\nسنرسل لك تذكيراً قبل ساعة من الموعد.`
       : `✅ *Appointment Confirmed!*\n\n📅 Date: ${dateDisplay}\n⏰ Time: ${timeSlot}\n👤 Our expert will call you at: +${from}\n\nWe'll send you a reminder 1 hour before.\n\nIs there anything specific you'd like to discuss?\nReply with your message or type 'menu' anytime.`;
-    await sendText(from, confirmMsg);
+    await effectiveApi.sendText(from, confirmMsg);
     await saveOutbound(from, 'text', confirmMsg);
 
     // Save appointment and notify agent (non-blocking on failures)
@@ -374,7 +388,7 @@ async function handleMessage(message) {
 
     // Proceed to COMPLETE flow
     const score = calculateScore(newData);
-    await flow.onComplete(from, newData, API, { language, score });
+    await flow.onComplete(from, newData, effectiveApi, { language, score });
     const leadSnap = { ...newData, wa_number: from, score };
     createZohoLead(leadSnap).catch(() => {});
     sendLeadEmail({ wa_number: from, score, language }, newData).catch(() => {});
@@ -394,7 +408,7 @@ async function handleMessage(message) {
       newData.originalTranscript = rawText;
     }
     const score = calculateScore(newData);
-    await flow.onComplete(from, newData, API, { language, score });
+    await flow.onComplete(from, newData, effectiveApi, { language, score });
 
     // Fire integrations (non-blocking)
     const leadSnap = { ...newData, wa_number: from, score };
@@ -422,7 +436,7 @@ async function handleMessage(message) {
       const listings = await matchListings(newData);
       const msg = formatListingMessage(listings);
       if (msg) {
-        await sendText(from, msg);
+        await effectiveApi.sendText(from, msg);
         await saveOutbound(from, 'text', msg);
       }
     } catch (_) {}
@@ -441,11 +455,11 @@ async function handleMessage(message) {
   const nextDef = flow.STEPS[nextStep];
   if (!nextDef || !nextDef.send) {
     console.error(`[Flow] ERROR: step "${nextStep}" not found. Resetting to START.`);
-    await flow.STEPS.START.send(from, {}, API, language);
+    await flow.STEPS.START.send(from, {}, effectiveApi, language);
     await persistSession(from, 'START', { _flowName: flow.FLOW_NAME }, language, false, []);
     return;
   }
-  const capNext = makeCaptureAPI();
+  const capNext = makeCaptureAPI(effectiveApi);
   await nextDef.send(from, newData, capNext.api, language);
   await saveOutbound(from, 'text', capNext.getText() || `Step: ${nextStep}`);
   try {

@@ -2518,9 +2518,24 @@ app.post('/webhook/meta', async (req, res) => {
       const messaging = entry.messaging || entry.changes || [];
       for (const event of messaging) {
         if (event.message && event.sender) {
+          // Extract quick reply payload (button tap) or plain text
+          const quickReply = event.message?.quick_reply;
+          const rawText = quickReply
+            ? (quickReply.payload || quickReply.title || event.message.text || '')
+            : (event.message.text || '');
           await handleMetaMessage({
             senderId: event.sender.id,
-            text: event.message.text || '',
+            text: rawText,
+            channel: body.object === 'instagram' ? 'instagram' : 'facebook',
+            pageId: entry.id,
+            timestamp: event.timestamp
+          });
+        }
+        // Handle template button postbacks
+        if (event.postback && event.sender) {
+          await handleMetaMessage({
+            senderId: event.sender.id,
+            text: event.postback.payload || event.postback.title || '',
             channel: body.object === 'instagram' ? 'instagram' : 'facebook',
             pageId: entry.id,
             timestamp: event.timestamp
@@ -2556,27 +2571,29 @@ async function handleMetaMessage({ senderId, text, channel, pageId, timestamp })
   try {
     const clientId = await getClientIdByPageId(pageId) || 'default';
     const activeFlow = process.env.ACTIVE_FLOW || 'realEstate';
-    const Lead = require('./db/models/Lead');
-    let lead = await Lead.findOne({ wa_number: senderId, client_id: clientId }).lean();
-    if (!lead) {
-      const leadId = await db.generateLeadId(clientId, channel, activeFlow);
-      lead = await Lead.create({
-        client_id: clientId, lead_id: leadId, wa_number: senderId,
-        channel, vertical: activeFlow, source: channel,
-        pipeline_stage: 'new_lead', score: 1, score_label: 'COLD',
-        language: 'English', created_at: new Date(), updated_at: new Date()
-      });
-      console.log(`[Meta] New ${channel} lead: ${leadId}`);
-      await sendMetaMessage(senderId, pageId, channel,
-        "Hi! Thanks for reaching out. I'm your AI assistant. How can I help you today?");
-    }
+
+    console.log(`[Meta ${channel}] Message from ${senderId}: "${text.substring(0, 50)}"`);
+
+    const metaApi = require('./whatsapp/metaApi');
+    await metaApi.markSeen(senderId);
+    await metaApi.sendTyping(senderId);
+
+    // Save inbound message
     await db.saveMessage(senderId, 'inbound', 'text', text, null, clientId);
-    await Lead.findOneAndUpdate(
-      { wa_number: senderId, client_id: clientId },
-      { $set: { updated_at: new Date() } }
-    );
+
+    // Route through the same flow engine as WhatsApp
+    await handleMessage({
+      from:        senderId,
+      text:        text,
+      buttonId:    null,
+      listId:      null,
+      clientId:    clientId,
+      channel:     channel,   // ← 'facebook' or 'instagram' for correct lead_id suffix
+      api:         metaApi,   // ← use Meta adapter instead of Twilio
+    });
+
   } catch(e) {
-    console.error('[handleMetaMessage]', e.message);
+    console.error('[handleMetaMessage]', e.message, e.stack);
   }
 }
 

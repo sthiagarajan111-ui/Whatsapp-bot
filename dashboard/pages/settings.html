@@ -340,13 +340,13 @@
       <!-- Section C: Simulator -->
       <div class="stg-divider">SIMULATOR (Test without real connections)</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-        <button onclick="simulateFBLead()"
+        <button onclick="simulateFBConversation()"
           style="padding:9px 18px;background:#eff3ff;color:#1877F2;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
-          📘 Simulate Facebook Lead
+          📘 Simulate FB Conversation
         </button>
-        <button onclick="simulateIGLead()"
+        <button onclick="simulateIGConversation()"
           style="padding:9px 18px;background:#fdf0f5;color:#E1306C;border:1px solid #fbcfe8;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
-          📸 Simulate Instagram Lead
+          📸 Simulate IG Conversation
         </button>
         <button onclick="simulateWebLead()"
           style="padding:9px 18px;background:#eff6ff;color:#4F86C6;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
@@ -1053,27 +1053,33 @@ if (!window.__clientId) {
     window.open(`${base}/embed/lead-form.html?client=${clientId}&vertical=${vertical}`, '_blank');
   };
 
-  window.simulateFBLead = async function() {
-    try {
-      await shared.apiFetch('/webhook/meta/simulate', {
+  async function runMetaConversation(channel, phone) {
+    const messages = ['Hi', '1', 'Ahmed', '1', '500k-1m', 'Dubai Marina'];
+    const simResult = document.getElementById('sim-result');
+    if (simResult) simResult.textContent = `Running ${channel} conversation (${messages.length} messages)...`;
+    for (const msg of messages) {
+      await fetch('/webhook/meta/simulate', {
         method: 'POST',
-        body: JSON.stringify({ channel: 'facebook', name: 'Test FB User',
-          message: 'Hi, I am interested in your properties',
-          phone: '971509' + Math.floor(Math.random()*1000000) })
+        headers: { 'Content-Type': 'application/json', 'x-client-id': window.__clientId || 'default' },
+        body: JSON.stringify({ channel, message: msg, phone })
       });
-      shared.showToast('Facebook lead simulated! Check Pipeline.');
+      await new Promise(r => setTimeout(r, 600));
+    }
+    shared.showToast(`${channel} conversation simulated — check Pipeline and Conversations!`);
+    if (simResult) simResult.textContent = `Done. ${channel} lead ${phone} — check Pipeline.`;
+  }
+
+  window.simulateFBConversation = async function() {
+    try {
+      const phone = '971506' + String(Math.floor(Math.random()*9000000) + 1000000);
+      await runMetaConversation('facebook', phone);
     } catch(e) { shared.showToast('Simulation failed: ' + e.message, 'error'); }
   };
 
-  window.simulateIGLead = async function() {
+  window.simulateIGConversation = async function() {
     try {
-      await shared.apiFetch('/webhook/meta/simulate', {
-        method: 'POST',
-        body: JSON.stringify({ channel: 'instagram', name: 'Test IG User',
-          message: 'Saw your property on Instagram, interested!',
-          phone: '971508' + Math.floor(Math.random()*1000000) })
-      });
-      shared.showToast('Instagram lead simulated! Check Pipeline.');
+      const phone = '971505' + String(Math.floor(Math.random()*9000000) + 1000000);
+      await runMetaConversation('instagram', phone);
     } catch(e) { shared.showToast('Simulation failed: ' + e.message, 'error'); }
   };
 
