@@ -21,7 +21,13 @@
       "Bash(xargs -I{} wmic process where \"processid={}\" delete)",
       "Bash(ls:*)",
       "Bash(npx kill-port 3000)",
-      "Bash(xargs -r taskkill //F //PID)"
+      "Bash(xargs -r taskkill //F //PID)",
+      "Bash(PORT=3007 timeout 12 node:*)",
+      "Bash(PORT=3008 timeout 12 node:*)",
+      "Bash(PORT=3010 timeout 12 node:*)",
+      "Bash(PORT=3001 timeout 8 node:*)",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)"
     ]
   }
 }

@@ -738,6 +738,7 @@ app.get('/dashboard/css/:file', (req, res) => {
 });
 app.use('/dashboard', express.static(path.join(__dirname, 'dashboard')));
 app.use('/recordings', express.static(path.join(__dirname, 'public', 'recordings')));
+app.use('/embed', express.static(path.join(__dirname, 'public', 'embed')));
 
 // ── API: conversations ────────────────────────────────────────────────────────
 app.get('/api/conversations', async (req, res) => {
@@ -2487,6 +2488,224 @@ app.post('/api/recordings/:id/star', async (req, res) => {
     await Recording.findByIdAndUpdate(req.params.id, { starred: req.body.starred });
     res.json({ success: true });
   } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Meta webhook verification (GET) ──────────────────────────────────────────
+app.get('/webhook/meta', (req, res) => {
+  const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'axyren_verify_2026';
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log('[Meta] Webhook verified');
+    res.status(200).send(challenge);
+  } else {
+    console.error('[Meta] Webhook verification failed');
+    res.sendStatus(403);
+  }
+});
+
+// ── Meta webhook events (POST) ────────────────────────────────────────────────
+app.post('/webhook/meta', async (req, res) => {
+  res.sendStatus(200);
+  try {
+    const body = req.body;
+    if (!body || (body.object !== 'page' && body.object !== 'instagram')) return;
+    const entries = body.entry || [];
+    for (const entry of entries) {
+      const messaging = entry.messaging || entry.changes || [];
+      for (const event of messaging) {
+        if (event.message && event.sender) {
+          await handleMetaMessage({
+            senderId: event.sender.id,
+            text: event.message.text || '',
+            channel: body.object === 'instagram' ? 'instagram' : 'facebook',
+            pageId: entry.id,
+            timestamp: event.timestamp
+          });
+        }
+        if (event.value && event.value.messages) {
+          for (const msg of event.value.messages) {
+            await handleMetaMessage({
+              senderId: msg.from.id,
+              text: msg.text?.body || '',
+              channel: 'instagram',
+              pageId: entry.id,
+              timestamp: msg.timestamp
+            });
+          }
+        }
+        if (event.changes) {
+          for (const change of event.changes) {
+            if (change.field === 'leadgen') {
+              await handleLeadAdSubmission(change.value);
+            }
+          }
+        }
+      }
+    }
+  } catch(e) {
+    console.error('[Meta Webhook]', e.message);
+  }
+});
+
+async function handleMetaMessage({ senderId, text, channel, pageId, timestamp }) {
+  if (!senderId || !text) return;
+  try {
+    const clientId = await getClientIdByPageId(pageId) || 'default';
+    const activeFlow = process.env.ACTIVE_FLOW || 'realEstate';
+    const Lead = require('./db/models/Lead');
+    let lead = await Lead.findOne({ wa_number: senderId, client_id: clientId }).lean();
+    if (!lead) {
+      const leadId = await db.generateLeadId(clientId, channel, activeFlow);
+      lead = await Lead.create({
+        client_id: clientId, lead_id: leadId, wa_number: senderId,
+        channel, vertical: activeFlow, source: channel,
+        pipeline_stage: 'new_lead', score: 1, score_label: 'COLD',
+        language: 'English', created_at: new Date(), updated_at: new Date()
+      });
+      console.log(`[Meta] New ${channel} lead: ${leadId}`);
+      await sendMetaMessage(senderId, pageId, channel,
+        "Hi! Thanks for reaching out. I'm your AI assistant. How can I help you today?");
+    }
+    await db.saveMessage(senderId, 'inbound', 'text', text, null, clientId);
+    await Lead.findOneAndUpdate(
+      { wa_number: senderId, client_id: clientId },
+      { $set: { updated_at: new Date() } }
+    );
+  } catch(e) {
+    console.error('[handleMetaMessage]', e.message);
+  }
+}
+
+async function handleLeadAdSubmission(value) {
+  try {
+    const { leadgen_id, page_id, form_id } = value;
+    const token = process.env.META_PAGE_ACCESS_TOKEN;
+    if (!token) { console.warn('[LeadAds] No META_PAGE_ACCESS_TOKEN set'); return; }
+    const response = await fetch(
+      `https://graph.facebook.com/v18.0/${leadgen_id}?access_token=${token}`
+    );
+    const leadData = await response.json();
+    if (!leadData.field_data) return;
+    const fields = {};
+    leadData.field_data.forEach(f => { fields[f.name.toLowerCase()] = f.values?.[0] || ''; });
+    const clientId = await getClientIdByPageId(page_id) || 'default';
+    const activeFlow = process.env.ACTIVE_FLOW || 'realEstate';
+    const Lead = require('./db/models/Lead');
+    const phone = fields.phone_number || fields.phone || fields.mobile || '';
+    const waNumber = phone.replace(/\D/g, '');
+    if (!waNumber) return;
+    const leadId = await db.generateLeadId(clientId, 'facebook', activeFlow);
+    await Lead.findOneAndUpdate(
+      { wa_number: waNumber, client_id: clientId },
+      {
+        $setOnInsert: {
+          client_id: clientId, lead_id: leadId, wa_number: waNumber,
+          name: fields.full_name || fields.name || '', email: fields.email || '',
+          phone, channel: 'facebook', source: 'facebook-lead-ad',
+          vertical: activeFlow, pipeline_stage: 'new_lead',
+          score: 2, score_label: 'COLD', created_at: new Date()
+        },
+        $set: { updated_at: new Date() }
+      },
+      { upsert: true, returnDocument: 'after' }
+    );
+    await db.saveMessage(waNumber, 'inbound', 'text',
+      `Facebook Lead Ad submission - Name: ${fields.full_name || ''}, Email: ${fields.email || ''}`,
+      null, clientId);
+    console.log(`[LeadAds] New lead from form: ${leadId}`);
+  } catch(e) {
+    console.error('[handleLeadAdSubmission]', e.message);
+  }
+}
+
+async function sendMetaMessage(recipientId, pageId, channel, text) {
+  const token = process.env.META_PAGE_ACCESS_TOKEN;
+  if (!token) return;
+  try {
+    const url = channel === 'instagram'
+      ? 'https://graph.facebook.com/v18.0/me/messages'
+      : `https://graph.facebook.com/v18.0/${pageId}/messages`;
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ recipient: { id: recipientId }, message: { text }, messaging_type: 'RESPONSE' })
+    });
+  } catch(e) {
+    console.error('[sendMetaMessage]', e.message);
+  }
+}
+
+async function getClientIdByPageId(pageId) {
+  if (process.env.META_PAGE_ID && pageId === process.env.META_PAGE_ID) {
+    return process.env.CLIENT_ID || 'default';
+  }
+  return 'default';
+}
+
+// ── Meta: test simulator ──────────────────────────────────────────────────────
+app.post('/webhook/meta/simulate', async (req, res) => {
+  const { channel, name, message, phone } = req.body;
+  const fakeId = phone || ('sim_' + Date.now());
+  await handleMetaMessage({
+    senderId: fakeId,
+    text: message || 'Hi, I am interested in a property',
+    channel: channel || 'facebook',
+    pageId: process.env.META_PAGE_ID || 'test_page',
+    timestamp: Date.now()
+  });
+  res.json({ success: true, simulated_id: fakeId, channel });
+});
+
+// ── Web form submission endpoint ──────────────────────────────────────────────
+app.options('/api/leads/web-form', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-client-id');
+  res.sendStatus(200);
+});
+
+app.post('/api/leads/web-form', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-client-id');
+  try {
+    const clientId = req.headers['x-client-id'] || req.body.client_id || 'default';
+    const activeFlow = req.body.vertical || process.env.ACTIVE_FLOW || 'realEstate';
+    const Lead = require('./db/models/Lead');
+    const { name, phone, email, message, source, intent, property_type, budget, area_interest } = req.body;
+    if (!name || !phone) return res.status(400).json({ error: 'Name and phone are required' });
+    const waNumber = phone.replace(/\D/g, '');
+    const leadId = await db.generateLeadId(clientId, 'web', activeFlow);
+    let score = 2;
+    if (budget && budget !== '') score += 1;
+    if (intent && ['buy','invest'].includes(intent)) score += 1;
+    if (area_interest && area_interest.trim()) score += 1;
+    score = Math.min(score, 7);
+    const scoreLabel = score >= 7 ? 'HOT' : score >= 4 ? 'WARM' : 'COLD';
+    const leadDoc = {
+      client_id: clientId, lead_id: leadId, wa_number: waNumber, name, phone,
+      email: email || '', channel: 'web', source: source || 'website-form',
+      vertical: activeFlow, intent: intent || '', property_type: property_type || '',
+      budget: budget || '', area_interest: area_interest || '', notes: message || '',
+      score, score_label: scoreLabel,
+      pipeline_stage: score >= 7 ? 'qualified_hot' : score >= 4 ? 'qualified_warm' : 'new_lead',
+      entry_method: 'web', created_at: new Date(), updated_at: new Date()
+    };
+    await Lead.findOneAndUpdate(
+      { wa_number: waNumber, client_id: clientId },
+      { $setOnInsert: leadDoc, $set: { updated_at: new Date() } },
+      { upsert: true, returnDocument: 'after' }
+    );
+    await db.saveMessage(waNumber, 'inbound', 'text',
+      `Website enquiry — ${name}. ${message || ''}`.trim(), null, clientId);
+    console.log(`[WebForm] New lead: ${leadId}`);
+    res.json({ success: true, lead_id: leadId, score, score_label: scoreLabel });
+  } catch(e) {
+    console.error('[WebForm]', e.message);
     res.status(500).json({ error: e.message });
   }
 });

@@ -127,6 +127,19 @@ if (!window.__clientId) {
     }
   };
 
+  function getChannelBadge(channel) {
+    const badges = {
+      'whatsapp':  { icon: '💬', color: '#15803d', bg: '#f0fdf4' },
+      'facebook':  { icon: '📘', color: '#1877F2', bg: '#eff3ff' },
+      'instagram': { icon: '📸', color: '#E1306C', bg: '#fdf0f5' },
+      'web':       { icon: '🌐', color: '#4F86C6', bg: '#eff6ff' },
+      'phone':     { icon: '📞', color: '#b45309', bg: '#fffbeb' },
+      'walkin':    { icon: '🚶', color: '#64748b', bg: '#f1f5f9' },
+    };
+    const b = badges[channel] || badges['whatsapp'];
+    return `<span class="badge" style="background:${b.bg};color:${b.color};font-size:10px">${b.icon}</span>`;
+  }
+
   function formatMillions(v) {
     if (!v) return 'AED 0.0M';
     if (v >= 1e6) return 'AED ' + (v / 1e6).toFixed(1) + 'M';
@@ -161,7 +174,7 @@ if (!window.__clientId) {
           <div class="card-tags">
             ${shared.scoreBadge(l.score)}
             ${l.language==='ar'?'<span class="badge badge-purple">AR</span>':''}
-            ${d.source==='voice'?'<span class="badge badge-cyan">🎙️</span>':''}
+            ${getChannelBadge(l.channel)}
           </div>
           <div class="card-time">${shared.timeAgo(l.created_at)}</div>
         </div>`;

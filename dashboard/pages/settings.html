@@ -122,6 +122,7 @@
     <div class="stg-nav-title">Settings</div>
     <div class="settings-nav-item active" onclick="showTab('bot')" data-tab="bot">🤖 Bot Config</div>
     <div class="settings-nav-item" onclick="showTab('whatsapp')" data-tab="whatsapp">📱 WhatsApp</div>
+    <div class="settings-nav-item" onclick="showTab('integrations')" data-tab="integrations">🔗 Integrations</div>
     <div class="settings-nav-item" onclick="showTab('flow')" data-tab="flow">⚡ Flow</div>
     <div class="settings-nav-item" onclick="showTab('notifications')" data-tab="notifications">🔔 Notifications</div>
     <div class="settings-nav-item" onclick="showTab('listings')" data-tab="listings">🏠 Listings</div>
@@ -244,6 +245,115 @@
       <div class="stg-save-bar">
         <button class="stg-save-btn" onclick="saveWAConfig()">Save</button>
       </div>
+    </div>
+
+    <!-- ── Integrations ── -->
+    <div class="settings-section" id="tab-integrations">
+      <div class="stg-page-title">Integrations</div>
+      <div class="stg-page-sub">Facebook, Instagram and Website embed lead capture</div>
+
+      <!-- Section A: Facebook / Instagram -->
+      <div class="stg-divider">FACEBOOK / INSTAGRAM</div>
+      <div class="form-group" style="margin-bottom:8px">
+        <label>Connection Status</label>
+        <div style="margin-top:4px" id="meta-status-badge">
+          <span style="display:inline-block;padding:3px 10px;border-radius:3px;font-size:11px;font-weight:700;background:#fef2f2;color:#dc2626">● Not Connected</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Meta Page Access Token</label>
+        <div class="pw-wrap">
+          <input id="s-meta-token" placeholder="EAAx..." type="password" style="max-width:400px">
+          <button type="button" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password';this.textContent=this.previousElementSibling.type==='password'?'👁':'🙈'">👁</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Meta Page ID</label>
+        <input id="s-meta-page-id" placeholder="123456789012345" style="max-width:400px">
+      </div>
+      <div class="form-group">
+        <label>Meta App ID</label>
+        <input id="s-meta-app-id" placeholder="1609035473486028" value="1609035473486028" style="max-width:400px">
+      </div>
+      <div class="form-group">
+        <label>Instagram Account ID</label>
+        <input id="s-ig-account-id" placeholder="17841400000000000" style="max-width:400px">
+      </div>
+      <div class="form-group">
+        <label>Webhook Verify Token</label>
+        <input id="s-meta-verify-token" value="axyren_verify_2026" style="max-width:400px">
+      </div>
+      <div class="form-group">
+        <label>Webhook URL (copy into Meta console)</label>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:10px 14px;
+          font-family:monospace;font-size:12px;color:#4F86C6;display:flex;justify-content:space-between;align-items:center;max-width:560px">
+          <span id="webhook-url-display"></span>
+          <button onclick="copyWebhookUrl()" style="font-size:11px;padding:3px 8px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;cursor:pointer;flex-shrink:0;margin-left:10px">Copy</button>
+        </div>
+      </div>
+      <details style="margin-bottom:16px;max-width:560px">
+        <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#64748b;padding:8px 0">▶ Setup Instructions</summary>
+        <ol style="font-size:12px;color:#64748b;margin:10px 0 0 18px;line-height:2">
+          <li>Go to developers.facebook.com → your Axyren Bot app</li>
+          <li>Add WhatsApp product → API Setup → copy token</li>
+          <li>Paste token above and save</li>
+          <li>In Meta console, set Webhook URL to the URL shown above</li>
+          <li>Set Verify Token to: <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px">axyren_verify_2026</code></li>
+          <li>Subscribe to: messages, messaging_postbacks, leadgen events</li>
+        </ol>
+      </details>
+
+      <!-- Section B: Website Embed -->
+      <div class="stg-divider">WEBSITE EMBED FORM</div>
+      <div class="form-group">
+        <label>Form Title</label>
+        <input id="embed-title" value="Get In Touch" style="max-width:400px" oninput="updateEmbedCode()">
+      </div>
+      <div class="form-group">
+        <label>Form Subtitle</label>
+        <input id="embed-sub" value="Fill in your details and we'll get back to you shortly." style="max-width:400px" oninput="updateEmbedCode()">
+      </div>
+      <div class="form-group">
+        <label>Primary Color</label>
+        <input type="color" id="embed-color" value="#4F86C6" oninput="updateEmbedCode()" style="width:60px;height:36px;padding:2px;border:1px solid #e2e8f0;border-radius:4px;cursor:pointer">
+      </div>
+      <div class="form-group">
+        <label>Vertical</label>
+        <select id="embed-vertical" style="max-width:200px" onchange="updateEmbedCode()">
+          <option value="realEstate">Real Estate</option>
+          <option value="restaurant">Restaurant</option>
+          <option value="clinic">Clinic</option>
+          <option value="retail">Retail</option>
+          <option value="salon">Salon</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Generated Embed Code</label>
+        <textarea id="embed-code" rows="4" readonly
+          style="width:100%;max-width:560px;font-family:monospace;font-size:11px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:10px 12px;color:#1e293b;resize:vertical"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button onclick="copyEmbedCode()" style="padding:7px 16px;background:#4F86C6;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer">Copy Code</button>
+          <button onclick="previewEmbedForm()" style="padding:7px 16px;background:#fff;color:#4F86C6;border:1px solid #4F86C6;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer">Live Preview</button>
+        </div>
+      </div>
+
+      <!-- Section C: Simulator -->
+      <div class="stg-divider">SIMULATOR (Test without real connections)</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+        <button onclick="simulateFBLead()"
+          style="padding:9px 18px;background:#eff3ff;color:#1877F2;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
+          📘 Simulate Facebook Lead
+        </button>
+        <button onclick="simulateIGLead()"
+          style="padding:9px 18px;background:#fdf0f5;color:#E1306C;border:1px solid #fbcfe8;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
+          📸 Simulate Instagram Lead
+        </button>
+        <button onclick="simulateWebLead()"
+          style="padding:9px 18px;background:#eff6ff;color:#4F86C6;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">
+          🌐 Simulate Website Lead
+        </button>
+      </div>
+      <div id="sim-result" style="font-size:12px;color:#64748b"></div>
     </div>
 
     <!-- ── Flow ── -->
@@ -907,6 +1017,80 @@ if (!window.__clientId) {
   window.updateLeadIdPreview = updateLeadIdPreview;
 
   await loadSettings();
+
+  // ── Integrations tab functions ───────────────────────────────────────────
+  // Set webhook URL
+  const whu = document.getElementById('webhook-url-display');
+  if (whu) whu.textContent = window.location.origin + '/webhook/meta';
+
+  window.copyWebhookUrl = function() {
+    const url = window.location.origin + '/webhook/meta';
+    navigator.clipboard.writeText(url).then(() => shared.showToast('Webhook URL copied!'));
+  };
+
+  window.updateEmbedCode = function() {
+    const title = document.getElementById('embed-title')?.value || 'Get In Touch';
+    const color = document.getElementById('embed-color')?.value || '#4F86C6';
+    const vertical = document.getElementById('embed-vertical')?.value || 'realEstate';
+    const clientId = window.__clientId || 'default';
+    const base = window.location.origin;
+    const src = `${base}/embed/lead-form.html?client=${encodeURIComponent(clientId)}&vertical=${vertical}&title=${encodeURIComponent(title)}&color=${encodeURIComponent(color)}`;
+    const code = `<iframe\n  src="${src}"\n  width="100%" height="600" frameborder="0"\n  style="border:none;border-radius:8px">\n</iframe>`;
+    const el = document.getElementById('embed-code');
+    if (el) el.value = code;
+  };
+  window.updateEmbedCode(); // init
+
+  window.copyEmbedCode = function() {
+    const code = document.getElementById('embed-code')?.value || '';
+    navigator.clipboard.writeText(code).then(() => shared.showToast('Embed code copied!'));
+  };
+
+  window.previewEmbedForm = function() {
+    const vertical = document.getElementById('embed-vertical')?.value || 'realEstate';
+    const clientId = window.__clientId || 'default';
+    const base = window.location.origin;
+    window.open(`${base}/embed/lead-form.html?client=${clientId}&vertical=${vertical}`, '_blank');
+  };
+
+  window.simulateFBLead = async function() {
+    try {
+      await shared.apiFetch('/webhook/meta/simulate', {
+        method: 'POST',
+        body: JSON.stringify({ channel: 'facebook', name: 'Test FB User',
+          message: 'Hi, I am interested in your properties',
+          phone: '971509' + Math.floor(Math.random()*1000000) })
+      });
+      shared.showToast('Facebook lead simulated! Check Pipeline.');
+    } catch(e) { shared.showToast('Simulation failed: ' + e.message, 'error'); }
+  };
+
+  window.simulateIGLead = async function() {
+    try {
+      await shared.apiFetch('/webhook/meta/simulate', {
+        method: 'POST',
+        body: JSON.stringify({ channel: 'instagram', name: 'Test IG User',
+          message: 'Saw your property on Instagram, interested!',
+          phone: '971508' + Math.floor(Math.random()*1000000) })
+      });
+      shared.showToast('Instagram lead simulated! Check Pipeline.');
+    } catch(e) { shared.showToast('Simulation failed: ' + e.message, 'error'); }
+  };
+
+  window.simulateWebLead = async function() {
+    try {
+      const res = await fetch('/api/leads/web-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-client-id': window.__clientId || 'default' },
+        body: JSON.stringify({ name: 'Test Web User',
+          phone: '971507' + Math.floor(Math.random()*1000000),
+          email: 'test@example.com', message: 'Enquiry from website',
+          channel: 'web', intent: 'buy', budget: '1m-2m', area_interest: 'Dubai Marina' })
+      });
+      const data = await res.json();
+      shared.showToast('Website lead simulated — ID: ' + data.lead_id);
+    } catch(e) { shared.showToast('Simulation failed: ' + e.message, 'error'); }
+  };
 
   // Agent name — restore from localStorage
   window.updateAgentName = function(name) {

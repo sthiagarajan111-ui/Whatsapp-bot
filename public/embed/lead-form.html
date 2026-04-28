@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact Us</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: transparent; }
+
+  .form-wrap {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 28px;
+    max-width: 480px;
+    margin: 0 auto;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+
+  .form-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 4px;
+  }
+
+  .form-sub {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-bottom: 24px;
+  }
+
+  .field { margin-bottom: 16px; }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #94a3b8;
+    margin-bottom: 6px;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    outline: none;
+    font-family: inherit;
+    color: #1e293b;
+    transition: border-color 0.15s;
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    border-color: #4F86C6;
+    box-shadow: 0 0 0 3px rgba(79,134,198,0.1);
+  }
+
+  .field-row { display: flex; gap: 12px; }
+  .field-row .field { flex: 1; }
+
+  .submit-btn {
+    width: 100%;
+    padding: 12px;
+    background: #4F86C6;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background 0.15s;
+  }
+
+  .submit-btn:hover { background: #3b6fa8; }
+  .submit-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+  .success-msg {
+    display: none;
+    text-align: center;
+    padding: 32px 20px;
+  }
+
+  .success-icon { font-size: 48px; margin-bottom: 12px; }
+  .success-title { font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+  .success-sub { font-size: 14px; color: #64748b; }
+
+  .privacy-note {
+    font-size: 11px;
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+
+  .powered-by {
+    text-align: center;
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 16px;
+  }
+
+  .powered-by a { color: #4F86C6; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="form-wrap">
+  <div id="form-content">
+    <div class="form-title" id="form-title">Get In Touch</div>
+    <div class="form-sub" id="form-sub">Fill in your details and we'll get back to you shortly.</div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>First Name *</label>
+        <input type="text" id="wf-name" placeholder="Ahmed" required>
+      </div>
+      <div class="field">
+        <label>Phone / WhatsApp *</label>
+        <input type="tel" id="wf-phone" placeholder="+971 5X XXX XXXX" required>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="wf-email" placeholder="ahmed@email.com">
+    </div>
+
+    <div id="flow-fields">
+      <!-- Loaded dynamically based on vertical -->
+    </div>
+
+    <div class="field">
+      <label>Message / Notes</label>
+      <textarea id="wf-message" rows="3" placeholder="Tell us more about what you're looking for..."></textarea>
+    </div>
+
+    <button class="submit-btn" id="submit-btn" onclick="submitWebForm()">
+      Send Enquiry &rarr;
+    </button>
+
+    <p class="privacy-note">
+      Your information is secure and will only be used to assist with your enquiry.
+    </p>
+    <p class="powered-by">Powered by <a href="#" target="_blank">Axyren</a></p>
+  </div>
+
+  <div class="success-msg" id="success-msg">
+    <div class="success-icon">&#10003;</div>
+    <div class="success-title">Thank you!</div>
+    <div class="success-sub">We've received your enquiry and will be in touch shortly.</div>
+  </div>
+</div>
+
+<script>
+// Config — injected by server or set via URL params
+const params = new URLSearchParams(window.location.search);
+const CLIENT_ID = params.get('client') || 'default';
+const VERTICAL = params.get('vertical') || 'realEstate';
+const API_BASE = params.get('api') || window.location.origin;
+const FORM_TITLE = params.get('title') || 'Get In Touch';
+const FORM_SUB = params.get('sub') || "Fill in your details and we'll get back to you shortly.";
+const PRIMARY_COLOR = params.get('color') || '#4F86C6';
+
+// Apply customisation
+document.getElementById('form-title').textContent = FORM_TITLE;
+document.getElementById('form-sub').textContent = FORM_SUB;
+document.querySelector('.submit-btn').style.background = PRIMARY_COLOR;
+
+// Flow-specific fields
+const flowFields = {
+  realEstate: [
+    { id:'intent', label:'I want to', type:'select', options:['Buy','Rent','Invest','Sell'] },
+    { id:'property_type', label:'Property Type', type:'select', options:['Apartment','Villa','Townhouse','Studio','Penthouse'] },
+    { id:'budget', label:'Budget (AED)', type:'select', options:['Under 500K','500K–1M','1M–2M','2M–5M','Above 5M'] },
+    { id:'area', label:'Preferred Area', type:'text', placeholder:'e.g. Dubai Marina' },
+  ],
+  restaurant: [
+    { id:'party_size', label:'Party Size', type:'select', options:['1-2','3-5','6-10','10+'] },
+    { id:'occasion', label:'Occasion', type:'select', options:['Regular dining','Birthday','Anniversary','Business','Private event'] },
+    { id:'date_pref', label:'Preferred Date', type:'date' },
+  ],
+  clinic: [
+    { id:'reason', label:'Reason for Visit', type:'text', placeholder:'Brief description' },
+    { id:'urgency', label:'Urgency', type:'select', options:['Emergency','Today','This week','Routine checkup'] },
+  ]
+};
+
+const fields = flowFields[VERTICAL] || flowFields.realEstate;
+const container = document.getElementById('flow-fields');
+container.innerHTML = fields.map(f => `
+  <div class="field">
+    <label>${f.label}</label>
+    ${f.type === 'select' ? `
+      <select id="wf-${f.id}">
+        <option value="">Select...</option>
+        ${f.options.map(o => `<option value="${o.toLowerCase().replace(/[^a-z0-9]/g,'-')}">${o}</option>`).join('')}
+      </select>
+    ` : f.type === 'date' ? `
+      <input type="date" id="wf-${f.id}">
+    ` : `
+      <input type="text" id="wf-${f.id}" placeholder="${f.placeholder||''}">
+    `}
+  </div>
+`).join('');
+
+async function submitWebForm() {
+  const name = document.getElementById('wf-name')?.value?.trim();
+  const phone = document.getElementById('wf-phone')?.value?.trim();
+
+  if (!name || !phone) {
+    alert('Please fill in your name and phone number.');
+    return;
+  }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  const payload = {
+    name,
+    phone,
+    email: document.getElementById('wf-email')?.value || '',
+    message: document.getElementById('wf-message')?.value || '',
+    channel: 'web',
+    source: 'website-form',
+    vertical: VERTICAL,
+    client_id: CLIENT_ID,
+    intent: document.getElementById('wf-intent')?.value || '',
+    property_type: document.getElementById('wf-property_type')?.value || '',
+    budget: document.getElementById('wf-budget')?.value || '',
+    area_interest: document.getElementById('wf-area')?.value || '',
+    party_size: document.getElementById('wf-party_size')?.value || '',
+    occasion: document.getElementById('wf-occasion')?.value || '',
+    reason: document.getElementById('wf-reason')?.value || ''
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/api/leads/web-form`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-client-id': CLIENT_ID
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      document.getElementById('form-content').style.display = 'none';
+      document.getElementById('success-msg').style.display = 'block';
+    } else {
+      throw new Error(data.error || 'Submission failed');
+    }
+  } catch(e) {
+    alert('Error submitting form: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Send Enquiry \u2192';
+  }
+}
+</script>
+</body>
+</html>

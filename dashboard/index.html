@@ -580,7 +580,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         </div>
         <div class="lt-wrap">
           <table class="lt">
-            <thead><tr><th>Lead ID</th><th>Contact</th><th>Interest</th><th>Budget</th><th>Area</th><th>Score</th><th>Lang</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+            <thead><tr><th>Lead ID</th><th>Contact</th><th>Source</th><th>Interest</th><th>Budget</th><th>Area</th><th>Score</th><th>Lang</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
             <tbody id="leadsBody"></tbody>
           </table>
           <div id="emptyLeads" class="empty" style="display:none"><div class="empty-ico">👤</div><div class="empty-t">No leads yet</div><div class="empty-s">Leads appear here once your WhatsApp bot is connected and customers start messaging.</div></div>
@@ -1311,6 +1311,20 @@ function getSPill(pipelineStage, status, hm){
   return legacyLabel[status] || legacyLabel['new'];
 }
 
+function getSourceBadge(channel) {
+  const badges = {
+    'whatsapp':  { icon: '💬', label: 'WhatsApp', color: '#15803d', bg: '#f0fdf4' },
+    'facebook':  { icon: '📘', label: 'Facebook', color: '#1877F2', bg: '#eff3ff' },
+    'instagram': { icon: '📸', label: 'Instagram', color: '#E1306C', bg: '#fdf0f5' },
+    'web':       { icon: '🌐', label: 'Website',  color: '#4F86C6', bg: '#eff6ff' },
+    'phone':     { icon: '📞', label: 'Phone',    color: '#b45309', bg: '#fffbeb' },
+    'walkin':    { icon: '🚶', label: 'Walk-in',  color: '#64748b', bg: '#f1f5f9' },
+    'referral':  { icon: '👥', label: 'Referral', color: '#7c3aed', bg: '#fdf4ff' }
+  };
+  const b = badges[channel] || badges['whatsapp'];
+  return `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;background:${b.bg};color:${b.color};white-space:nowrap">${b.icon} ${b.label}</span>`;
+}
+
 function renderTable(){
   const srch=(document.getElementById('searchInput').value||'').toLowerCase();
   let leads=[...allLeads];
@@ -1339,6 +1353,7 @@ function renderTable(){
     return`<tr>
       <td style="font-family:monospace;font-size:11px;color:#4F86C6;white-space:nowrap">${l.lead_id||'—'}</td>
       <td><div class="lt-av"><div class="av ${avColor(l.name)}">${initials(l.name)}</div><div><div class="lt-nm" onclick="openLeadProfile('${l.lead_id||l._id||l.id}')" style="cursor:pointer;color:#4F86C6">${l.name||'Unknown'}${voiceBadge}</div><div class="lt-nb">${l.wa_number||'—'}</div></div></div></td>
+      <td>${getSourceBadge(l.channel||'whatsapp')}</td>
       <td>${interest}</td>
       <td style="font-size:11px">${budgetDisplay}</td>
       <td style="font-size:11px;text-transform:capitalize">${area}</td>
