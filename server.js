@@ -2675,10 +2675,13 @@ app.post('/api/leads/web-form', async (req, res) => {
   try {
     const clientId = req.headers['x-client-id'] || req.body.client_id || 'default';
     const activeFlow = req.body.vertical || process.env.ACTIVE_FLOW || 'realEstate';
+    console.log('[WebForm] Received:', JSON.stringify(req.body));
+    console.log('[WebForm] clientId:', clientId);
     const Lead = require('./db/models/Lead');
     const { name, phone, email, message, source, intent, property_type, budget, area_interest } = req.body;
     if (!name || !phone) return res.status(400).json({ error: 'Name and phone are required' });
     const waNumber = phone.replace(/\D/g, '');
+    if (!waNumber || waNumber.length < 8) return res.status(400).json({ error: 'Invalid phone number' });
     const leadId = await db.generateLeadId(clientId, 'web', activeFlow);
     let score = 2;
     if (budget && budget !== '') score += 1;
@@ -2693,7 +2696,7 @@ app.post('/api/leads/web-form', async (req, res) => {
       budget: budget || '', area_interest: area_interest || '', notes: message || '',
       score, score_label: scoreLabel,
       pipeline_stage: score >= 7 ? 'qualified_hot' : score >= 4 ? 'qualified_warm' : 'new_lead',
-      entry_method: 'web', created_at: new Date(), updated_at: new Date()
+      entry_method: 'web', created_at: new Date()
     };
     await Lead.findOneAndUpdate(
       { wa_number: waNumber, client_id: clientId },
@@ -2702,7 +2705,7 @@ app.post('/api/leads/web-form', async (req, res) => {
     );
     await db.saveMessage(waNumber, 'inbound', 'text',
       `Website enquiry — ${name}. ${message || ''}`.trim(), null, clientId);
-    console.log(`[WebForm] New lead: ${leadId}`);
+    console.log('[WebForm] Lead saved:', leadId);
     res.json({ success: true, lead_id: leadId, score, score_label: scoreLabel });
   } catch(e) {
     console.error('[WebForm]', e.message);

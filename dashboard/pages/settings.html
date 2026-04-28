@@ -1079,17 +1079,37 @@ if (!window.__clientId) {
 
   window.simulateWebLead = async function() {
     try {
+      const phone = '971507' + String(Math.floor(Math.random()*9000000) + 1000000);
+      const payload = {
+        name: 'Test Web User ' + Math.floor(Math.random()*100),
+        phone: phone,
+        wa_number: phone,
+        email: 'test@example.com',
+        message: 'Enquiry from website simulator',
+        channel: 'web',
+        source: 'website-form',
+        intent: 'buy',
+        budget: '1m-2m',
+        area_interest: 'Dubai Marina',
+        vertical: window.ACTIVE_FLOW || 'realEstate'
+      };
+      console.log('[SimWeb] Sending payload:', payload);
       const res = await fetch('/api/leads/web-form', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-client-id': window.__clientId || 'default' },
-        body: JSON.stringify({ name: 'Test Web User',
-          phone: '971507' + Math.floor(Math.random()*1000000),
-          email: 'test@example.com', message: 'Enquiry from website',
-          channel: 'web', intent: 'buy', budget: '1m-2m', area_interest: 'Dubai Marina' })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
-      shared.showToast('Website lead simulated — ID: ' + data.lead_id);
-    } catch(e) { shared.showToast('Simulation failed: ' + e.message, 'error'); }
+      console.log('[SimWeb] Response:', data);
+      if (data.success) {
+        shared.showToast('Website lead simulated — ID: ' + data.lead_id + ' Check Pipeline!');
+      } else {
+        shared.showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+      }
+    } catch(e) {
+      console.error('[SimWeb] Error:', e);
+      shared.showToast('Simulation failed: ' + e.message, 'error');
+    }
   };
 
   // Agent name — restore from localStorage
