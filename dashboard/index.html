@@ -1903,8 +1903,7 @@ async function saveManualLead() {
     recording_duration: duration, entry_method: 'manual'
   };
   try {
-    const res = await apiFetch('/api/leads/manual', { method:'POST', body:JSON.stringify(leadData) });
-    const data = await res.json();
+    const data = await apiFetch('/api/leads/manual', { method:'POST', body:JSON.stringify(leadData) });
     if (!data.success) throw new Error(data.error || 'Save failed');
     if (blob && blob.size > 0) {
       const formData = new FormData();
