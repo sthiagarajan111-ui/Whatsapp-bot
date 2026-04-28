@@ -165,10 +165,10 @@
     <div class="composer-row">
       <div>
         <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:4px">Message *</label>
-        <textarea id="camp-msg" rows="6" maxlength="1000" placeholder="Hi {name}, we have great new listings in {area} within {budget}. Interested?"
+        <textarea id="campaign-message" rows="6" maxlength="1000" placeholder="Hi {name}, we have great new listings in {area} within {budget}. Interested?"
           oninput="updatePreview();updateCharCount()"
           style="width:100%;padding:9px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;outline:none;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
-        <div class="char-counter"><span id="char-count">0</span> / 1000</div>
+        <div class="char-counter"><span id="char-counter">0</span> / 1000</div>
         <div class="var-pills" style="margin-top:10px">
           <span style="font-size:11px;color:#94a3b8;align-self:center">Insert:</span>
           <span class="var-pill" onclick="insertVar('{name}')">👤 {name}</span>
@@ -178,7 +178,7 @@
       </div>
       <div>
         <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:4px">Preview (sample data)</label>
-        <div class="msg-preview" id="camp-preview">Your message preview will appear here...</div>
+        <div class="msg-preview" id="campaign-preview"><span style="color:#94a3b8;font-size:12px">Preview will appear here as you type...</span></div>
         <div style="font-size:11px;color:#94a3b8;margin-top:6px">
           Sample: name=Ahmed · area=Dubai Marina · budget=AED 2.0M
         </div>
@@ -274,7 +274,7 @@
   }
 
   function insertVar(v) {
-    const ta = document.getElementById('camp-msg');
+    const ta = document.getElementById('campaign-message');
     if (!ta) return;
     const start = ta.selectionStart, end = ta.selectionEnd;
     ta.value = ta.value.substring(0, start) + v + ta.value.substring(end);
@@ -286,25 +286,30 @@
   window.insertVar = insertVar;
 
   function updatePreview() {
-    const msg = (document.getElementById('camp-msg')?.value || '').trim();
-    const preview = document.getElementById('camp-preview');
-    if (!preview) return;
-    if (!msg) { preview.textContent = 'Your message preview will appear here...'; return; }
-    preview.textContent = msg
+    const msgEl = document.getElementById('campaign-message');
+    const previewEl = document.getElementById('campaign-preview');
+    if (!msgEl || !previewEl) return;
+    const raw = msgEl.value || '';
+    const preview = raw
       .replace(/\{name\}/g, 'Ahmed')
       .replace(/\{area\}/g, 'Dubai Marina')
-      .replace(/\{budget\}/g, 'AED 2.0M');
+      .replace(/\{budget\}/g, 'AED 2.0M')
+      .replace(/\n/g, '<br>');
+    previewEl.innerHTML = preview ||
+      '<span style="color:#94a3b8;font-size:12px">Preview will appear here as you type...</span>';
+    const counterEl = document.getElementById('char-counter');
+    if (counterEl) counterEl.textContent = raw.length + ' / 1000';
   }
 
   function updateCharCount() {
-    const len = document.getElementById('camp-msg')?.value?.length || 0;
-    const el  = document.getElementById('char-count');
+    const len = document.getElementById('campaign-message')?.value?.length || 0;
+    const el  = document.getElementById('char-counter');
     if (el) el.textContent = len;
   }
 
   function confirmSend() {
     const name = (document.getElementById('camp-name')?.value || '').trim();
-    const msg  = (document.getElementById('camp-msg')?.value  || '').trim();
+    const msg  = (document.getElementById('campaign-message')?.value  || '').trim();
     if (!name) { showToast('Please enter a campaign name', 'error'); return; }
     if (!msg)  { showToast('Please enter a message', 'error'); return; }
     if (currentCount === 0) { showToast('No leads match the current filters', 'error'); return; }
@@ -324,7 +329,7 @@
 
   async function executeSend() {
     const name    = (document.getElementById('camp-name')?.value || '').trim();
-    const msg     = (document.getElementById('camp-msg')?.value  || '').trim();
+    const msg     = (document.getElementById('campaign-message')?.value  || '').trim();
     const { params, score, stage, lang } = getFilters();
     const confirmBtn = document.getElementById('modal-confirm-btn');
     if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Sending...'; }
@@ -401,6 +406,7 @@
   }
 
   async function init() {
+    updatePreview();
     await updateLeadCount();
     await loadHistory();
   }
